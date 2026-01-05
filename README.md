@@ -8,7 +8,7 @@ The project intentionally focuses on a **small subset of SQL SELECT** and operat
 
 ## Goals
 
-- Understand query processing end-to-end:
+- Understand query processing:
   - Grammar  
   - Lexer
   - Parser
