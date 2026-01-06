@@ -4,8 +4,8 @@ pub(crate) mod column;
 
 use crate::schema::column::Column;
 use crate::schema::column::ColumnType;
-use crate::schema::primary_key::PrimaryKey;
 use crate::schema::error::SchemaError;
+use crate::schema::primary_key::PrimaryKey;
 
 pub struct Schema {
     columns: Vec<Column>,
@@ -108,7 +108,7 @@ mod tests {
         let result = schema
             .add_column("id", ColumnType::Int)
             .unwrap()
-            .add_column("id", ColumnType::String);
+            .add_column("id", ColumnType::Text);
 
         assert!(matches!(
             result,

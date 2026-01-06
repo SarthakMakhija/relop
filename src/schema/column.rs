@@ -6,7 +6,7 @@ pub(crate) struct Column {
 #[derive(Debug, PartialEq)]
 pub enum ColumnType {
     Int,
-    String,
+    Text,
 }
 
 impl Column {
