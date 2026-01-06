@@ -1,6 +1,6 @@
 pub mod primary_key;
 pub mod error;
-mod column;
+pub(crate) mod column;
 
 use crate::schema::column::Column;
 use crate::schema::column::ColumnType;
