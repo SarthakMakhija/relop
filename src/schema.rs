@@ -1,5 +1,6 @@
 pub struct Schema {
     columns: Vec<Column>,
+    primary_key: Option<PrimaryKey>,
 }
 
 pub(crate) struct Column {
@@ -13,9 +14,29 @@ pub enum ColumnType {
     Boolean,
 }
 
+pub struct PrimaryKey {
+    column_names: Vec<String>,
+}
+
+impl PrimaryKey {
+    pub fn new(column_name: &str) -> Self {
+        Self::composite(vec![column_name])
+    }
+    
+    pub fn composite(column_names: Vec<&str>) -> Self {
+        Self {
+            column_names: column_names.iter().map(|name| name.to_string()).collect(),
+        }
+    }
+
+    fn column_names(&self) -> &[String] {
+        &self.column_names
+    }
+}
+
 impl Schema {
     pub fn new() -> Self {
-        Self { columns: Vec::new() }
+        Self { columns: Vec::new(), primary_key: None }
     }
 
     pub fn add_column(mut self, name: &str, column_type: ColumnType) -> Self {
@@ -23,8 +44,23 @@ impl Schema {
         self
     }
 
+    pub fn add_primary_key(mut self, primary_key: PrimaryKey) -> Self {
+        primary_key.column_names().iter().for_each(|primary_key_column_name| {
+            if !self.contains_column(primary_key_column_name) {
+                panic!("Primary key column not found in schema");
+            }
+        });
+
+        self.primary_key = Some(primary_key);
+        self
+    }
+
     pub fn total_columns(&self) -> usize {
         self.columns.len()
+    }
+
+    fn contains_column(&self, column_name: &str) -> bool {
+        self.columns.iter().any(|column| column.name == column_name)
     }
 }
 
@@ -70,5 +106,22 @@ mod tests {
         let column = schema.get_column(1);
 
         assert!(column.is_none());
+    }
+
+    #[test]
+    fn add_primary_key_to_schema() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("id", ColumnType::Int);
+
+        schema = schema.add_primary_key(PrimaryKey::new("id"));
+        
+        assert!(schema.primary_key.is_some());
+    }
+
+    #[test]
+    #[should_panic]
+    fn attempt_to_add_primary_key_to_schema_with_a_column_that_does_not_exist() {
+        let schema = Schema::new();
+        schema.add_primary_key(PrimaryKey::new("id"));
     }
 }
