@@ -1,8 +1,9 @@
+#[derive(Debug, PartialEq, Eq)]
 pub struct Row {
     values: Vec<ColumnValue>
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ColumnValue {
     Int(i64),
     Text(String),
@@ -20,6 +21,10 @@ impl Row {
     pub fn add(mut self, value: ColumnValue) -> Self {
         self.values.push(value);
         self
+    }
+
+    pub(crate) fn column_values(&self) -> &[ColumnValue] {
+        &self.values
     }
 
     fn column_value_count(&self) -> usize {

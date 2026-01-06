@@ -1,0 +1,80 @@
+use crate::storage::row::Row;
+use crossbeam_skiplist::map::Iter;
+use crossbeam_skiplist::SkipMap;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering::AcqRel;
+
+pub type RowId = u64;
+pub(crate) struct TableStore {
+    entries: SkipMap<RowId, Row>,
+    current_row_id: AtomicU64,
+}
+
+impl TableStore {
+    pub(crate) fn new() -> TableStore {
+        Self {
+            entries: SkipMap::new(),
+            current_row_id: AtomicU64::new(1),
+        }
+    }
+
+    pub(crate) fn insert_all(&self, rows: Vec<Row>) {
+        for row in rows {
+            self.insert(row)
+        }
+    }
+
+    pub(crate) fn insert(&self, row: Row) {
+        let row_id = self.current_row_id.fetch_add(1, AcqRel);
+        self.entries.insert(row_id, row);
+    }
+
+    pub(crate) fn scan(&self) -> Iter<'_, RowId, Row> {
+        self.entries.iter()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::row::ColumnValue;
+    use crossbeam_skiplist::map::Entry;
+
+    #[test]
+    fn insert_row_and_scan() {
+        let store = TableStore::new();
+        store.insert(Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]));
+
+        let entries: Vec<Entry<RowId, Row>> = store.scan().collect::<Vec<_>>();
+        assert_eq!(1, entries.len());
+
+        let inserted_row = entries[0].value();
+        let expected_row = Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]);
+
+        assert_eq!(&expected_row, inserted_row);
+    }
+
+    #[test]
+    fn insert_rows_and_scan() {
+        let store = TableStore::new();
+        store.insert_all(
+            vec![
+                Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]),
+                Row::filled(vec![ColumnValue::Int(20), ColumnValue::Text("query".to_string())]),
+            ]
+        );
+
+        let entries: Vec<Entry<RowId, Row>> = store.scan().collect::<Vec<_>>();
+        assert_eq!(2, entries.len());
+
+        let inserted_row = entries[0].value();
+        let expected_row = Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]);
+
+        assert_eq!(&expected_row, inserted_row);
+
+        let inserted_row = entries[1].value();
+        let expected_row = Row::filled(vec![ColumnValue::Int(20), ColumnValue::Text("query".to_string())]);
+
+        assert_eq!(&expected_row, inserted_row);
+    }
+}
