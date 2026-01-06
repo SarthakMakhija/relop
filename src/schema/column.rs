@@ -22,7 +22,7 @@ impl Column {
     }
 
     pub(crate) fn matches_name(&self, name: &str) -> bool {
-        self.name == name
+        self.name.eq_ignore_ascii_case(name)
     }
 }
 
@@ -33,6 +33,11 @@ mod tests {
     #[test]
     fn matches_column_name() {
         assert!(Column::new("id", ColumnType::Int).matches_name("id"));
+    }
+
+    #[test]
+    fn matches_column_name_with_ignored_case() {
+        assert!(Column::new("id", ColumnType::Int).matches_name("Id"));
     }
 
     #[test]
