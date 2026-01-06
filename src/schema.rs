@@ -40,30 +40,47 @@ impl Schema {
     }
 
     pub fn add_column(mut self, name: &str, column_type: ColumnType) -> Result<Self, SchemaError> {
-        if self.contains_column(name) {
-            return Err(SchemaError::DuplicateColumnName(name.to_string()));
-        }
+        self.ensure_column_not_present(name)?;
+
         self.columns.push(Column { name: name.to_string(), column_type });
         Ok(self)
     }
 
     pub fn add_primary_key(mut self, primary_key: PrimaryKey) -> Result<Self, SchemaError> {
-        if self.primary_key.is_some() {
-            return Err(SchemaError::PrimaryKeyAlreadyDefined);
-        }
-        for primary_key_column_name in primary_key.column_names() {
-            if !self.contains_column(primary_key_column_name) {
-                return Err(SchemaError::PrimaryKeyColumnNotFound(
-                    primary_key_column_name.clone(),
-                ));
-            }
-        }
+        self.ensure_primary_key_not_defined()?;
+        self.ensure_primary_key_name_amongst_column_names(&primary_key)?;
+        
         self.primary_key = Some(primary_key);
         Ok(self)
     }
 
     pub fn total_columns(&self) -> usize {
         self.columns.len()
+    }
+
+    fn ensure_column_not_present(&self, name: &str) -> Result<(), SchemaError> {
+        if self.contains_column(name) {
+            return Err(SchemaError::DuplicateColumnName(name.to_string()));
+        }
+        Ok(())
+    }
+
+    fn ensure_primary_key_not_defined(&self) -> Result<(), SchemaError> {
+        if self.primary_key.is_some() {
+            return Err(SchemaError::PrimaryKeyAlreadyDefined);
+        }
+        Ok(())
+    }
+
+    fn ensure_primary_key_name_amongst_column_names(&self, primary_key: &PrimaryKey) -> Result<(), SchemaError> {
+        for primary_key_column_name in primary_key.column_names() {
+            if !self.contains_column(primary_key_column_name) {
+                return Err(SchemaError::PrimaryKeyColumnNotFound(
+                    primary_key_column_name.to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn contains_column(&self, column_name: &str) -> bool {
