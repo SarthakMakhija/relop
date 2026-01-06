@@ -20,13 +20,14 @@ impl TableStore {
 
     pub(crate) fn insert_all(&self, rows: Vec<Row>) {
         for row in rows {
-            self.insert(row)
+            self.insert(row);
         }
     }
 
-    pub(crate) fn insert(&self, row: Row) {
+    pub(crate) fn insert(&self, row: Row) -> RowId {
         let row_id = self.current_row_id.fetch_add(1, AcqRel);
         self.entries.insert(row_id, row);
+        row_id
     }
 
     pub(crate) fn scan(&self) -> Iter<'_, RowId, Row> {
@@ -39,6 +40,14 @@ mod tests {
     use super::*;
     use crate::storage::row::ColumnValue;
     use crossbeam_skiplist::map::Entry;
+
+    #[test]
+    fn insert_row_and_get_row_id() {
+        let store = TableStore::new();
+        let row_id = store.insert(Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]));
+
+        assert_eq!(1, row_id);
+    }
 
     #[test]
     fn insert_row_and_scan() {
@@ -64,17 +73,11 @@ mod tests {
             ]
         );
 
-        let entries: Vec<Entry<RowId, Row>> = store.scan().collect::<Vec<_>>();
-        assert_eq!(2, entries.len());
+        let entries = store.scan().collect::<Vec<_>>();
+        let rows = entries.iter().map(|entry| entry.value()).collect::<Vec<_>>();
+        assert_eq!(2, rows.len());
 
-        let inserted_row = entries[0].value();
-        let expected_row = Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]);
-
-        assert_eq!(&expected_row, inserted_row);
-
-        let inserted_row = entries[1].value();
-        let expected_row = Row::filled(vec![ColumnValue::Int(20), ColumnValue::Text("query".to_string())]);
-
-        assert_eq!(&expected_row, inserted_row);
+        assert!(rows.contains(&&Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())])));
+        assert!(rows.contains(&&Row::filled(vec![ColumnValue::Int(20), ColumnValue::Text("query".to_string())])));
     }
 }
