@@ -24,32 +24,32 @@ impl Schema {
     }
 
     pub fn add_column(mut self, name: &str, column_type: ColumnType) -> Result<Self, SchemaError> {
-        self.ensure_column_not_defined(name)?;
+        self.ensure_column_not_already_defined(name)?;
 
         self.columns.push(Column::new(name, column_type));
         Ok(self)
     }
 
     pub fn add_primary_key(mut self, primary_key: PrimaryKey) -> Result<Self, SchemaError> {
-        self.ensure_primary_key_not_defined()?;
+        self.ensure_primary_key_not_already_defined()?;
         self.ensure_primary_key_columns_exist(&primary_key)?;
 
         self.primary_key = Some(primary_key);
         Ok(self)
     }
 
-    pub fn total_columns(&self) -> usize {
+    pub fn column_count(&self) -> usize {
         self.columns.len()
     }
 
-    fn ensure_column_not_defined(&self, name: &str) -> Result<(), SchemaError> {
+    fn ensure_column_not_already_defined(&self, name: &str) -> Result<(), SchemaError> {
         if self.has_column(name) {
             return Err(SchemaError::DuplicateColumnName(name.to_string()));
         }
         Ok(())
     }
 
-    fn ensure_primary_key_not_defined(&self) -> Result<(), SchemaError> {
+    fn ensure_primary_key_not_already_defined(&self) -> Result<(), SchemaError> {
         if self.primary_key.is_some() {
             return Err(SchemaError::PrimaryKeyAlreadyDefined);
         }
@@ -88,7 +88,7 @@ mod tests {
         let mut schema = Schema::new();
         schema = schema.add_column("id", ColumnType::Int).unwrap();
 
-        assert_eq!(1, schema.total_columns());
+        assert_eq!(1, schema.column_count());
     }
 
     #[test]
