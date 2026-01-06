@@ -24,7 +24,7 @@ impl Schema {
     }
 
     pub fn add_column(mut self, name: &str, column_type: ColumnType) -> Result<Self, SchemaError> {
-        self.ensure_column_not_present(name)?;
+        self.ensure_column_not_defined(name)?;
 
         self.columns.push(Column::new(name, column_type));
         Ok(self)
@@ -32,7 +32,7 @@ impl Schema {
 
     pub fn add_primary_key(mut self, primary_key: PrimaryKey) -> Result<Self, SchemaError> {
         self.ensure_primary_key_not_defined()?;
-        self.ensure_primary_key_name_amongst_column_names(&primary_key)?;
+        self.ensure_primary_key_columns_exist(&primary_key)?;
 
         self.primary_key = Some(primary_key);
         Ok(self)
@@ -42,8 +42,8 @@ impl Schema {
         self.columns.len()
     }
 
-    fn ensure_column_not_present(&self, name: &str) -> Result<(), SchemaError> {
-        if self.contains_column(name) {
+    fn ensure_column_not_defined(&self, name: &str) -> Result<(), SchemaError> {
+        if self.has_column(name) {
             return Err(SchemaError::DuplicateColumnName(name.to_string()));
         }
         Ok(())
@@ -56,9 +56,9 @@ impl Schema {
         Ok(())
     }
 
-    fn ensure_primary_key_name_amongst_column_names(&self, primary_key: &PrimaryKey) -> Result<(), SchemaError> {
+    fn ensure_primary_key_columns_exist(&self, primary_key: &PrimaryKey) -> Result<(), SchemaError> {
         for primary_key_column_name in primary_key.column_names() {
-            if !self.contains_column(primary_key_column_name) {
+            if !self.has_column(primary_key_column_name) {
                 return Err(SchemaError::PrimaryKeyColumnNotFound(
                     primary_key_column_name.to_string(),
                 ));
@@ -67,7 +67,7 @@ impl Schema {
         Ok(())
     }
 
-    fn contains_column(&self, column_name: &str) -> bool {
+    fn has_column(&self, column_name: &str) -> bool {
         self.columns.iter().any(|column| column.matches_name(column_name))
     }
 }

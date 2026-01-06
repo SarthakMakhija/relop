@@ -1,4 +1,5 @@
 use crate::schema::error::SchemaError;
+use std::collections::HashSet;
 
 pub struct PrimaryKey {
     column_names: Vec<String>,
@@ -12,7 +13,25 @@ impl PrimaryKey {
     }
 
     pub fn composite(column_names: Vec<&str>) -> Result<Self, SchemaError> {
-        let mut seen = std::collections::HashSet::new();
+        Self::ensure_non_empty_columns(&column_names)?;
+        let column_names = Self::ensure_unique_columns(&column_names)?;
+
+        Ok(Self { column_names })
+    }
+
+    pub(crate) fn column_names(&self) -> &[String] {
+        &self.column_names
+    }
+
+    fn ensure_non_empty_columns(column_names: &[&str]) -> Result<(), SchemaError> {
+        if column_names.is_empty() {
+            return Err(SchemaError::PrimaryKeyColumnUndefined);
+        }
+        Ok(())
+    }
+
+    fn ensure_unique_columns(column_names: &[&str]) -> Result<Vec<String>, SchemaError> {
+        let mut seen = HashSet::new();
         let mut names = Vec::new();
 
         for name in column_names {
@@ -21,13 +40,7 @@ impl PrimaryKey {
             }
             names.push(name.to_string());
         }
-
-        Ok(Self { column_names: names })
-    }
-
-
-    pub(crate) fn column_names(&self) -> &[String] {
-        &self.column_names
+        Ok(names)
     }
 }
 
@@ -55,6 +68,15 @@ mod tests {
         assert!(matches!(
             result,
             Err(SchemaError::DuplicatePrimaryKeyColumnName(column_name)) if column_name == "id"
+        ));
+    }
+
+    #[test]
+    fn attempt_to_create_composite_primary_key_with_no_column_names() {
+        let result = PrimaryKey::composite(vec![]);
+        assert!(matches!(
+            result,
+            Err(SchemaError::PrimaryKeyColumnUndefined)
         ));
     }
 
