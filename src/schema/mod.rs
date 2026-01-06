@@ -129,8 +129,7 @@ mod tests {
         let mut schema = Schema::new();
         schema = schema.add_column("id", ColumnType::Int).unwrap();
 
-        schema = schema.add_primary_key(PrimaryKey::new("id")).unwrap();
-
+        schema = schema.add_primary_key(PrimaryKey::single("id")).unwrap();
         assert!(schema.primary_key.is_some());
     }
 
@@ -138,9 +137,9 @@ mod tests {
     fn attempt_to_add_primary_key_to_schema_which_already_has_a_primary_key() {
         let mut schema = Schema::new();
         schema = schema.add_column("id", ColumnType::Int).unwrap();
-        schema = schema.add_primary_key(PrimaryKey::new("id")).unwrap();
+        schema = schema.add_primary_key(PrimaryKey::single("id")).unwrap();
 
-        let result = schema.add_primary_key(PrimaryKey::new("id"));
+        let result = schema.add_primary_key(PrimaryKey::single("id"));
         assert!(
             matches!(
                 result,
@@ -150,9 +149,9 @@ mod tests {
     }
 
     #[test]
-    fn attempt_to_add_primary_key_to_schema_with_a_column_that_does_not_exist() {
+    fn attempt_to_add_primary_key_to_schema_with_a_column_that_does_not_exist_in_schema() {
         let schema = Schema::new();
-        let result = schema.add_primary_key(PrimaryKey::new("id"));
+        let result = schema.add_primary_key(PrimaryKey::single("id"));
 
         assert!(matches!(
             result,

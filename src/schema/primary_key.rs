@@ -6,7 +6,7 @@ pub struct PrimaryKey {
 }
 
 impl PrimaryKey {
-    pub fn new(column_name: &str) -> Self {
+    pub fn single(column_name: &str) -> Self {
         PrimaryKey {
             column_names: vec![column_name.to_string()],
         }
@@ -14,8 +14,8 @@ impl PrimaryKey {
 
     pub fn composite(column_names: Vec<&str>) -> Result<Self, SchemaError> {
         Self::ensure_non_empty_columns(&column_names)?;
+        
         let column_names = Self::ensure_unique_columns(&column_names)?;
-
         Ok(Self { column_names })
     }
 
@@ -50,7 +50,7 @@ mod tests {
 
     #[test]
     fn create_single_column_primary_key() {
-        let primary_key = PrimaryKey::new("id");
+        let primary_key = PrimaryKey::single("id");
 
         assert_eq!(1, primary_key.column_names.len());
     }
