@@ -25,7 +25,7 @@ impl PrimaryKey {
 
     fn ensure_non_empty_columns(column_names: &[&str]) -> Result<(), SchemaError> {
         if column_names.is_empty() {
-            return Err(SchemaError::PrimaryKeyColumnUndefined);
+            return Err(SchemaError::EmptyPrimaryKeyColumns);
         }
         Ok(())
     }
@@ -76,7 +76,7 @@ mod tests {
         let result = PrimaryKey::composite(vec![]);
         assert!(matches!(
             result,
-            Err(SchemaError::PrimaryKeyColumnUndefined)
+            Err(SchemaError::EmptyPrimaryKeyColumns)
         ));
     }
 
