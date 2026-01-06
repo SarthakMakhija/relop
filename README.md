@@ -29,4 +29,3 @@ The project intentionally focuses on a **small subset of SQL SELECT** and operat
 - No persistence or disk I/O
 - No physical plans or cost-based optimization
 - No full SQL compatibility
-

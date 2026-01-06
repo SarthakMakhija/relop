@@ -19,15 +19,24 @@ impl Schema {
     }
 
     pub fn add_column(mut self, name: &str, column_type: ColumnType) -> Self {
-        self.columns.push(Column { name: name.to_string(), column_type: column_type });
+        self.columns.push(Column { name: name.to_string(), column_type });
         self
     }
 
     pub fn total_columns(&self) -> usize {
         self.columns.len()
     }
+}
 
-    pub(crate) fn get_column(&self, index: usize) -> Option<&Column> {
+impl Default for Schema {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
+impl Schema {
+    fn get_column(&self, index: usize) -> Option<&Column> {
         self.columns.get(index)
     }
 }
@@ -50,6 +59,7 @@ mod tests {
         schema = schema.add_column("id", ColumnType::Int);
         
         let column = schema.get_column(0).unwrap();
+
         assert_eq!("id", column.name);
         assert_eq!(column.column_type, ColumnType::Int);
     }
