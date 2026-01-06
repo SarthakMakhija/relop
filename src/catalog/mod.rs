@@ -21,13 +21,14 @@ impl Catalog {
     }
 
     pub(crate) fn create_table(&self, name: &str, schema: Schema) -> Result<(), CatalogError> {
-        self.ensure_table_is_not_already_created(name)?;
+        let mut tables = self.tables.write().unwrap();
+
+        if tables.contains_key(name) {
+            return Err(CatalogError::TableAlreadyExists(name.to_string()));
+        }
 
         let table = Table::new(name.to_string(), schema);
-        self.tables
-            .write()
-            .unwrap()
-            .insert(name.to_string(), TableEntry::new(table));
+        tables.insert(name.to_string(), TableEntry::new(table));
 
         Ok(())
     }
@@ -35,13 +36,6 @@ impl Catalog {
     fn get_table(&self, name: &str) -> Option<Arc<Table>> {
         let guard = self.tables.read().unwrap();
         guard.get(name).map(|entry| entry.table())
-    }
-
-    fn ensure_table_is_not_already_created(&self, name: &str) -> Result<(), CatalogError> {
-        if self.tables.read().unwrap().contains_key(name) {
-            return Err(CatalogError::TableAlreadyExists(name.to_string()));
-        }
-        Ok(())
     }
 }
 
