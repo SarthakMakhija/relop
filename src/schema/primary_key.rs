@@ -1,17 +1,30 @@
+use crate::schema::error::SchemaError;
+
 pub struct PrimaryKey {
     column_names: Vec<String>,
 }
 
 impl PrimaryKey {
     pub fn new(column_name: &str) -> Self {
-        Self::composite(vec![column_name])
-    }
-
-    pub fn composite(column_names: Vec<&str>) -> Self {
-        Self {
-            column_names: column_names.iter().map(|name| name.to_string()).collect(),
+        PrimaryKey {
+            column_names: vec![column_name.to_string()],
         }
     }
+
+    pub fn composite(column_names: Vec<&str>) -> Result<Self, SchemaError> {
+        let mut seen = std::collections::HashSet::new();
+        let mut names = Vec::new();
+
+        for name in column_names {
+            if !seen.insert(name) {
+                return Err(SchemaError::DuplicatePrimaryKeyColumnName(name.to_string()));
+            }
+            names.push(name.to_string());
+        }
+
+        Ok(Self { column_names: names })
+    }
+
 
     pub(crate) fn column_names(&self) -> &[String] {
         &self.column_names
@@ -31,14 +44,23 @@ mod tests {
 
     #[test]
     fn create_composite_primary_key() {
-        let primary_key = PrimaryKey::composite(vec!["id", "first_name"]);
+        let primary_key = PrimaryKey::composite(vec!["id", "first_name"]).unwrap();
 
         assert_eq!(2, primary_key.column_names.len());
     }
 
     #[test]
+    fn attempt_to_create_composite_primary_key_with_duplicate_column_names() {
+        let result = PrimaryKey::composite(vec!["id", "first_name", "id"]);
+        assert!(matches!(
+            result,
+            Err(SchemaError::DuplicatePrimaryKeyColumnName(column_name)) if column_name == "id"
+        ));
+    }
+
+    #[test]
     fn get_primary_key_column_names() {
-        let primary_key = PrimaryKey::composite(vec!["id", "first_name"]);
+        let primary_key = PrimaryKey::composite(vec!["id", "first_name"]).unwrap();
 
         assert_eq!(primary_key.column_names(), vec!["id", "first_name"]);
     }
