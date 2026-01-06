@@ -1,36 +1,16 @@
+use crate::schema::column::Column;
+use crate::schema::column::ColumnType;
+use crate::schema::primary_key::PrimaryKey;
+use crate::schema::error::SchemaError;
+
 pub struct Schema {
     columns: Vec<Column>,
     primary_key: Option<PrimaryKey>,
 }
 
-pub(crate) struct Column {
-    name: String,
-    column_type: ColumnType,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ColumnType {
-    Int,
-    String,
-}
-
-pub struct PrimaryKey {
-    column_names: Vec<String>,
-}
-
-impl PrimaryKey {
-    pub fn new(column_name: &str) -> Self {
-        Self::composite(vec![column_name])
-    }
-    
-    pub fn composite(column_names: Vec<&str>) -> Self {
-        Self {
-            column_names: column_names.iter().map(|name| name.to_string()).collect(),
-        }
-    }
-
-    fn column_names(&self) -> &[String] {
-        &self.column_names
+impl Default for Schema {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -42,7 +22,7 @@ impl Schema {
     pub fn add_column(mut self, name: &str, column_type: ColumnType) -> Result<Self, SchemaError> {
         self.ensure_column_not_present(name)?;
 
-        self.columns.push(Column { name: name.to_string(), column_type });
+        self.columns.push(Column::new(name, column_type));
         Ok(self)
     }
 
@@ -84,21 +64,8 @@ impl Schema {
     }
 
     fn contains_column(&self, column_name: &str) -> bool {
-        self.columns.iter().any(|column| column.name == column_name)
+        self.columns.iter().any(|column| column.matches_name(column_name))
     }
-}
-
-impl Default for Schema {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum SchemaError {
-    DuplicateColumnName(String),
-    PrimaryKeyColumnNotFound(String),
-    PrimaryKeyAlreadyDefined,
 }
 
 #[cfg(test)]
@@ -127,8 +94,8 @@ mod tests {
         
         let column = schema.get_column(0).unwrap();
 
-        assert_eq!("id", column.name);
-        assert_eq!(column.column_type, ColumnType::Int);
+        assert_eq!("id", column.name());
+        assert_eq!(ColumnType::Int, *column.column_type());
     }
 
     #[test]
