@@ -23,6 +23,10 @@ impl PrimaryKey {
         &self.column_names
     }
 
+    pub(crate) fn column_count(&self) -> usize {
+        self.column_names.len()
+    }
+
     fn ensure_non_empty_columns(column_names: &[&str]) -> Result<(), SchemaError> {
         if column_names.is_empty() {
             return Err(SchemaError::EmptyPrimaryKeyColumns);
@@ -60,6 +64,13 @@ mod tests {
         let primary_key = PrimaryKey::composite(vec!["id", "first_name"]).unwrap();
 
         assert_eq!(2, primary_key.column_names.len());
+    }
+
+    #[test]
+    fn count_primary_key_columns() {
+        let primary_key = PrimaryKey::composite(vec!["id", "first_name"]).unwrap();
+
+        assert_eq!(2, primary_key.column_count());
     }
 
     #[test]
