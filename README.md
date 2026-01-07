@@ -11,20 +11,24 @@ The project intentionally focuses on a **small subset of SQL SELECT** and operat
 
 ## Goals
 
-- Understand query processing:
-  - Grammar  
-  - Lexer
-  - Parser
-  - AST
-  - Logical plan
-  - Operator-based execution
-- Implement core relational operators:
-  - Scan
-  - Filter
-  - Projection
-  - Join  (incrementally) 
-  - Limit (incrementally)
-- Keep the system small, explicit, and easy to reason about.
+- [ ] Understand query processing:
+  - [ ] Grammar  
+  - [ ] Lexer
+  - [ ] Parser
+  - [ ] AST
+  - [ ] Logical plan
+  - [ ] Operator-based execution
+- [ ] Implement core relational operators:
+  - [ ] Scan
+  - [ ] Filter
+  - [ ] Projection
+  - [ ] Join  (incrementally) 
+  - [ ] Limit (incrementally)
+- [X] Build a minimal in-memory store to mimic relational database storage
+  - [X] Tables with schemas
+  - [X] Rows stored in memory
+  - [X] Simple row identifiers
+- [ ] Keep the system small, explicit, and easy to reason about.
 
 ## Non-goals
 
