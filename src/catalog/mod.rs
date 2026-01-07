@@ -45,6 +45,18 @@ impl Catalog {
         Ok(table_entry.insert(row))
     }
 
+    pub(crate) fn insert_all_into(
+        &self,
+        table_name: &str,
+        rows: Vec<Row>,
+    ) -> Result<Vec<RowId>, CatalogError> {
+        let table_entry = self
+            .table_entry(table_name)
+            .ok_or_else(|| CatalogError::TableDoesNotExist(table_name.to_string()))?;
+
+        Ok(table_entry.insert_all(rows))
+    }
+
     pub(crate) fn get(&self, table_name: &str, row_id: RowId) -> Result<Option<Row>, CatalogError> {
         let table_entry = self
             .table_entry(table_name)
@@ -167,6 +179,78 @@ mod tests {
         assert!(
             matches!(result, Err(CatalogError::TableDoesNotExist(ref table_name)) if table_name == "employees")
         );
+    }
+
+    #[test]
+    fn insert_all_into_table() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let row_ids = catalog
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::filled(vec![
+                        ColumnValue::Int(1),
+                        ColumnValue::Text("relop".to_string()),
+                    ]),
+                    Row::filled(vec![
+                        ColumnValue::Int(2),
+                        ColumnValue::Text("operator".to_string()),
+                    ]),
+                ],
+            )
+            .unwrap();
+
+        assert_eq!(2, row_ids.len());
+
+        let row = catalog
+            .get("employees", *row_ids.first().unwrap())
+            .unwrap()
+            .unwrap();
+        let expected_row = Row::filled(vec![
+            ColumnValue::Int(1),
+            ColumnValue::Text("relop".to_string()),
+        ]);
+        assert_eq!(expected_row, row);
+
+        let row = catalog
+            .get("employees", *row_ids.last().unwrap())
+            .unwrap()
+            .unwrap();
+
+        let expected_row = Row::filled(vec![
+            ColumnValue::Int(2),
+            ColumnValue::Text("operator".to_string()),
+        ]);
+        assert_eq!(expected_row, row);
+    }
+
+    #[test]
+    fn attempt_to_insert_all_into_non_existent_table() {
+        let catalog = Catalog::new();
+        let result = catalog.insert_all_into(
+            "employees",
+            vec![
+                Row::filled(vec![
+                    ColumnValue::Int(1),
+                    ColumnValue::Text("relop".to_string()),
+                ]),
+                Row::filled(vec![
+                    ColumnValue::Int(2),
+                    ColumnValue::Text("operator".to_string()),
+                ]),
+            ],
+        );
+
+        assert!(matches!(
+            result,
+            Err(CatalogError::TableDoesNotExist(ref table_name)) if table_name == "employees"
+        ))
     }
 
     #[test]

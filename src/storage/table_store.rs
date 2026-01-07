@@ -4,6 +4,7 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::AcqRel;
 
 pub type RowId = u64;
+
 pub(crate) struct TableStore {
     entries: SkipMap<RowId, Row>,
     current_row_id: AtomicU64,
@@ -17,10 +18,12 @@ impl TableStore {
         }
     }
 
-    pub(crate) fn insert_all(&self, rows: Vec<Row>) {
+    pub(crate) fn insert_all(&self, rows: Vec<Row>) -> Vec<RowId> {
+        let mut row_ids = Vec::with_capacity(rows.len());
         for row in rows {
-            self.insert(row);
+            row_ids.push(self.insert(row));
         }
+        row_ids
     }
 
     pub(crate) fn insert(&self, row: Row) -> RowId {
@@ -79,6 +82,25 @@ mod tests {
         ]);
 
         assert_eq!(&expected_row, inserted_row);
+    }
+
+    #[test]
+    fn insert_rows() {
+        let store = TableStore::new();
+        let row_ids = store.insert_all(vec![
+            Row::filled(vec![
+                ColumnValue::Int(10),
+                ColumnValue::Text("relop".to_string()),
+            ]),
+            Row::filled(vec![
+                ColumnValue::Int(20),
+                ColumnValue::Text("query".to_string()),
+            ]),
+        ]);
+
+        assert_eq!(2, row_ids.len());
+        assert_eq!(&1, row_ids.first().unwrap());
+        assert_eq!(&2, row_ids.last().unwrap());
     }
 
     #[test]

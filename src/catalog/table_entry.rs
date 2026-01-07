@@ -21,7 +21,7 @@ impl TableEntry {
         self.store.insert(row)
     }
 
-    pub(crate) fn insert_all(&self, rows: Vec<Row>) {
+    pub(crate) fn insert_all(&self, rows: Vec<Row>) -> Vec<RowId> {
         self.store.insert_all(rows)
     }
 
