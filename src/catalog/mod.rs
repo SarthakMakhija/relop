@@ -1,6 +1,7 @@
 use crate::catalog::error::CatalogError;
 use crate::catalog::table::Table;
 use crate::catalog::table_entry::TableEntry;
+use crate::catalog::table_scan::TableScan;
 use crate::schema::Schema;
 use crate::storage::row::Row;
 use crate::storage::table_store::RowId;
@@ -10,6 +11,7 @@ use std::sync::{Arc, RwLock};
 mod error;
 pub(crate) mod table;
 pub(crate) mod table_entry;
+mod table_scan;
 
 struct Catalog {
     tables: RwLock<HashMap<String, Arc<TableEntry>>>,
@@ -47,6 +49,14 @@ impl Catalog {
         let table_entry = self.table_entry(table_name);
         if let Some(table_entry) = table_entry {
             return Ok(table_entry.get(row_id));
+        }
+        Err(CatalogError::TableDoesNotExist(table_name.to_string()))
+    }
+
+    pub(crate) fn scan(&self, table_name: &str) -> Result<TableScan, CatalogError> {
+        let table_entry = self.table_entry(table_name);
+        if let Some(table_entry) = table_entry {
+            return Ok(table_entry.scan());
         }
         Err(CatalogError::TableDoesNotExist(table_name.to_string()))
     }
@@ -195,5 +205,43 @@ mod tests {
         assert!(
             matches!(result, Err(CatalogError::TableDoesNotExist(ref table_name)) if table_name == "employees")
         );
+    }
+
+    #[test]
+    fn insert_into_table_and_scan() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        catalog
+            .insert_into(
+                "employees",
+                Row::filled(vec![
+                    ColumnValue::Int(1),
+                    ColumnValue::Text("relop".to_string()),
+                ]),
+            )
+            .unwrap();
+
+        let rows = catalog.scan("employees").unwrap().iter().collect::<Vec<_>>();
+        assert_eq!(1, rows.len());
+
+        let expected_row = Row::filled(vec![
+            ColumnValue::Int(1),
+            ColumnValue::Text("relop".to_string()),
+        ]);
+
+        assert_eq!(expected_row, rows[0]);
+    }
+
+    #[test]
+    fn attempt_to_scan_a_non_existent_table() {
+        let catalog = Catalog::new();
+        let result = catalog.scan("employees");
+
+        assert!(matches!(result, Err(CatalogError::TableDoesNotExist(ref table_name)) if table_name == "employees"));
     }
 }

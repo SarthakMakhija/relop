@@ -32,9 +32,16 @@ impl TableStore {
     pub(crate) fn get(&self, row_id: RowId) -> Option<Row> {
         self.entries.get(&row_id).map(|entry| entry.value().clone())
     }
+    
+    pub(crate) fn entries(&self) -> &SkipMap<RowId, Row> {
+        &self.entries
+    }
+}
 
-    pub(crate) fn scan(&self) -> impl Iterator<Item = Row> + '_ {
-        self.entries.iter().map(|e| e.value().clone())
+#[cfg(test)]
+impl TableStore {
+    fn scan(&self) -> Vec<Row> {
+        self.entries.iter().map(|entry| entry.value().clone()).collect()
     }
 }
 
@@ -62,7 +69,7 @@ mod tests {
             ColumnValue::Text("relop".to_string()),
         ]));
 
-        let rows: Vec<Row> = store.scan().collect::<Vec<_>>();
+        let rows: Vec<Row> = store.scan();
         assert_eq!(1, rows.len());
 
         let inserted_row = rows.get(0).unwrap();
@@ -88,7 +95,7 @@ mod tests {
             ]),
         ]);
 
-        let rows = store.scan().collect::<Vec<_>>();
+        let rows = store.scan();
         assert_eq!(2, rows.len());
 
         assert!(rows.contains(&&Row::filled(vec![

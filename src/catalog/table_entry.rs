@@ -1,18 +1,19 @@
 use crate::catalog::table::Table;
+use crate::catalog::table_scan::TableScan;
 use crate::storage::row::Row;
 use crate::storage::table_store::{RowId, TableStore};
 use std::sync::Arc;
 
 pub(crate) struct TableEntry {
     table: Table,
-    store: TableStore,
+    store: Arc<TableStore>,
 }
 
 impl TableEntry {
     pub(crate) fn new(table: Table) -> Arc<TableEntry> {
         Arc::new(Self {
             table,
-            store: TableStore::new(),
+            store: Arc::new(TableStore::new()),
         })
     }
 
@@ -26,6 +27,10 @@ impl TableEntry {
 
     pub(crate) fn get(&self, row_id: RowId) -> Option<Row> {
         self.store.get(row_id)
+    }
+
+    pub(crate) fn scan(&self) -> TableScan {
+        TableScan::new(self.store.clone())
     }
 
     pub(crate) fn table_name(&self) -> &str {
@@ -48,7 +53,7 @@ mod tests {
         ));
         table_entry.insert(Row::filled(vec![ColumnValue::Int(100)]));
 
-        let rows = table_entry.store.scan().collect::<Vec<_>>();
+        let rows = table_entry.scan().iter().collect::<Vec<_>>();
 
         assert_eq!(1, rows.len());
         assert_eq!(100, rows[0].column_values()[0].int_value().unwrap());
@@ -71,7 +76,7 @@ mod tests {
             ]),
         ]);
 
-        let rows = table_entry.store.scan().collect::<Vec<_>>();
+        let rows = table_entry.scan().iter().collect::<Vec<_>>();
         assert_eq!(2, rows.len());
 
         assert!(rows.contains(&&Row::filled(vec![
