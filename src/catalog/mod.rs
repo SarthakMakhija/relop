@@ -38,27 +38,27 @@ impl Catalog {
     }
 
     pub(crate) fn insert_into(&self, table_name: &str, row: Row) -> Result<RowId, CatalogError> {
-        let table_entry = self.table_entry(table_name);
-        if let Some(table_entry) = table_entry {
-            return Ok(table_entry.insert(row));
-        }
-        Err(CatalogError::TableDoesNotExist(table_name.to_string()))
+        let table_entry = self
+            .table_entry(table_name)
+            .ok_or_else(|| CatalogError::TableDoesNotExist(table_name.to_string()))?;
+
+        Ok(table_entry.insert(row))
     }
 
     pub(crate) fn get(&self, table_name: &str, row_id: RowId) -> Result<Option<Row>, CatalogError> {
-        let table_entry = self.table_entry(table_name);
-        if let Some(table_entry) = table_entry {
-            return Ok(table_entry.get(row_id));
-        }
-        Err(CatalogError::TableDoesNotExist(table_name.to_string()))
+        let table_entry = self
+            .table_entry(table_name)
+            .ok_or_else(|| CatalogError::TableDoesNotExist(table_name.to_string()))?;
+
+        Ok(table_entry.get(row_id))
     }
 
     pub(crate) fn scan(&self, table_name: &str) -> Result<TableScan, CatalogError> {
-        let table_entry = self.table_entry(table_name);
-        if let Some(table_entry) = table_entry {
-            return Ok(table_entry.scan());
-        }
-        Err(CatalogError::TableDoesNotExist(table_name.to_string()))
+        let table_entry = self
+            .table_entry(table_name)
+            .ok_or_else(|| CatalogError::TableDoesNotExist(table_name.to_string()))?;
+
+        Ok(table_entry.scan())
     }
 
     fn table_entry(&self, name: &str) -> Option<Arc<TableEntry>> {
@@ -226,7 +226,11 @@ mod tests {
             )
             .unwrap();
 
-        let rows = catalog.scan("employees").unwrap().iter().collect::<Vec<_>>();
+        let rows = catalog
+            .scan("employees")
+            .unwrap()
+            .iter()
+            .collect::<Vec<_>>();
         assert_eq!(1, rows.len());
 
         let expected_row = Row::filled(vec![
@@ -242,6 +246,8 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.scan("employees");
 
-        assert!(matches!(result, Err(CatalogError::TableDoesNotExist(ref table_name)) if table_name == "employees"));
+        assert!(
+            matches!(result, Err(CatalogError::TableDoesNotExist(ref table_name)) if table_name == "employees")
+        );
     }
 }
