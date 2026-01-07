@@ -1,5 +1,5 @@
 use crate::storage::row::Row;
-use crossbeam_skiplist::map::{Entry, Iter};
+use crossbeam_skiplist::map::Iter;
 use crossbeam_skiplist::SkipMap;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::AcqRel;
@@ -48,7 +48,10 @@ mod tests {
     #[test]
     fn insert_row_and_get_row_id() {
         let store = TableStore::new();
-        let row_id = store.insert(Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]));
+        let row_id = store.insert(Row::filled(vec![
+            ColumnValue::Int(10),
+            ColumnValue::Text("relop".to_string()),
+        ]));
 
         assert_eq!(1, row_id);
     }
@@ -56,13 +59,19 @@ mod tests {
     #[test]
     fn insert_row_and_scan() {
         let store = TableStore::new();
-        store.insert(Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]));
+        store.insert(Row::filled(vec![
+            ColumnValue::Int(10),
+            ColumnValue::Text("relop".to_string()),
+        ]));
 
         let entries: Vec<Entry<RowId, Row>> = store.scan().collect::<Vec<_>>();
         assert_eq!(1, entries.len());
 
         let inserted_row = entries[0].value();
-        let expected_row = Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]);
+        let expected_row = Row::filled(vec![
+            ColumnValue::Int(10),
+            ColumnValue::Text("relop".to_string()),
+        ]);
 
         assert_eq!(&expected_row, inserted_row);
     }
@@ -70,28 +79,47 @@ mod tests {
     #[test]
     fn insert_rows_and_scan() {
         let store = TableStore::new();
-        store.insert_all(
-            vec![
-                Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]),
-                Row::filled(vec![ColumnValue::Int(20), ColumnValue::Text("query".to_string())]),
-            ]
-        );
+        store.insert_all(vec![
+            Row::filled(vec![
+                ColumnValue::Int(10),
+                ColumnValue::Text("relop".to_string()),
+            ]),
+            Row::filled(vec![
+                ColumnValue::Int(20),
+                ColumnValue::Text("query".to_string()),
+            ]),
+        ]);
 
         let entries = store.scan().collect::<Vec<_>>();
-        let rows = entries.iter().map(|entry| entry.value()).collect::<Vec<_>>();
+        let rows = entries
+            .iter()
+            .map(|entry| entry.value())
+            .collect::<Vec<_>>();
         assert_eq!(2, rows.len());
 
-        assert!(rows.contains(&&Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())])));
-        assert!(rows.contains(&&Row::filled(vec![ColumnValue::Int(20), ColumnValue::Text("query".to_string())])));
+        assert!(rows.contains(&&Row::filled(vec![
+            ColumnValue::Int(10),
+            ColumnValue::Text("relop".to_string())
+        ])));
+        assert!(rows.contains(&&Row::filled(vec![
+            ColumnValue::Int(20),
+            ColumnValue::Text("query".to_string())
+        ])));
     }
 
     #[test]
     fn insert_row_and_get_by_row_id() {
         let store = TableStore::new();
-        let row_id = store.insert(Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]));
+        let row_id = store.insert(Row::filled(vec![
+            ColumnValue::Int(10),
+            ColumnValue::Text("relop".to_string()),
+        ]));
 
         let row = store.get(row_id).unwrap();
-        let expected_row = Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]);
+        let expected_row = Row::filled(vec![
+            ColumnValue::Int(10),
+            ColumnValue::Text("relop".to_string()),
+        ]);
 
         assert_eq!(expected_row, row);
     }
@@ -99,7 +127,10 @@ mod tests {
     #[test]
     fn insert_row_and_attempt_to_get_by_non_existent_row_id() {
         let store = TableStore::new();
-        store.insert(Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]));
+        store.insert(Row::filled(vec![
+            ColumnValue::Int(10),
+            ColumnValue::Text("relop".to_string()),
+        ]));
 
         let entry = store.get(1000);
         assert!(entry.is_none());

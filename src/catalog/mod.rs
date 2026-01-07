@@ -2,6 +2,8 @@ use crate::catalog::error::CatalogError;
 use crate::catalog::table::Table;
 use crate::catalog::table_entry::TableEntry;
 use crate::schema::Schema;
+use crate::storage::row::Row;
+use crate::storage::table_store::RowId;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -33,6 +35,22 @@ impl Catalog {
         Ok(())
     }
 
+    pub(crate) fn insert_into(&self, table_name: &str, row: Row) -> Result<RowId, CatalogError> {
+        let table_entry = self.table_entry(table_name);
+        if let Some(table_entry) = table_entry {
+            return Ok(table_entry.insert(row));
+        }
+        Err(CatalogError::TableDoesNotExist(table_name.to_string()))
+    }
+
+    pub(crate) fn get(&self, table_name: &str, row_id: RowId) -> Result<Option<Row>, CatalogError> {
+        let table_entry = self.table_entry(table_name);
+        if let Some(table_entry) = table_entry {
+            return Ok(table_entry.get(row_id));
+        }
+        Err(CatalogError::TableDoesNotExist(table_name.to_string()))
+    }
+
     fn table_entry(&self, name: &str) -> Option<Arc<TableEntry>> {
         let guard = self.tables.read().unwrap();
         guard.get(name).cloned()
@@ -43,6 +61,7 @@ impl Catalog {
 mod tests {
     use super::*;
     use crate::schema::column::ColumnType;
+    use crate::storage::row::ColumnValue;
 
     #[test]
     fn create_table() {
@@ -93,5 +112,88 @@ mod tests {
         assert!(matches!(
             result,
             Err(CatalogError::TableAlreadyExists(ref table_name)) if table_name == "employees"));
+    }
+
+    #[test]
+    fn insert_into_table() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let row_id = catalog
+            .insert_into(
+                "employees",
+                Row::filled(vec![
+                    ColumnValue::Int(1),
+                    ColumnValue::Text("relop".to_string()),
+                ]),
+            )
+            .unwrap();
+
+        let row = catalog.get("employees", row_id).unwrap().unwrap();
+        let expected_row = Row::filled(vec![
+            ColumnValue::Int(1),
+            ColumnValue::Text("relop".to_string()),
+        ]);
+
+        assert_eq!(expected_row, row);
+    }
+
+    #[test]
+    fn attempt_to_insert_into_non_existent_table() {
+        let catalog = Catalog::new();
+
+        let result = catalog.insert_into(
+            "employees",
+            Row::filled(vec![
+                ColumnValue::Int(1),
+                ColumnValue::Text("relop".to_string()),
+            ]),
+        );
+
+        assert!(
+            matches!(result, Err(CatalogError::TableDoesNotExist(ref table_name)) if table_name == "employees")
+        );
+    }
+
+    #[test]
+    fn get_by_row_id_from_table() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let row_id = catalog
+            .insert_into(
+                "employees",
+                Row::filled(vec![
+                    ColumnValue::Int(1),
+                    ColumnValue::Text("relop".to_string()),
+                ]),
+            )
+            .unwrap();
+
+        let row = catalog.get("employees", row_id).unwrap().unwrap();
+        let expected_row = Row::filled(vec![
+            ColumnValue::Int(1),
+            ColumnValue::Text("relop".to_string()),
+        ]);
+
+        assert_eq!(expected_row, row);
+    }
+
+    #[test]
+    fn attempt_to_get_by_row_id_from_non_existent_table() {
+        let catalog = Catalog::new();
+
+        let result = catalog.get("employees", 1);
+        assert!(
+            matches!(result, Err(CatalogError::TableDoesNotExist(ref table_name)) if table_name == "employees")
+        );
     }
 }
