@@ -48,11 +48,7 @@ mod tests {
         ));
         table_entry.insert(Row::filled(vec![ColumnValue::Int(100)]));
 
-        let entries = table_entry.store.scan().collect::<Vec<_>>();
-        let rows = entries
-            .iter()
-            .map(|entry| entry.value())
-            .collect::<Vec<_>>();
+        let rows = table_entry.store.scan().collect::<Vec<_>>();
 
         assert_eq!(1, rows.len());
         assert_eq!(100, rows[0].column_values()[0].int_value().unwrap());
@@ -75,12 +71,7 @@ mod tests {
             ]),
         ]);
 
-        let entries = table_entry.store.scan().collect::<Vec<_>>();
-        let rows = entries
-            .iter()
-            .map(|entry| entry.value())
-            .collect::<Vec<_>>();
-
+        let rows = table_entry.store.scan().collect::<Vec<_>>();
         assert_eq!(2, rows.len());
 
         assert!(rows.contains(&&Row::filled(vec![
