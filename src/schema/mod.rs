@@ -38,6 +38,15 @@ impl Schema {
         Ok(self)
     }
 
+    pub fn column_position (&self, column_name: &str) -> Option<usize> {
+        self.columns.iter().enumerate().find_map(|(position, column)| {
+            if column.matches_name(column_name) {
+                return Some(position);
+            }
+            None
+        })
+    }
+
     pub fn column_count(&self) -> usize {
         self.columns.len()
     }
@@ -157,5 +166,23 @@ mod tests {
             result,
             Err(SchemaError::PrimaryKeyColumnNotFound(ref column_name)) if column_name == "id"
         ));
+    }
+
+    #[test]
+    fn column_position() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("id", ColumnType::Int).unwrap().add_column("name", ColumnType::Text).unwrap();
+
+        let position = schema.column_position("name").unwrap();
+        assert_eq!(1, position)
+    }
+
+    #[test]
+    fn attempt_to_get_column_position_of_a_column_that_does_not_exist_in_schema() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("id", ColumnType::Int).unwrap().add_column("name", ColumnType::Text).unwrap();
+
+        let position = schema.column_position("age");
+        assert!(position.is_none());
     }
 }

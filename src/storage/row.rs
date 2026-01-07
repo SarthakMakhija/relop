@@ -43,15 +43,15 @@ impl Row {
         &self.values
     }
 
+    pub(crate) fn column_value_at(&self, index: usize) -> Option<&ColumnValue> {
+        if index < self.values.len() {
+            return Some(&self.values[index]);
+        }
+        None
+    }
+
     fn column_value_count(&self) -> usize {
         self.values.len()
-    }
-}
-
-#[cfg(test)]
-impl Row {
-    fn column_value_at(&self, index: usize) -> Option<&ColumnValue> {
-        self.values.get(index)
     }
 }
 
@@ -83,6 +83,22 @@ mod tests {
         assert_eq!(2, row.column_value_count());
         assert_eq!(&ColumnValue::Text("relop".to_string()), row.column_value_at(0).unwrap());
         assert_eq!(&ColumnValue::Int(200), row.column_value_at(1).unwrap());
+    }
+
+    #[test]
+    fn column_value_at_index() {
+        let row = Row::filled(vec![ColumnValue::Text("relop".to_string()), ColumnValue::Int(200)]);
+        let column_value = row.column_value_at(0).unwrap();
+
+        assert_eq!(&ColumnValue::Text("relop".to_string()), column_value);
+    }
+
+    #[test]
+    fn attempt_to_get_column_value_at_index_beyond_the_colum_count() {
+        let row = Row::filled(vec![ColumnValue::Text("relop".to_string()), ColumnValue::Int(200)]);
+        let column_value = row.column_value_at(2);
+
+        assert!(column_value.is_none());
     }
 }
 
