@@ -30,8 +30,8 @@ impl TableStore {
         row_id
     }
 
-    pub(crate) fn get(&self, row_id: RowId) -> Option<Entry<'_, RowId, Row>> {
-        self.entries.get(&row_id)
+    pub(crate) fn get(&self, row_id: RowId) -> Option<Row> {
+        self.entries.get(&row_id).map(|entry| entry.value().clone())
     }
 
     pub(crate) fn scan(&self) -> Iter<'_, RowId, Row> {
@@ -90,12 +90,10 @@ mod tests {
         let store = TableStore::new();
         let row_id = store.insert(Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]));
 
-        let entry = store.get(row_id).unwrap();
-
-        let inserted_row = entry.value();
+        let row = store.get(row_id).unwrap();
         let expected_row = Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]);
 
-        assert_eq!(&expected_row, inserted_row);
+        assert_eq!(expected_row, row);
     }
 
     #[test]

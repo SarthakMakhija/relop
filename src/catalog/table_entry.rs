@@ -1,7 +1,6 @@
 use crate::catalog::table::Table;
 use crate::storage::row::Row;
 use crate::storage::table_store::{RowId, TableStore};
-use crossbeam_skiplist::map::Entry;
 use std::sync::Arc;
 
 pub(crate) struct TableEntry {
@@ -25,7 +24,7 @@ impl TableEntry {
         self.store.insert_all(rows)
     }
 
-    pub(crate) fn get(&self, row_id: RowId) -> Option<Entry<'_, RowId, Row>> {
+    pub(crate) fn get(&self, row_id: RowId) -> Option<Row> {
         self.store.get(row_id)
     }
 
@@ -102,8 +101,7 @@ mod tests {
         ));
         let row_id = table_entry.insert(Row::filled(vec![ColumnValue::Int(100)]));
 
-        let entry = table_entry.get(row_id).unwrap();
-        let row = entry.value();
+        let row = table_entry.get(row_id).unwrap();
         assert_eq!(100, row.column_values()[0].int_value().unwrap());
     }
 
