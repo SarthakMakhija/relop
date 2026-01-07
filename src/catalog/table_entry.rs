@@ -79,11 +79,11 @@ mod tests {
         let rows = table_entry.scan().iter().collect::<Vec<_>>();
         assert_eq!(2, rows.len());
 
-        assert!(rows.contains(&&Row::filled(vec![
+        assert!(rows.contains(&Row::filled(vec![
             ColumnValue::Int(10),
             ColumnValue::Text("relop".to_string())
         ])));
-        assert!(rows.contains(&&Row::filled(vec![
+        assert!(rows.contains(&Row::filled(vec![
             ColumnValue::Int(20),
             ColumnValue::Text("query".to_string())
         ])));

@@ -32,7 +32,7 @@ impl TableStore {
     pub(crate) fn get(&self, row_id: RowId) -> Option<Row> {
         self.entries.get(&row_id).map(|entry| entry.value().clone())
     }
-    
+
     pub(crate) fn entries(&self) -> &SkipMap<RowId, Row> {
         &self.entries
     }
@@ -72,7 +72,7 @@ mod tests {
         let rows: Vec<Row> = store.scan();
         assert_eq!(1, rows.len());
 
-        let inserted_row = rows.get(0).unwrap();
+        let inserted_row = rows.first().unwrap();
         let expected_row = Row::filled(vec![
             ColumnValue::Int(10),
             ColumnValue::Text("relop".to_string()),
@@ -98,11 +98,11 @@ mod tests {
         let rows = store.scan();
         assert_eq!(2, rows.len());
 
-        assert!(rows.contains(&&Row::filled(vec![
+        assert!(rows.contains(&Row::filled(vec![
             ColumnValue::Int(10),
             ColumnValue::Text("relop".to_string())
         ])));
-        assert!(rows.contains(&&Row::filled(vec![
+        assert!(rows.contains(&Row::filled(vec![
             ColumnValue::Int(20),
             ColumnValue::Text("query".to_string())
         ])));

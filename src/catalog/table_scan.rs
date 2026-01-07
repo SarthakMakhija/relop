@@ -37,7 +37,7 @@ mod tests {
 
         assert_eq!(1, rows.len());
 
-        let inserted_row = rows.get(0).unwrap();
+        let inserted_row = rows.first().unwrap();
         let expected_row = Row::filled(vec![
             ColumnValue::Int(10),
             ColumnValue::Text("relop".to_string()),
