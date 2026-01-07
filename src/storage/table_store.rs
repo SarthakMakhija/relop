@@ -1,5 +1,5 @@
 use crate::storage::row::Row;
-use crossbeam_skiplist::map::Iter;
+use crossbeam_skiplist::map::{Entry, Iter};
 use crossbeam_skiplist::SkipMap;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::AcqRel;
@@ -28,6 +28,10 @@ impl TableStore {
         let row_id = self.current_row_id.fetch_add(1, AcqRel);
         self.entries.insert(row_id, row);
         row_id
+    }
+
+    pub(crate) fn get(&self, row_id: &RowId) -> Option<Entry<'_, RowId, Row>> {
+        self.entries.get(row_id)
     }
 
     pub(crate) fn scan(&self) -> Iter<'_, RowId, Row> {
@@ -79,5 +83,27 @@ mod tests {
 
         assert!(rows.contains(&&Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())])));
         assert!(rows.contains(&&Row::filled(vec![ColumnValue::Int(20), ColumnValue::Text("query".to_string())])));
+    }
+
+    #[test]
+    fn insert_row_and_get_by_row_id() {
+        let store = TableStore::new();
+        let row_id = store.insert(Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]));
+
+        let entry = store.get(&row_id).unwrap();
+
+        let inserted_row = entry.value();
+        let expected_row = Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]);
+
+        assert_eq!(&expected_row, inserted_row);
+    }
+
+    #[test]
+    fn insert_row_and_attempt_to_get_by_non_existent_row_id() {
+        let store = TableStore::new();
+        store.insert(Row::filled(vec![ColumnValue::Int(10), ColumnValue::Text("relop".to_string())]));
+
+        let entry = store.get(&1000);
+        assert!(entry.is_none());
     }
 }
