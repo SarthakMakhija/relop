@@ -1,6 +1,7 @@
 use crate::catalog::table::Table;
 use crate::storage::row::Row;
 use crate::storage::table_store::{RowId, TableStore};
+use crossbeam_skiplist::map::Entry;
 use std::sync::Arc;
 
 pub(crate) struct TableEntry {
@@ -22,6 +23,10 @@ impl TableEntry {
 
     pub(crate) fn insert_all(&self, rows: Vec<Row>) {
         self.store.insert_all(rows)
+    }
+
+    pub(crate) fn get(&self, row_id: RowId) -> Option<Entry<'_, RowId, Row>> {
+        self.store.get(row_id)
     }
 
     pub(crate) fn table_name(&self) -> &str {
@@ -87,5 +92,30 @@ mod tests {
             ColumnValue::Int(20),
             ColumnValue::Text("query".to_string())
         ])));
+    }
+
+    #[test]
+    fn insert_row_and_get_by_row_id() {
+        let table_entry = TableEntry::new(Table::new(
+            "employees".to_string(),
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        ));
+        let row_id = table_entry.insert(Row::filled(vec![ColumnValue::Int(100)]));
+
+        let entry = table_entry.get(row_id).unwrap();
+        let row = entry.value();
+        assert_eq!(100, row.column_values()[0].int_value().unwrap());
+    }
+
+    #[test]
+    fn insert_row_and_attempt_to_get_by_non_existent_row_id() {
+        let table_entry = TableEntry::new(Table::new(
+            "employees".to_string(),
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        ));
+        table_entry.insert(Row::filled(vec![ColumnValue::Int(100)]));
+
+        let entry = table_entry.get(1000);
+        assert!(entry.is_none());
     }
 }
