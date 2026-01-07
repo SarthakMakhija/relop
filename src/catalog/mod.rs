@@ -10,7 +10,7 @@ pub(crate) mod table;
 pub(crate) mod table_entry;
 
 struct Catalog {
-    tables: RwLock<HashMap<String, TableEntry>>,
+    tables: RwLock<HashMap<String, Arc<TableEntry>>>,
 }
 
 impl Catalog {
@@ -33,9 +33,9 @@ impl Catalog {
         Ok(())
     }
 
-    fn get_table(&self, name: &str) -> Option<Arc<Table>> {
+    fn table_entry(&self, name: &str) -> Option<Arc<TableEntry>> {
         let guard = self.tables.read().unwrap();
-        guard.get(name).map(|entry| entry.table())
+        guard.get(name).cloned()
     }
 }
 
@@ -65,18 +65,16 @@ mod tests {
 
         assert!(result.is_ok());
 
-        let table_ref = catalog.get_table("employees").unwrap();
-        let table = table_ref.as_ref();
-
-        assert_eq!("employees", table.name());
+        let table_entry = catalog.table_entry("employees").unwrap();
+        assert_eq!("employees", table_entry.table_name());
     }
 
     #[test]
     fn get_table_by_non_existing_name() {
         let catalog = Catalog::new();
 
-        let table_ref = catalog.get_table("employees");
-        assert!(table_ref.is_none());
+        let table_entry = catalog.table_entry("employees");
+        assert!(table_entry.is_none());
     }
 
     #[test]
@@ -86,7 +84,6 @@ mod tests {
             "employees",
             Schema::new().add_column("id", ColumnType::Int).unwrap(),
         );
-
         assert!(result.is_ok());
 
         let result = catalog.create_table(
