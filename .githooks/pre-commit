@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "pre-commit: running cargo test..."
+cargo test
+
+echo "pre-commit: running cargo lint (or clippy fallback)..."
+
+if cargo --list 2>/dev/null | grep -qE '^[[:space:]]+lint$'; then
+  cargo lint
+else
+  cargo clippy --all-targets --all-features
+fi
+
+echo "pre-commit: OK"
+
