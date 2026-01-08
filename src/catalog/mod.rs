@@ -8,7 +8,7 @@ use crate::storage::table_store::RowId;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-mod error;
+pub mod error;
 pub(crate) mod table;
 pub(crate) mod table_entry;
 mod table_scan;
