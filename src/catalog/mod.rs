@@ -1,4 +1,4 @@
-use crate::catalog::error::CatalogError;
+use crate::catalog::error::{CatalogError, InsertError};
 use crate::catalog::table::Table;
 use crate::catalog::table_entry::TableEntry;
 use crate::catalog::table_scan::TableScan;
@@ -37,8 +37,11 @@ impl Catalog {
         Ok(())
     }
 
-    pub(crate) fn insert_into(&self, table_name: &str, row: Row) -> Result<RowId, CatalogError> {
-        let table_entry = self.table_entry_or_error(table_name)?;
+    pub(crate) fn insert_into(&self, table_name: &str, row: Row) -> Result<RowId, InsertError> {
+        let table_entry = self
+            .table_entry_or_error(table_name)
+            .map_err(InsertError::Catalog)?;
+
         table_entry.insert(row)
     }
 
@@ -46,8 +49,11 @@ impl Catalog {
         &self,
         table_name: &str,
         rows: Vec<Row>,
-    ) -> Result<Vec<RowId>, CatalogError> {
-        let table_entry = self.table_entry_or_error(table_name)?;
+    ) -> Result<Vec<RowId>, InsertError> {
+        let table_entry = self
+            .table_entry_or_error(table_name)
+            .map_err(InsertError::Catalog)?;
+
         Ok(table_entry.insert_all(rows))
     }
 
@@ -206,8 +212,8 @@ mod tests {
         );
 
         assert!(
-            matches!(result, Err(CatalogError::TableDoesNotExist(ref table_name)) if table_name == "employees")
-        );
+            matches!(result, Err(InsertError::Catalog(CatalogError::TableDoesNotExist(ref table_name))) if table_name == "employees"),
+        )
     }
 
     #[test]
@@ -276,10 +282,9 @@ mod tests {
             ],
         );
 
-        assert!(matches!(
-            result,
-            Err(CatalogError::TableDoesNotExist(ref table_name)) if table_name == "employees"
-        ))
+        assert!(
+            matches!(result, Err(InsertError::Catalog(CatalogError::TableDoesNotExist(ref table_name))) if table_name == "employees"),
+        )
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use crate::catalog::error::CatalogError;
+use crate::catalog::error::InsertError;
 use crate::catalog::table::Table;
 use crate::catalog::table_scan::TableScan;
 use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
@@ -25,7 +25,7 @@ impl TableEntry {
         })
     }
 
-    pub(crate) fn insert(&self, row: Row) -> Result<RowId, CatalogError> {
+    pub(crate) fn insert(&self, row: Row) -> Result<RowId, InsertError> {
         let _guard = self.insert_lock.lock().unwrap();
 
         if let Some(primary_key_index) = &self.primary_key_index {
@@ -36,7 +36,7 @@ impl TableEntry {
             let primary_key_column_values = PrimaryKeyColumnValues::new(&row, primary_key, schema);
 
             if primary_key_index.contains(&primary_key_column_values) {
-                return Err(CatalogError::DuplicatePrimaryKey);
+                return Err(InsertError::DuplicatePrimaryKey);
             }
             let row_id = self.store.insert(row);
             primary_key_index.insert(primary_key_column_values, row_id);
@@ -151,10 +151,8 @@ mod tests {
             .insert(Row::filled(vec![ColumnValue::Int(100)]))
             .unwrap();
 
-        let result = table_entry
-            .insert(Row::filled(vec![ColumnValue::Int(100)]));
-
-        assert!(matches!(result, Err(CatalogError::DuplicatePrimaryKey)));
+        let result = table_entry.insert(Row::filled(vec![ColumnValue::Int(100)]));
+        assert!(matches!(result, Err(InsertError::DuplicatePrimaryKey)));
     }
 
     #[test]
