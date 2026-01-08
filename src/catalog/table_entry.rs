@@ -1,5 +1,6 @@
 use crate::catalog::table::Table;
 use crate::catalog::table_scan::TableScan;
+use crate::storage::primary_key_index::PrimaryKeyIndex;
 use crate::storage::row::Row;
 use crate::storage::table_store::{RowId, TableStore};
 use std::sync::Arc;
@@ -7,13 +8,16 @@ use std::sync::Arc;
 pub(crate) struct TableEntry {
     table: Table,
     store: Arc<TableStore>,
+    primary_key_index: Option<PrimaryKeyIndex>,
 }
 
 impl TableEntry {
     pub(crate) fn new(table: Table) -> Arc<TableEntry> {
+        let primary_key_index = Self::maybe_primary_key_index(&table);
         Arc::new(Self {
             table,
             store: Arc::new(TableStore::new()),
+            primary_key_index,
         })
     }
 
@@ -36,12 +40,20 @@ impl TableEntry {
     pub(crate) fn table_name(&self) -> &str {
         self.table.name()
     }
+
+    fn maybe_primary_key_index(table: &Table) -> Option<PrimaryKeyIndex> {
+        if table.has_primary_key() {
+            return Some(PrimaryKeyIndex::new());
+        }
+        None
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::schema::column::ColumnType;
+    use crate::schema::primary_key::PrimaryKey;
     use crate::schema::Schema;
     use crate::storage::row::ColumnValue;
 
@@ -111,5 +123,27 @@ mod tests {
 
         let entry = table_entry.get(1000);
         assert!(entry.is_none());
+    }
+
+    #[test]
+    fn should_create_primary_key_index() {
+        let table_entry = TableEntry::new(Table::new(
+            "employees".to_string(),
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_primary_key(PrimaryKey::single("id"))
+                .unwrap(),
+        ));
+        assert!(table_entry.primary_key_index.is_some());
+    }
+
+    #[test]
+    fn should_not_create_primary_key_index() {
+        let table_entry = TableEntry::new(Table::new(
+            "employees".to_string(),
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        ));
+        assert!(table_entry.primary_key_index.is_none());
     }
 }
