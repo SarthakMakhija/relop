@@ -40,6 +40,10 @@ impl TableEntry {
     pub(crate) fn table_name(&self) -> &str {
         self.table.name()
     }
+    
+    pub(crate) fn has_primary_key_index(&self) -> bool {
+        self.primary_key_index.is_some()
+    }
 
     fn maybe_primary_key_index(table: &Table) -> Option<PrimaryKeyIndex> {
         if table.has_primary_key() {
@@ -135,7 +139,7 @@ mod tests {
                 .add_primary_key(PrimaryKey::single("id"))
                 .unwrap(),
         ));
-        assert!(table_entry.primary_key_index.is_some());
+        assert!(table_entry.has_primary_key_index());
     }
 
     #[test]
@@ -144,6 +148,6 @@ mod tests {
             "employees".to_string(),
             Schema::new().add_column("id", ColumnType::Int).unwrap(),
         ));
-        assert!(table_entry.primary_key_index.is_none());
+        assert!(!table_entry.has_primary_key_index());
     }
 }

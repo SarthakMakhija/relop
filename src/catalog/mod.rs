@@ -62,7 +62,7 @@ impl Catalog {
     }
 
     fn table_entry_or_error(&self, table_name: &str) -> Result<Arc<TableEntry>, CatalogError> {
-        let table_entry  = self
+        let table_entry = self
             .table_entry(table_name)
             .ok_or_else(|| CatalogError::TableDoesNotExist(table_name.to_string()))?;
 
@@ -79,6 +79,7 @@ impl Catalog {
 mod tests {
     use super::*;
     use crate::schema::column::ColumnType;
+    use crate::schema::primary_key::PrimaryKey;
     use crate::storage::row::ColumnValue;
 
     #[test]
@@ -90,6 +91,38 @@ mod tests {
         );
 
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn create_table_without_a_primary_key_index() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+
+        assert!(result.is_ok());
+
+        let table_entry = catalog.table_entry("employees").unwrap();
+        assert!(!table_entry.has_primary_key_index());
+    }
+
+    #[test]
+    fn create_table_with_a_primary_key_index() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_primary_key(PrimaryKey::single("id"))
+                .unwrap(),
+        );
+
+        assert!(result.is_ok());
+
+        let table_entry = catalog.table_entry("employees").unwrap();
+        assert!(table_entry.has_primary_key_index());
     }
 
     #[test]
