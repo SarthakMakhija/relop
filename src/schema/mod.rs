@@ -55,6 +55,10 @@ impl Schema {
         self.primary_key.is_some()
     }
 
+    pub(crate) fn primary_key(&self) -> &Option<PrimaryKey> {
+        &self.primary_key
+    }
+
     fn ensure_column_not_already_defined(&self, name: &str) -> Result<(), SchemaError> {
         if self.has_column(name) {
             return Err(SchemaError::DuplicateColumnName(name.to_string()));

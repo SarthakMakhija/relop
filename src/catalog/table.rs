@@ -13,8 +13,12 @@ impl Table {
     pub fn name(&self) -> &str {
         &self.name
     }
-    
+
     pub(crate) fn has_primary_key(&self) -> bool {
         self.schema.has_primary_key()
+    }
+
+    pub(crate) fn schema(&self) -> &Schema {
+        &self.schema
     }
 }

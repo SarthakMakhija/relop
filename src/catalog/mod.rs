@@ -39,7 +39,7 @@ impl Catalog {
 
     pub(crate) fn insert_into(&self, table_name: &str, row: Row) -> Result<RowId, CatalogError> {
         let table_entry = self.table_entry_or_error(table_name)?;
-        Ok(table_entry.insert(row))
+        table_entry.insert(row)
     }
 
     pub(crate) fn insert_all_into(
@@ -362,5 +362,58 @@ mod tests {
         assert!(
             matches!(result, Err(CatalogError::TableDoesNotExist(ref table_name)) if table_name == "employees")
         );
+    }
+}
+
+#[cfg(test)]
+mod table_insert_and_index_tests {
+    use crate::catalog::Catalog;
+    use crate::schema::column::ColumnType;
+    use crate::schema::primary_key::PrimaryKey;
+    use crate::schema::Schema;
+    use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
+    use crate::storage::row::{ColumnValue, Row};
+
+    #[test]
+    fn insert_into_table_with_primary_key() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_primary_key(PrimaryKey::single("id"))
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        catalog
+            .insert_into(
+                "employees",
+                Row::filled(vec![
+                    ColumnValue::Int(1),
+                    ColumnValue::Text("relop".to_string()),
+                ]),
+            )
+            .unwrap();
+
+        let row = Row::filled(vec![
+            ColumnValue::Int(1),
+            ColumnValue::Text("relop".to_string()),
+        ]);
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_primary_key(PrimaryKey::single("id"))
+            .unwrap();
+        
+        let primary_key = PrimaryKey::single("id");
+        let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
+
+        let table_entry = catalog.table_entry("employees").unwrap();
+        let primary_key_index = table_entry.primary_key_index().unwrap();
+        let row_id = primary_key_index.get(&primary_key_column_values);
+
+        assert!(row_id.is_some());
     }
 }
