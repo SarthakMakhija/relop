@@ -66,7 +66,7 @@ impl TableEntry {
     pub(crate) fn has_primary_key_index(&self) -> bool {
         self.primary_key_index.is_some()
     }
-    
+
     pub(crate) fn primary_key_index(&self) -> Option<&PrimaryKeyIndex> {
         self.primary_key_index.as_ref()
     }
@@ -85,7 +85,7 @@ mod tests {
     use crate::schema::column::ColumnType;
     use crate::schema::primary_key::PrimaryKey;
     use crate::schema::Schema;
-    use crate::storage::row::ColumnValue;
+    use crate::values::column_value::ColumnValue;
 
     #[test]
     fn insert_row() {

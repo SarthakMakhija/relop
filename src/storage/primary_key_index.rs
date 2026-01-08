@@ -41,7 +41,8 @@ mod tests {
     use crate::schema::column::ColumnType;
     use crate::schema::primary_key::PrimaryKey;
     use crate::schema::Schema;
-    use crate::storage::row::{ColumnValue, Row};
+    use crate::storage::row::Row;
+    use crate::values::column_value::ColumnValue;
 
     #[test]
     fn insert_a_single_primary_key_column_value_in_index() {

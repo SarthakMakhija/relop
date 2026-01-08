@@ -80,7 +80,7 @@ mod tests {
     use super::*;
     use crate::schema::column::ColumnType;
     use crate::schema::primary_key::PrimaryKey;
-    use crate::storage::row::ColumnValue;
+    use crate::values::column_value::ColumnValue;
 
     #[test]
     fn create_table() {
@@ -372,7 +372,8 @@ mod table_insert_and_index_tests {
     use crate::schema::primary_key::PrimaryKey;
     use crate::schema::Schema;
     use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
-    use crate::storage::row::{ColumnValue, Row};
+    use crate::storage::row::Row;
+    use crate::values::column_value::ColumnValue;
 
     #[test]
     fn insert_into_table_with_primary_key() {
@@ -406,7 +407,7 @@ mod table_insert_and_index_tests {
             .unwrap()
             .add_primary_key(PrimaryKey::single("id"))
             .unwrap();
-        
+
         let primary_key = PrimaryKey::single("id");
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
 
