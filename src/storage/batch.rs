@@ -1,4 +1,4 @@
-use crate::catalog::error::InsertError;
+use crate::schema::error::SchemaError;
 use crate::schema::Schema;
 use crate::storage::row::Row;
 
@@ -11,11 +11,9 @@ impl Batch {
         Self { rows }
     }
 
-    pub(crate) fn check_type_compatability(&self, schema: &Schema) -> Result<(), InsertError> {
+    pub(crate) fn check_type_compatability(&self, schema: &Schema) -> Result<(), SchemaError> {
         for row in &self.rows {
-            schema
-                .check_type_compatability(row.column_values())
-                .map_err(InsertError::Schema)?;
+            schema.check_type_compatability(row.column_values())?
         }
         Ok(())
     }
@@ -43,22 +41,22 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(InsertError::Schema(SchemaError::ColumnCountMismatch {expected, actual})) if expected == 2 && actual == 1
+            Err(SchemaError::ColumnCountMismatch {expected, actual}) if expected == 2 && actual == 1
         ))
     }
 
     #[test]
     fn batch_with_incompatible_column_values() {
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap();
+        let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
 
-        let batch = Batch::new(vec![Row::filled(vec![ColumnValue::Text("relop".to_string())])]);
+        let batch = Batch::new(vec![Row::filled(vec![ColumnValue::Text(
+            "relop".to_string(),
+        )])]);
         let result = batch.check_type_compatability(&schema);
 
         assert!(matches!(
             result,
-            Err(InsertError::Schema(SchemaError::ColumnTypeMismatch {column, expected, actual})) if column == "id" && expected == ColumnType::Int && actual == ColumnType::Text
+            Err(SchemaError::ColumnTypeMismatch {column, expected, actual}) if column == "id" && expected == ColumnType::Int && actual == ColumnType::Text
         ))
     }
 }
