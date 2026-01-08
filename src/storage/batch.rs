@@ -17,6 +17,16 @@ impl Batch {
         }
         Ok(())
     }
+
+    pub(crate) fn into_rows(self) -> Vec<Row> {
+        self.rows
+    }
+}
+
+impl From<Vec<Row>> for Batch {
+    fn from(rows: Vec<Row>) -> Self {
+        Batch::new(rows)
+    }
 }
 
 #[cfg(test)]

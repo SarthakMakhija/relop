@@ -3,6 +3,7 @@ use crate::catalog::table::Table;
 use crate::catalog::table_entry::TableEntry;
 use crate::catalog::table_scan::TableScan;
 use crate::schema::Schema;
+use crate::storage::batch::Batch;
 use crate::storage::row::Row;
 use crate::storage::table_store::RowId;
 use std::collections::HashMap;
@@ -54,20 +55,18 @@ impl Catalog {
     pub(crate) fn insert_all_into(
         &self,
         table_name: &str,
-        rows: Vec<Row>,
+        batch: impl Into<Batch>,
     ) -> Result<Vec<RowId>, InsertError> {
         let table_entry = self
             .table_entry_or_error(table_name)
             .map_err(InsertError::Catalog)?;
 
-        let schema = table_entry.table().schema();
-        for row in &rows {
-            schema
-                .check_type_compatability(row.column_values())
-                .map_err(InsertError::Schema)?;
-        }
+        let batch = batch.into();
+        batch
+            .check_type_compatability(table_entry.table().schema())
+            .map_err(InsertError::Schema)?;
 
-        Ok(table_entry.insert_all(rows))
+        Ok(table_entry.insert_all(batch.into_rows()))
     }
 
     pub(crate) fn get(&self, table_name: &str, row_id: RowId) -> Result<Option<Row>, CatalogError> {
@@ -274,12 +273,8 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::filled(vec![
-                        ColumnValue::Int(1),
-                    ]),
-                    Row::filled(vec![
-                        ColumnValue::Int(2),
-                    ]),
+                    Row::filled(vec![ColumnValue::Int(1)]),
+                    Row::filled(vec![ColumnValue::Int(2)]),
                 ],
             )
             .unwrap();
@@ -290,9 +285,7 @@ mod tests {
             .get("employees", *row_ids.first().unwrap())
             .unwrap()
             .unwrap();
-        let expected_row = Row::filled(vec![
-            ColumnValue::Int(1),
-        ]);
+        let expected_row = Row::filled(vec![ColumnValue::Int(1)]);
         assert_eq!(expected_row, row);
 
         let row = catalog
@@ -300,9 +293,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let expected_row = Row::filled(vec![
-            ColumnValue::Int(2),
-        ]);
+        let expected_row = Row::filled(vec![ColumnValue::Int(2)]);
         assert_eq!(expected_row, row);
     }
 
@@ -319,7 +310,8 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let result = catalog.insert_all_into("employees", vec![Row::filled(vec![ColumnValue::Int(10)])]);
+        let result =
+            catalog.insert_all_into("employees", vec![Row::filled(vec![ColumnValue::Int(10)])]);
 
         assert!(matches!(
             result,
