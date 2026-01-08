@@ -6,6 +6,7 @@ use crate::schema::column::Column;
 use crate::schema::error::SchemaError;
 use crate::schema::primary_key::PrimaryKey;
 use crate::types::column_type::ColumnType;
+use crate::types::column_value::ColumnValue;
 
 pub struct Schema {
     columns: Vec<Column>,
@@ -63,6 +64,30 @@ impl Schema {
 
     pub(crate) fn primary_key(&self) -> &Option<PrimaryKey> {
         &self.primary_key
+    }
+
+    pub(crate) fn check_type_compatability(
+        &self,
+        values: &[ColumnValue],
+    ) -> Result<(), SchemaError> {
+        if values.len() != self.column_count() {
+            return Err(SchemaError::ColumnCountMismatch {
+                expected: self.columns.len(),
+                actual: values.len(),
+            });
+        }
+
+        for (index, column) in self.columns.iter().enumerate() {
+            let value = &values[index];
+            if !column.column_type().accepts(value) {
+                return Err(SchemaError::ColumnTypeMismatch {
+                    column: column.name().to_string(),
+                    expected: column.column_type().clone(),
+                    actual: value.column_type(),
+                });
+            }
+        }
+        Ok(())
     }
 
     fn ensure_column_not_already_defined(&self, name: &str) -> Result<(), SchemaError> {
@@ -223,5 +248,43 @@ mod tests {
 
         let position = schema.column_position("age");
         assert!(position.is_none());
+    }
+
+    #[test]
+    fn column_count_mismatch() {
+        let mut schema = Schema::new();
+        schema = schema
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("grade", ColumnType::Int)
+            .unwrap();
+
+        let result = schema.check_type_compatability(&[ColumnValue::Text("relop".to_string())]);
+
+        assert!(matches! (
+            result,
+            Err(SchemaError::ColumnCountMismatch{expected, actual}) if expected == 2 && actual == 1));
+    }
+
+    #[test]
+    fn column_type_mismatch() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("id", ColumnType::Int).unwrap();
+
+        let result = schema.check_type_compatability(&[ColumnValue::Text("relop".to_string())]);
+
+        assert!(matches! (
+            result,
+            Err(SchemaError::ColumnTypeMismatch{column, expected, actual})
+                if column == "id" && expected == ColumnType::Int && actual == ColumnType::Text));
+    }
+
+    #[test]
+    fn type_compatible() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("id", ColumnType::Int).unwrap();
+
+        let result = schema.check_type_compatability(&[ColumnValue::Int(100)]);
+        assert!(result.is_ok());
     }
 }

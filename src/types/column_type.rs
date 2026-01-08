@@ -1,6 +1,6 @@
 use crate::types::column_value::ColumnValue;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ColumnType {
     Int,
     Text,

@@ -1,3 +1,5 @@
+use crate::types::column_type::ColumnType;
+
 #[derive(Debug, PartialEq, Hash, Eq, Clone)]
 pub enum ColumnValue {
     Int(i64),
@@ -17,6 +19,13 @@ impl ColumnValue {
             return Some(value);
         }
         None
+    }
+
+    pub(crate) fn column_type(&self) -> ColumnType {
+        match self {
+            ColumnValue::Int(_) => ColumnType::Int,
+            ColumnValue::Text(_) => ColumnType::Text,
+        }
     }
 }
 
@@ -46,5 +55,17 @@ mod test {
     fn attempt_to_get_text_value_for_a_non_text_column_type() {
         let column_value = ColumnValue::Int(100);
         assert_eq!(None, column_value.text_value());
+    }
+
+    #[test]
+    fn get_column_type_as_int() {
+        let column_value = ColumnValue::Int(100);
+        assert_eq!(column_value.column_type(), ColumnType::Int);
+    }
+
+    #[test]
+    fn get_column_type_as_text() {
+        let column_value = ColumnValue::Text("relop".to_string());
+        assert_eq!(column_value.column_type(), ColumnType::Text);
     }
 }
