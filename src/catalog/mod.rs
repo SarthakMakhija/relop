@@ -38,10 +38,7 @@ impl Catalog {
     }
 
     pub(crate) fn insert_into(&self, table_name: &str, row: Row) -> Result<RowId, CatalogError> {
-        let table_entry = self
-            .table_entry(table_name)
-            .ok_or_else(|| CatalogError::TableDoesNotExist(table_name.to_string()))?;
-
+        let table_entry = self.table_entry_or_error(table_name)?;
         Ok(table_entry.insert(row))
     }
 
@@ -50,27 +47,26 @@ impl Catalog {
         table_name: &str,
         rows: Vec<Row>,
     ) -> Result<Vec<RowId>, CatalogError> {
-        let table_entry = self
-            .table_entry(table_name)
-            .ok_or_else(|| CatalogError::TableDoesNotExist(table_name.to_string()))?;
-
+        let table_entry = self.table_entry_or_error(table_name)?;
         Ok(table_entry.insert_all(rows))
     }
 
     pub(crate) fn get(&self, table_name: &str, row_id: RowId) -> Result<Option<Row>, CatalogError> {
-        let table_entry = self
-            .table_entry(table_name)
-            .ok_or_else(|| CatalogError::TableDoesNotExist(table_name.to_string()))?;
-
+        let table_entry = self.table_entry_or_error(table_name)?;
         Ok(table_entry.get(row_id))
     }
 
     pub(crate) fn scan(&self, table_name: &str) -> Result<TableScan, CatalogError> {
-        let table_entry = self
+        let table_entry = self.table_entry_or_error(table_name)?;
+        Ok(table_entry.scan())
+    }
+
+    fn table_entry_or_error(&self, table_name: &str) -> Result<Arc<TableEntry>, CatalogError> {
+        let table_entry  = self
             .table_entry(table_name)
             .ok_or_else(|| CatalogError::TableDoesNotExist(table_name.to_string()))?;
 
-        Ok(table_entry.scan())
+        Ok(table_entry)
     }
 
     fn table_entry(&self, name: &str) -> Option<Arc<TableEntry>> {
