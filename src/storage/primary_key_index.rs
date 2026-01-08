@@ -1,4 +1,3 @@
-use crate::storage::error::PrimaryKeyIndexError;
 use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
 use crate::storage::table_store::RowId;
 use std::collections::HashMap;
@@ -15,18 +14,14 @@ impl PrimaryKeyIndex {
         }
     }
 
-    pub(crate) fn insert(
-        &self,
-        key: PrimaryKeyColumnValues,
-        row_id: RowId,
-    ) -> Result<(), PrimaryKeyIndexError> {
+    pub(crate) fn insert(&self, key: PrimaryKeyColumnValues, row_id: RowId) {
         let mut index = self.index.write().unwrap();
-        if index.contains_key(&key) {
-            return Err(PrimaryKeyIndexError::DuplicateKey);
-        }
+        let old = index.insert(key, row_id);
 
-        index.insert(key, row_id);
-        Ok(())
+        debug_assert!(
+            old.is_none(),
+            "PrimaryKeyIndex invariant violated: duplicate key inserted"
+        );
     }
 
     pub(crate) fn contains(&self, key: &PrimaryKeyColumnValues) -> bool {
@@ -61,13 +56,14 @@ mod tests {
         let row_id = 100;
 
         let index = PrimaryKeyIndex::new();
-        index.insert(primary_key_column_values, row_id).unwrap();
+        index.insert(primary_key_column_values, row_id);
 
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
         assert!(index.contains(&primary_key_column_values));
     }
 
     #[test]
+    #[should_panic]
     fn attempt_to_add_duplicate_primary_key() {
         let mut schema = Schema::new();
         schema = schema.add_column("first_name", ColumnType::Text).unwrap();
@@ -80,13 +76,12 @@ mod tests {
         let row_id = 100;
 
         let index = PrimaryKeyIndex::new();
-        index.insert(primary_key_column_values, row_id).unwrap();
+        index.insert(primary_key_column_values, row_id);
 
-        let result = index.insert(
+        index.insert(
             PrimaryKeyColumnValues::new(&row, &primary_key, &schema),
             row_id,
         );
-        assert!(matches!(result, Err(PrimaryKeyIndexError::DuplicateKey)));
     }
 
     #[test]
@@ -109,7 +104,7 @@ mod tests {
         let row_id = 100;
 
         let index = PrimaryKeyIndex::new();
-        index.insert(primary_key_column_values, row_id).unwrap();
+        index.insert(primary_key_column_values, row_id);
 
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
         assert!(index.contains(&primary_key_column_values));
@@ -128,7 +123,7 @@ mod tests {
         let row_id = 100;
 
         let index = PrimaryKeyIndex::new();
-        index.insert(primary_key_column_values, row_id).unwrap();
+        index.insert(primary_key_column_values, row_id);
 
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
         assert_eq!(row_id, index.get(&primary_key_column_values).unwrap());
