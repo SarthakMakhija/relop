@@ -32,6 +32,7 @@ impl Batch {
             for row in &self.rows {
                 let primary_key_column_values =
                     PrimaryKeyColumnValues::new(row, primary_key, schema);
+
                 if !seen.insert(primary_key_column_values) {
                     return Err(BatchError::DuplicatePrimaryKey);
                 }

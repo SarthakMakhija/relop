@@ -1,6 +1,7 @@
 use crate::catalog::error::InsertError;
 use crate::catalog::table::Table;
 use crate::catalog::table_scan::TableScan;
+use crate::storage::batch::Batch;
 use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
 use crate::storage::primary_key_index::PrimaryKeyIndex;
 use crate::storage::row::Row;
@@ -47,8 +48,34 @@ impl TableEntry {
         }
     }
 
-    pub(crate) fn insert_all(&self, rows: Vec<Row>) -> Vec<RowId> {
-        self.store.insert_all(rows)
+    pub(crate) fn insert_all(&self, batch: Batch) -> Result<Vec<RowId>, InsertError> {
+        let _guard = self.insert_lock.lock().unwrap();
+
+        if let Some(primary_key_index) = &self.primary_key_index {
+            let schema = self.table.schema();
+            let all_primary_key_column_values = batch
+                .unique_primary_key_values(schema)
+                .map_err(|_| InsertError::DuplicatePrimaryKey)?;
+
+            primary_key_index.ensure_no_duplicates(&all_primary_key_column_values)?;
+
+            let row_ids = batch
+                .into_rows()
+                .into_iter()
+                .map(|row| self.store.insert(row))
+                .collect::<Vec<RowId>>();
+
+            all_primary_key_column_values
+                .into_iter()
+                .zip(row_ids.iter().copied())
+                .for_each(|(primary_key_column_values, row_id)| {
+                    primary_key_index.insert(primary_key_column_values, row_id);
+                });
+
+            Ok(row_ids)
+        } else {
+            Ok(self.store.insert_all(batch.into_rows()))
+        }
     }
 
     pub(crate) fn get(&self, row_id: RowId) -> Option<Row> {
@@ -62,7 +89,7 @@ impl TableEntry {
     pub(crate) fn table(&self) -> &Table {
         &self.table
     }
-    
+
     pub(crate) fn table_name(&self) -> &str {
         self.table.name()
     }
@@ -165,28 +192,59 @@ mod tests {
             "employees".to_string(),
             Schema::new().add_column("id", ColumnType::Int).unwrap(),
         ));
-        table_entry.insert_all(vec![
-            Row::filled(vec![
-                ColumnValue::Int(10),
-                ColumnValue::Text("relop".to_string()),
-            ]),
-            Row::filled(vec![
-                ColumnValue::Int(20),
-                ColumnValue::Text("query".to_string()),
-            ]),
+        let batch = Batch::new(vec![
+            Row::filled(vec![ColumnValue::Int(10)]),
+            Row::filled(vec![ColumnValue::Int(20)]),
         ]);
+        table_entry.insert_all(batch).unwrap();
 
         let rows = table_entry.scan().iter().collect::<Vec<_>>();
         assert_eq!(2, rows.len());
 
-        assert!(rows.contains(&Row::filled(vec![
-            ColumnValue::Int(10),
-            ColumnValue::Text("relop".to_string())
-        ])));
-        assert!(rows.contains(&Row::filled(vec![
-            ColumnValue::Int(20),
-            ColumnValue::Text("query".to_string())
-        ])));
+        assert!(rows.contains(&Row::filled(vec![ColumnValue::Int(10),])));
+        assert!(rows.contains(&Row::filled(vec![ColumnValue::Int(20),])));
+    }
+
+    #[test]
+    fn insert_rows_with_duplicate_primary_key_values() {
+        let table_entry = TableEntry::new(Table::new(
+            "employees".to_string(),
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_primary_key(PrimaryKey::single("id"))
+                .unwrap(),
+        ));
+        let batch = Batch::new(vec![
+            Row::filled(vec![ColumnValue::Int(10)]),
+            Row::filled(vec![ColumnValue::Int(10)]),
+        ]);
+        let result = table_entry.insert_all(batch);
+        assert!(matches!(result, Err(InsertError::DuplicatePrimaryKey)));
+    }
+
+    #[test]
+    fn insert_rows_with_duplicate_primary_key_values_in_index() {
+        let table_entry = TableEntry::new(Table::new(
+            "employees".to_string(),
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_primary_key(PrimaryKey::single("id"))
+                .unwrap(),
+        ));
+        let batch = Batch::new(vec![
+            Row::filled(vec![ColumnValue::Int(10)]),
+            Row::filled(vec![ColumnValue::Int(20)]),
+        ]);
+        let result = table_entry.insert_all(batch);
+        assert!(result.is_ok());
+
+        let batch = Batch::new(vec![
+            Row::filled(vec![ColumnValue::Int(10)]),
+        ]);
+        let result = table_entry.insert_all(batch);
+        assert!(matches!(result, Err(InsertError::DuplicatePrimaryKey)));
     }
 
     #[test]

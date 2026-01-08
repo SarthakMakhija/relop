@@ -66,7 +66,7 @@ impl Catalog {
             .check_type_compatability(table_entry.table().schema())
             .map_err(InsertError::Schema)?;
 
-        Ok(table_entry.insert_all(batch.into_rows()))
+        table_entry.insert_all(batch)
     }
 
     pub(crate) fn get(&self, table_name: &str, row_id: RowId) -> Result<Option<Row>, CatalogError> {

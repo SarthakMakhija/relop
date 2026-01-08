@@ -37,7 +37,7 @@ impl PrimaryKeyIndex {
 
     pub(crate) fn ensure_no_duplicates(
         &self,
-        keys: &[&PrimaryKeyColumnValues],
+        keys: &[PrimaryKeyColumnValues],
     ) -> Result<(), InsertError> {
         for key in keys {
             if self.contains(key) {
@@ -183,7 +183,7 @@ mod tests {
         let index = PrimaryKeyIndex::new();
         index.insert(primary_key_column_values, 100);
 
-        let result = index.ensure_no_duplicates(&[&PrimaryKeyColumnValues::new(
+        let result = index.ensure_no_duplicates(&[PrimaryKeyColumnValues::new(
             &row,
             &primary_key,
             &schema,
@@ -200,7 +200,7 @@ mod tests {
         let primary_key = PrimaryKey::single("first_name");
         let index = PrimaryKeyIndex::new();
 
-        let result = index.ensure_no_duplicates(&[&PrimaryKeyColumnValues::new(
+        let result = index.ensure_no_duplicates(&[PrimaryKeyColumnValues::new(
             &row,
             &primary_key,
             &schema,
