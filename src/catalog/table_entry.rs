@@ -59,6 +59,10 @@ impl TableEntry {
         TableScan::new(self.store.clone())
     }
 
+    pub(crate) fn table(&self) -> &Table {
+        &self.table
+    }
+    
     pub(crate) fn table_name(&self) -> &str {
         self.table.name()
     }

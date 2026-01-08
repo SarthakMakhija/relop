@@ -42,6 +42,12 @@ impl Catalog {
             .table_entry_or_error(table_name)
             .map_err(InsertError::Catalog)?;
 
+        table_entry
+            .table()
+            .schema()
+            .check_type_compatability(row.column_values())
+            .map_err(InsertError::Schema)?;
+
         table_entry.insert(row)
     }
 
@@ -84,6 +90,7 @@ impl Catalog {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::schema::error::SchemaError;
     use crate::schema::primary_key::PrimaryKey;
     use crate::types::column_type::ColumnType;
     use crate::types::column_value::ColumnValue;
@@ -181,21 +188,13 @@ mod tests {
         assert!(result.is_ok());
 
         let row_id = catalog
-            .insert_into(
-                "employees",
-                Row::filled(vec![
-                    ColumnValue::Int(1),
-                    ColumnValue::Text("relop".to_string()),
-                ]),
-            )
+            .insert_into("employees", Row::filled(vec![ColumnValue::Int(1)]))
             .unwrap();
 
         let row = catalog.get("employees", row_id).unwrap().unwrap();
         let expected_row = Row::filled(vec![
             ColumnValue::Int(1),
-            ColumnValue::Text("relop".to_string()),
         ]);
-
         assert_eq!(expected_row, row);
     }
 
@@ -214,6 +213,47 @@ mod tests {
         assert!(
             matches!(result, Err(InsertError::Catalog(CatalogError::TableDoesNotExist(ref table_name))) if table_name == "employees"),
         )
+    }
+
+    #[test]
+    fn attempt_to_insert_into_table_with_incompatible_column_count() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_column("name", ColumnType::Text)
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let result = catalog.insert_into("employees", Row::filled(vec![ColumnValue::Int(10)]));
+
+        assert!(matches!(
+            result,
+            Err(InsertError::Schema(SchemaError::ColumnCountMismatch {expected, actual})) if expected == 2 && actual == 1
+        ))
+    }
+
+    #[test]
+    fn attempt_to_insert_into_table_with_incompatible_column_values() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let result = catalog.insert_into(
+            "employees",
+            Row::filled(vec![ColumnValue::Text("relop".to_string())]),
+        );
+
+        assert!(matches!(
+            result,
+            Err(InsertError::Schema(SchemaError::ColumnTypeMismatch {column, expected, actual})) if column == "id" && expected == ColumnType::Int && actual == ColumnType::Text
+        ))
     }
 
     #[test]
@@ -301,7 +341,6 @@ mod tests {
                 "employees",
                 Row::filled(vec![
                     ColumnValue::Int(1),
-                    ColumnValue::Text("relop".to_string()),
                 ]),
             )
             .unwrap();
@@ -309,7 +348,6 @@ mod tests {
         let row = catalog.get("employees", row_id).unwrap().unwrap();
         let expected_row = Row::filled(vec![
             ColumnValue::Int(1),
-            ColumnValue::Text("relop".to_string()),
         ]);
 
         assert_eq!(expected_row, row);
@@ -339,7 +377,6 @@ mod tests {
                 "employees",
                 Row::filled(vec![
                     ColumnValue::Int(1),
-                    ColumnValue::Text("relop".to_string()),
                 ]),
             )
             .unwrap();
@@ -353,9 +390,7 @@ mod tests {
 
         let expected_row = Row::filled(vec![
             ColumnValue::Int(1),
-            ColumnValue::Text("relop".to_string()),
         ]);
-
         assert_eq!(expected_row, rows[0]);
     }
 
@@ -398,14 +433,12 @@ mod table_insert_and_index_tests {
                 "employees",
                 Row::filled(vec![
                     ColumnValue::Int(1),
-                    ColumnValue::Text("relop".to_string()),
                 ]),
             )
             .unwrap();
 
         let row = Row::filled(vec![
             ColumnValue::Int(1),
-            ColumnValue::Text("relop".to_string()),
         ]);
         let schema = Schema::new()
             .add_column("id", ColumnType::Int)
