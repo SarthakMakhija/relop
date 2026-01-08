@@ -1,3 +1,5 @@
+use crate::values::column_value::ColumnValue;
+
 pub(crate) struct Column {
     name: String,
     column_type: ColumnType,
@@ -9,9 +11,21 @@ pub enum ColumnType {
     Text,
 }
 
+impl ColumnType {
+    pub fn accepts(&self, value: &ColumnValue) -> bool {
+        matches!(
+            (self, value),
+            (ColumnType::Int, ColumnValue::Int(_)) | (ColumnType::Text, ColumnValue::Text(_))
+        )
+    }
+}
+
 impl Column {
     pub(crate) fn new(name: &str, column_type: ColumnType) -> Column {
-        Column { name: name.to_string(), column_type }
+        Column {
+            name: name.to_string(),
+            column_type,
+        }
     }
 
     pub(crate) fn name(&self) -> &str {
@@ -43,5 +57,33 @@ mod tests {
     #[test]
     fn does_not_match_column_name() {
         assert!(!Column::new("id", ColumnType::Int).matches_name("first_name"));
+    }
+}
+
+mod column_type_tests {
+    use super::*;
+
+    #[test]
+    fn column_type_accepts_same_type_text_column_value() {
+        let column_type = ColumnType::Text;
+        let column_value_type = ColumnValue::Text("relop".to_string());
+
+        assert!(column_type.accepts(&column_value_type));
+    }
+
+    #[test]
+    fn column_type_accepts_same_type_int_column_value() {
+        let column_type = ColumnType::Int;
+        let column_value_type = ColumnValue::Int(20);
+
+        assert!(column_type.accepts(&column_value_type));
+    }
+
+    #[test]
+    fn column_type_does_not_accept_different_column_value() {
+        let column_type = ColumnType::Int;
+        let column_value_type = ColumnValue::Text("relop".to_string());
+
+        assert!(!column_type.accepts(&column_value_type));
     }
 }

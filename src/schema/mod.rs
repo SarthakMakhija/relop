@@ -1,6 +1,6 @@
-pub mod primary_key;
-pub mod error;
 pub(crate) mod column;
+pub mod error;
+pub mod primary_key;
 
 use crate::schema::column::Column;
 use crate::schema::column::ColumnType;
@@ -20,7 +20,10 @@ impl Default for Schema {
 
 impl Schema {
     pub fn new() -> Self {
-        Self { columns: Vec::new(), primary_key: None }
+        Self {
+            columns: Vec::new(),
+            primary_key: None,
+        }
     }
 
     pub fn add_column(mut self, name: &str, column_type: ColumnType) -> Result<Self, SchemaError> {
@@ -38,13 +41,16 @@ impl Schema {
         Ok(self)
     }
 
-    pub fn column_position (&self, column_name: &str) -> Option<usize> {
-        self.columns.iter().enumerate().find_map(|(position, column)| {
-            if column.matches_name(column_name) {
-                return Some(position);
-            }
-            None
-        })
+    pub fn column_position(&self, column_name: &str) -> Option<usize> {
+        self.columns
+            .iter()
+            .enumerate()
+            .find_map(|(position, column)| {
+                if column.matches_name(column_name) {
+                    return Some(position);
+                }
+                None
+            })
     }
 
     pub fn column_count(&self) -> usize {
@@ -73,7 +79,10 @@ impl Schema {
         Ok(())
     }
 
-    fn ensure_primary_key_columns_exist(&self, primary_key: &PrimaryKey) -> Result<(), SchemaError> {
+    fn ensure_primary_key_columns_exist(
+        &self,
+        primary_key: &PrimaryKey,
+    ) -> Result<(), SchemaError> {
         for primary_key_column_name in primary_key.column_names() {
             if !self.has_column(primary_key_column_name) {
                 return Err(SchemaError::PrimaryKeyColumnNotFound(
@@ -85,7 +94,9 @@ impl Schema {
     }
 
     fn has_column(&self, column_name: &str) -> bool {
-        self.columns.iter().any(|column| column.matches_name(column_name))
+        self.columns
+            .iter()
+            .any(|column| column.matches_name(column_name))
     }
 }
 
@@ -174,12 +185,7 @@ mod tests {
         schema = schema.add_primary_key(PrimaryKey::single("id")).unwrap();
 
         let result = schema.add_primary_key(PrimaryKey::single("id"));
-        assert!(
-            matches!(
-                result,
-                Err(SchemaError::PrimaryKeyAlreadyDefined)
-            )
-        )
+        assert!(matches!(result, Err(SchemaError::PrimaryKeyAlreadyDefined)))
     }
 
     #[test]
@@ -196,7 +202,11 @@ mod tests {
     #[test]
     fn column_position() {
         let mut schema = Schema::new();
-        schema = schema.add_column("id", ColumnType::Int).unwrap().add_column("name", ColumnType::Text).unwrap();
+        schema = schema
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
 
         let position = schema.column_position("name").unwrap();
         assert_eq!(1, position)
@@ -205,7 +215,11 @@ mod tests {
     #[test]
     fn attempt_to_get_column_position_of_a_column_that_does_not_exist_in_schema() {
         let mut schema = Schema::new();
-        schema = schema.add_column("id", ColumnType::Int).unwrap().add_column("name", ColumnType::Text).unwrap();
+        schema = schema
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
 
         let position = schema.column_position("age");
         assert!(position.is_none());
