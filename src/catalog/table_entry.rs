@@ -32,7 +32,7 @@ impl TableEntry {
             let schema = self.table.schema();
             //SAFETY: primary_key_index can only be created if the Table has a primary key.
             //If table has a primary key, we can safely unwrap() primary_key() from schema.
-            let primary_key = schema.primary_key().as_ref().unwrap();
+            let primary_key = schema.primary_key().unwrap();
             let primary_key_column_values = PrimaryKeyColumnValues::new(&row, primary_key, schema);
 
             if primary_key_index.contains(&primary_key_column_values) {

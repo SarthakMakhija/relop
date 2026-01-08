@@ -1,3 +1,4 @@
+use crate::catalog::error::InsertError;
 use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
 use crate::storage::table_store::RowId;
 use std::collections::HashMap;
@@ -32,6 +33,18 @@ impl PrimaryKeyIndex {
     pub(crate) fn get(&self, key: &PrimaryKeyColumnValues) -> Option<RowId> {
         let index = self.index.read().unwrap();
         index.get(key).cloned()
+    }
+
+    pub(crate) fn ensure_no_duplicates(
+        &self,
+        keys: &[&PrimaryKeyColumnValues],
+    ) -> Result<(), InsertError> {
+        for key in keys {
+            if self.contains(key) {
+                return Err(InsertError::DuplicatePrimaryKey);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -145,7 +158,7 @@ mod tests {
     }
 
     #[test]
-    fn should_not_contain_non_existing_index_key() {
+    fn should_not_contain_index_key() {
         let mut schema = Schema::new();
         schema = schema.add_column("first_name", ColumnType::Text).unwrap();
 
@@ -156,5 +169,42 @@ mod tests {
 
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
         assert!(!index.contains(&primary_key_column_values));
+    }
+
+    #[test]
+    fn duplicate_primary_key_value() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("first_name", ColumnType::Text).unwrap();
+
+        let row = Row::filled(vec![ColumnValue::Text("relop".to_string())]);
+        let primary_key = PrimaryKey::single("first_name");
+        let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
+
+        let index = PrimaryKeyIndex::new();
+        index.insert(primary_key_column_values, 100);
+
+        let result = index.ensure_no_duplicates(&[&PrimaryKeyColumnValues::new(
+            &row,
+            &primary_key,
+            &schema,
+        )]);
+        assert!(matches!(result, Err(InsertError::DuplicatePrimaryKey)));
+    }
+
+    #[test]
+    fn no_duplicate_primary_key_value() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("first_name", ColumnType::Text).unwrap();
+
+        let row = Row::filled(vec![ColumnValue::Text("relop".to_string())]);
+        let primary_key = PrimaryKey::single("first_name");
+        let index = PrimaryKeyIndex::new();
+
+        let result = index.ensure_no_duplicates(&[&PrimaryKeyColumnValues::new(
+            &row,
+            &primary_key,
+            &schema,
+        )]);
+        assert!(result.is_ok());
     }
 }

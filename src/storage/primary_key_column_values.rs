@@ -35,6 +35,10 @@ impl PrimaryKeyColumnValues {
             values: column_values,
         }
     }
+
+    pub(crate) fn values(&self) -> &[ColumnValue] {
+        &self.values
+    }
 }
 
 #[cfg(test)]

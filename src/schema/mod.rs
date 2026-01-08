@@ -62,8 +62,8 @@ impl Schema {
         self.primary_key.is_some()
     }
 
-    pub(crate) fn primary_key(&self) -> &Option<PrimaryKey> {
-        &self.primary_key
+    pub(crate) fn primary_key(&self) -> Option<&PrimaryKey> {
+        self.primary_key.as_ref()
     }
 
     pub(crate) fn check_type_compatability(

@@ -1,6 +1,10 @@
 use crate::schema::error::SchemaError;
+use crate::schema::primary_key::PrimaryKey;
 use crate::schema::Schema;
+use crate::storage::error::BatchError;
+use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
 use crate::storage::row::Row;
+use std::collections::HashSet;
 
 pub struct Batch {
     rows: Vec<Row>,
@@ -16,6 +20,30 @@ impl Batch {
             schema.check_type_compatability(row.column_values())?
         }
         Ok(())
+    }
+
+    pub(crate) fn unique_primary_key_values(
+        &self,
+        schema: &Schema,
+    ) -> Result<Vec<PrimaryKeyColumnValues>, BatchError> {
+        let mut seen = HashSet::new();
+
+        if let Some(primary_key) = schema.primary_key() {
+            for row in &self.rows {
+                let primary_key_column_values =
+                    PrimaryKeyColumnValues::new(row, primary_key, schema);
+                if !seen.insert(primary_key_column_values) {
+                    return Err(BatchError::DuplicatePrimaryKey);
+                }
+            }
+
+            let mut values = Vec::with_capacity(self.rows.len());
+            for row in &self.rows {
+                values.push(PrimaryKeyColumnValues::new(row, primary_key, schema));
+            }
+            return Ok(values);
+        }
+        Ok(vec![])
     }
 
     pub(crate) fn into_rows(self) -> Vec<Row> {
@@ -68,5 +96,44 @@ mod tests {
             result,
             Err(SchemaError::ColumnTypeMismatch {column, expected, actual}) if column == "id" && expected == ColumnType::Int && actual == ColumnType::Text
         ))
+    }
+
+    #[test]
+    fn unique_primary_key_values() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_primary_key(PrimaryKey::single("id"))
+            .unwrap();
+
+        let batch = Batch::new(vec![
+            Row::filled(vec![ColumnValue::Int(1)]),
+            Row::filled(vec![ColumnValue::Int(2)]),
+        ]);
+
+        let all_primary_key_column_values = batch.unique_primary_key_values(&schema).unwrap();
+        assert_eq!(2, all_primary_key_column_values.len());
+
+        let primary_key_column_values = all_primary_key_column_values.first().unwrap();
+        assert_eq!(&[ColumnValue::Int(1)], primary_key_column_values.values());
+
+        let primary_key_column_values = all_primary_key_column_values.last().unwrap();
+        assert_eq!(&[ColumnValue::Int(2)], primary_key_column_values.values());
+    }
+
+    #[test]
+    fn duplicate_primary_key_values() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_primary_key(PrimaryKey::single("id"))
+            .unwrap();
+
+        let batch = Batch::new(vec![
+            Row::filled(vec![ColumnValue::Int(1)]),
+            Row::filled(vec![ColumnValue::Int(1)]),
+        ]);
+
+        assert!(batch.unique_primary_key_values(&schema).is_err());
     }
 }
