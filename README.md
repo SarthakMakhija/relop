@@ -31,7 +31,7 @@ The project intentionally focuses on a **small subset of SQL SELECT** and operat
   - [X] Insert rows via catalog-managed API
   - [X] Row lookup via internal row identifiers
   - [X] Sequential table scan abstraction
-  - [ ] Primary key index for enforcing uniqueness and lookup
+  - [X] Primary key index for enforcing uniqueness and lookup
 - [ ] Keep the system small, explicit, and easy to reason about.
 
 ## Non-goals
