@@ -2,6 +2,7 @@ use crate::schema::primary_key::PrimaryKey;
 use crate::schema::Schema;
 use crate::storage::row::{ColumnValue, Row};
 
+#[derive(Hash, Eq, PartialEq)]
 pub(crate) struct PrimaryKeyColumnValues {
     values: Vec<ColumnValue>,
 }

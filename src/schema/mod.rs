@@ -51,6 +51,10 @@ impl Schema {
         self.columns.len()
     }
 
+    pub fn has_primary_key(&self) -> bool {
+        self.primary_key.is_some()
+    }
+
     fn ensure_column_not_already_defined(&self, name: &str) -> Result<(), SchemaError> {
         if self.has_column(name) {
             return Err(SchemaError::DuplicateColumnName(name.to_string()));
@@ -140,6 +144,23 @@ mod tests {
 
         schema = schema.add_primary_key(PrimaryKey::single("id")).unwrap();
         assert!(schema.primary_key.is_some());
+    }
+
+    #[test]
+    fn has_primary_key() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("id", ColumnType::Int).unwrap();
+
+        schema = schema.add_primary_key(PrimaryKey::single("id")).unwrap();
+        assert!(schema.has_primary_key());
+    }
+
+    #[test]
+    fn does_not_have_primary_key() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("id", ColumnType::Int).unwrap();
+
+        assert!(!schema.has_primary_key());
     }
 
     #[test]
