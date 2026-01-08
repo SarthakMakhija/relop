@@ -1,3 +1,4 @@
+use crate::storage::error::PrimaryKeyIndexError;
 use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
 use crate::storage::table_store::RowId;
 use std::collections::HashMap;
@@ -14,9 +15,18 @@ impl PrimaryKeyIndex {
         }
     }
 
-    pub(crate) fn insert(&self, key: PrimaryKeyColumnValues, row_id: RowId) {
+    pub(crate) fn insert(
+        &self,
+        key: PrimaryKeyColumnValues,
+        row_id: RowId,
+    ) -> Result<(), PrimaryKeyIndexError> {
         let mut index = self.index.write().unwrap();
+        if index.contains_key(&key) {
+            return Err(PrimaryKeyIndexError::DuplicateKey);
+        }
+
         index.insert(key, row_id);
+        Ok(())
     }
 
     pub(crate) fn contains(&self, key: &PrimaryKeyColumnValues) -> bool {
@@ -46,49 +56,62 @@ mod tests {
         let row = Row::filled(vec![ColumnValue::Text("relop".to_string())]);
         let primary_key = PrimaryKey::single("first_name");
 
-        let primary_key_column_values = PrimaryKeyColumnValues::new(
-            &row,
-            &primary_key,
-            &schema,
-        );
+        let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
 
         let row_id = 100;
 
         let index = PrimaryKeyIndex::new();
-        index.insert(primary_key_column_values, row_id);
+        index.insert(primary_key_column_values, row_id).unwrap();
 
-        let primary_key_column_values = PrimaryKeyColumnValues::new(
-            &row,
-            &primary_key,
-            &schema,
-        );
+        let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
         assert!(index.contains(&primary_key_column_values));
+    }
+
+    #[test]
+    fn attempt_to_add_duplicate_primary_key() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("first_name", ColumnType::Text).unwrap();
+
+        let row = Row::filled(vec![ColumnValue::Text("relop".to_string())]);
+        let primary_key = PrimaryKey::single("first_name");
+
+        let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
+
+        let row_id = 100;
+
+        let index = PrimaryKeyIndex::new();
+        index.insert(primary_key_column_values, row_id).unwrap();
+
+        let result = index.insert(
+            PrimaryKeyColumnValues::new(&row, &primary_key, &schema),
+            row_id,
+        );
+        assert!(matches!(result, Err(PrimaryKeyIndexError::DuplicateKey)));
     }
 
     #[test]
     fn insert_a_composite_primary_key_column_value_in_index() {
         let mut schema = Schema::new();
-        schema = schema.add_column("first_name", ColumnType::Text).unwrap().add_column("id", ColumnType::Int).unwrap();
+        schema = schema
+            .add_column("first_name", ColumnType::Text)
+            .unwrap()
+            .add_column("id", ColumnType::Int)
+            .unwrap();
 
-        let row = Row::filled(vec![ColumnValue::Text("relop".to_string()), ColumnValue::Int(200)]);
+        let row = Row::filled(vec![
+            ColumnValue::Text("relop".to_string()),
+            ColumnValue::Int(200),
+        ]);
         let primary_key = PrimaryKey::composite(vec!["first_name", "id"]).unwrap();
 
-        let primary_key_column_values = PrimaryKeyColumnValues::new(
-            &row,
-            &primary_key,
-            &schema,
-        );
+        let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
 
         let row_id = 100;
 
         let index = PrimaryKeyIndex::new();
-        index.insert(primary_key_column_values, row_id);
+        index.insert(primary_key_column_values, row_id).unwrap();
 
-        let primary_key_column_values = PrimaryKeyColumnValues::new(
-            &row,
-            &primary_key,
-            &schema,
-        );
+        let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
         assert!(index.contains(&primary_key_column_values));
     }
 
@@ -100,22 +123,14 @@ mod tests {
         let row = Row::filled(vec![ColumnValue::Text("relop".to_string())]);
         let primary_key = PrimaryKey::single("first_name");
 
-        let primary_key_column_values = PrimaryKeyColumnValues::new(
-            &row,
-            &primary_key,
-            &schema,
-        );
+        let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
 
         let row_id = 100;
 
         let index = PrimaryKeyIndex::new();
-        index.insert(primary_key_column_values, row_id);
+        index.insert(primary_key_column_values, row_id).unwrap();
 
-        let primary_key_column_values = PrimaryKeyColumnValues::new(
-            &row,
-            &primary_key,
-            &schema,
-        );
+        let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
         assert_eq!(row_id, index.get(&primary_key_column_values).unwrap());
     }
 
@@ -129,11 +144,7 @@ mod tests {
 
         let index = PrimaryKeyIndex::new();
 
-        let primary_key_column_values = PrimaryKeyColumnValues::new(
-            &row,
-            &primary_key,
-            &schema,
-        );
+        let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
         assert!(index.get(&primary_key_column_values).is_none());
     }
 
@@ -147,11 +158,7 @@ mod tests {
 
         let index = PrimaryKeyIndex::new();
 
-        let primary_key_column_values = PrimaryKeyColumnValues::new(
-            &row,
-            &primary_key,
-            &schema,
-        );
+        let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
         assert!(!index.contains(&primary_key_column_values));
     }
 }
