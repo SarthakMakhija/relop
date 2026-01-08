@@ -3,9 +3,9 @@ pub mod error;
 pub mod primary_key;
 
 use crate::schema::column::Column;
-use crate::schema::column::ColumnType;
 use crate::schema::error::SchemaError;
 use crate::schema::primary_key::PrimaryKey;
+use crate::types::column_type::ColumnType;
 
 pub struct Schema {
     columns: Vec<Column>,

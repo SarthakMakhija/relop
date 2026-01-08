@@ -1,4 +1,4 @@
-use crate::values::column_value::ColumnValue;
+use crate::types::column_value::ColumnValue;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Row {

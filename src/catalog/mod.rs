@@ -78,9 +78,9 @@ impl Catalog {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::column::ColumnType;
     use crate::schema::primary_key::PrimaryKey;
-    use crate::values::column_value::ColumnValue;
+    use crate::types::column_type::ColumnType;
+    use crate::types::column_value::ColumnValue;
 
     #[test]
     fn create_table() {
@@ -368,12 +368,12 @@ mod tests {
 #[cfg(test)]
 mod table_insert_and_index_tests {
     use crate::catalog::Catalog;
-    use crate::schema::column::ColumnType;
     use crate::schema::primary_key::PrimaryKey;
     use crate::schema::Schema;
     use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
     use crate::storage::row::Row;
-    use crate::values::column_value::ColumnValue;
+    use crate::types::column_type::ColumnType;
+    use crate::types::column_value::ColumnValue;
 
     #[test]
     fn insert_into_table_with_primary_key() {

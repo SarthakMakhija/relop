@@ -51,7 +51,7 @@ impl TableStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::values::column_value::ColumnValue;
+    use crate::types::column_value::ColumnValue;
 
     #[test]
     fn insert_row_and_get_row_id() {

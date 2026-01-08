@@ -82,10 +82,10 @@ impl TableEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::column::ColumnType;
     use crate::schema::primary_key::PrimaryKey;
     use crate::schema::Schema;
-    use crate::values::column_value::ColumnValue;
+    use crate::types::column_type::ColumnType;
+    use crate::types::column_value::ColumnValue;
 
     #[test]
     fn insert_row() {
