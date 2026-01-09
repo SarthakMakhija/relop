@@ -1,4 +1,4 @@
-mod ast;
+pub(crate) mod ast;
 mod error;
 
 use crate::query::lexer::token::{TokenStream, TokenType};
