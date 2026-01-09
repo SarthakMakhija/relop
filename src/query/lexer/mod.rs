@@ -26,17 +26,13 @@ impl Lexer {
 
     pub(crate) fn lex(&mut self) -> Result<TokenStream, LexError> {
         let mut stream = TokenStream::new();
-        loop {
-            let char = match self.peek() {
-                Some(ch) => ch,
-                None => break,
-            };
+        while let Some(char) = self.peek() {
             match char {
                 ch if ch.is_whitespace() => self.eat(),
                 ch if Self::looks_like_an_identifier(ch) => {
                     stream.add(self.identifier_or_keyword());
                 }
-                ch if ch == ';' => {
+                ';' => {
                     stream.add(Token::semicolon());
                     self.eat();
                 }
@@ -67,18 +63,16 @@ impl Lexer {
 
     fn identifier_or_keyword(&mut self) -> Token {
         let mut lexeme = String::new();
-        loop {
-            if let Some(ch) = self.peek() {
-                if Self::looks_like_an_identifier(ch) {
-                    let _ = self.advance();
-                    lexeme.push(ch);
-                } else {
-                    break;
-                }
+        
+        while let Some(ch) = self.peek() {
+            if Self::looks_like_an_identifier(ch) {
+                let _ = self.advance();
+                lexeme.push(ch);
             } else {
                 break;
             }
         }
+
         let is_keyword = self.keywords.contains(&lexeme.to_lowercase());
 
         if is_keyword {
@@ -141,11 +135,9 @@ mod tests {
     #[test]
     fn unrecognized_character() {
         let result = Lexer::new("select +").lex();
-        assert!(
-            matches!(
-                result,
-                Err(LexError::UnexpectedCharacter(ch)) if ch == '+'
-            )
-        );
+        assert!(matches!(
+            result,
+            Err(LexError::UnexpectedCharacter(ch)) if ch == '+'
+        ));
     }
 }
