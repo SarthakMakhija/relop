@@ -1,0 +1,15 @@
+program
+    = statement EOF ;
+
+statement
+    = show_tables
+    | describe_table ;
+
+show_tables
+    = "SHOW" "TABLES" [";"] ;
+
+describe_table
+    = "DESCRIBE" "TABLE" identifier [";"] ;
+
+identifier
+    = IDENTIFIER ;
