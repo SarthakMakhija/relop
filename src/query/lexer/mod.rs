@@ -1,6 +1,7 @@
 pub(crate) mod error;
 mod keywords;
 pub(crate) mod token;
+pub(crate) mod token_cursor;
 
 use crate::query::lexer::error::LexError;
 use crate::query::lexer::keywords::Keywords;
