@@ -41,6 +41,23 @@ mod tests {
     }
 
     #[test]
+    fn move_to_next_token_with_more_than_one_token() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("show", TokenType::Keyword));
+        stream.add(Token::new("tables", TokenType::Keyword));
+
+        let mut cursor = TokenCursor::new(stream);
+
+        let token = cursor.next().unwrap();
+        assert_eq!(TokenType::Keyword, token.token_type());
+        assert_eq!("show", token.lexeme());
+
+        let token = cursor.next().unwrap();
+        assert_eq!(TokenType::Keyword, token.token_type());
+        assert_eq!("tables", token.lexeme());
+    }
+
+    #[test]
     fn move_to_next_token_with_no_further_tokens() {
         let mut stream = TokenStream::new();
         stream.add(Token::new("show", TokenType::Keyword));

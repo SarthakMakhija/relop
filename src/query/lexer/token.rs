@@ -1,3 +1,5 @@
+use crate::query::lexer::token_cursor::TokenCursor;
+
 pub(crate) struct TokenStream {
     tokens: Vec<Token>,
 }
@@ -42,6 +44,14 @@ impl Token {
     pub(crate) fn matches(&self, token_type: TokenType, text: &str) -> bool {
         self.lexeme.eq_ignore_ascii_case(text) && self.token_type == token_type
     }
+
+    pub(crate) fn is_semicolon(&self) -> bool {
+        self.lexeme == ";" && self.token_type == TokenType::Semicolon
+    }
+
+    pub(crate) fn is_end_of_stream(&self) -> bool {
+        self.token_type == TokenType::EndOfStream
+    }
 }
 
 impl TokenStream {
@@ -59,6 +69,10 @@ impl TokenStream {
 
     pub(crate) fn token_at(&self, index: usize) -> Option<&Token> {
         self.tokens.get(index)
+    }
+
+    pub(crate) fn cursor(self) -> TokenCursor {
+        TokenCursor::new(self)
     }
 }
 
@@ -154,5 +168,29 @@ mod token_tests {
     fn does_not_match_keyword_token_because_the_token_is_an_identifier() {
         let token = Token::new("employees", TokenType::Identifier);
         assert!(!token.matches(TokenType::Keyword, "DESCRIBE"));
+    }
+
+    #[test]
+    fn is_a_semicolon_token() {
+        let token = Token::new(";", TokenType::Semicolon);
+        assert!(token.is_semicolon());
+    }
+
+    #[test]
+    fn is_not_a_semicolon_token() {
+        let token = Token::new("select", TokenType::Keyword);
+        assert!(!token.is_semicolon());
+    }
+
+    #[test]
+    fn is_end_of_stream_token() {
+        let token = Token::end_of_stream();
+        assert!(token.is_end_of_stream());
+    }
+
+    #[test]
+    fn is_not_end_of_stream_token() {
+        let token = Token::new("select", TokenType::Keyword);
+        assert!(!token.is_end_of_stream());
     }
 }
