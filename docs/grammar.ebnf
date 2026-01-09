@@ -1,4 +1,4 @@
-program
+query
     = statement EOF ;
 
 statement
