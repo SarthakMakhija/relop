@@ -1,6 +1,6 @@
 use crate::query::parser::ast::Ast;
 
-pub enum LogicalPlan {
+pub(crate) enum LogicalPlan {
     ShowTables,
     DescribeTable { table_name: String },
 }
@@ -37,4 +37,3 @@ mod tests {
         ));
     }
 }
-
