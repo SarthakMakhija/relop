@@ -13,5 +13,8 @@ else
   cargo clippy --all-targets --all-features
 fi
 
+echo "pre-commit: running cargo fmt ..."
+cargo fmt
+
 echo "pre-commit: OK"
 
