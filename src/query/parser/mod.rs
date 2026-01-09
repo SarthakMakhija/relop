@@ -181,4 +181,19 @@ mod show_tables_tests {
 
         assert!(matches!(result, Err(ParseError::UnexpectedEndOfInput)));
     }
+
+    #[test]
+    fn attempt_to_parse_with_another_token_instead_of_end_of_stream_token() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("show", TokenType::Keyword));
+        stream.add(Token::new("tables", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "end of stream" && found == "employees")
+        );
+    }
 }
