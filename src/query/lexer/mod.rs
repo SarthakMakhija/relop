@@ -29,12 +29,12 @@ impl Lexer {
         while let Some(char) = self.peek() {
             match char {
                 ch if ch.is_whitespace() => self.eat(),
-                ch if Self::looks_like_an_identifier(ch) => {
-                    stream.add(self.identifier_or_keyword());
-                }
                 ';' => {
                     stream.add(Token::semicolon());
                     self.eat();
+                }
+                ch if Self::looks_like_an_identifier(ch) => {
+                    stream.add(self.identifier_or_keyword());
                 }
                 _ => {
                     return Err(LexError::UnexpectedCharacter(char));
@@ -63,7 +63,7 @@ impl Lexer {
 
     fn identifier_or_keyword(&mut self) -> Token {
         let mut lexeme = String::new();
-        
+
         while let Some(ch) = self.peek() {
             if Self::looks_like_an_identifier(ch) {
                 let _ = self.advance();
