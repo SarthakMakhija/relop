@@ -52,6 +52,10 @@ impl Token {
     pub(crate) fn is_end_of_stream(&self) -> bool {
         self.token_type == TokenType::EndOfStream
     }
+
+    pub(crate) fn is_identifier(&self) -> bool {
+        !self.lexeme.is_empty() && self.token_type == TokenType::Identifier
+    }
 }
 
 impl TokenStream {

@@ -1,5 +1,4 @@
 use crate::schema::error::SchemaError;
-use crate::schema::primary_key::PrimaryKey;
 use crate::schema::Schema;
 use crate::storage::error::BatchError;
 use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
@@ -62,6 +61,7 @@ impl From<Vec<Row>> for Batch {
 mod tests {
     use super::*;
     use crate::schema::error::SchemaError;
+    use crate::schema::primary_key::PrimaryKey;
     use crate::schema::Schema;
     use crate::storage::row::Row;
     use crate::types::column_type::ColumnType;
