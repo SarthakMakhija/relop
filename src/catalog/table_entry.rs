@@ -240,9 +240,7 @@ mod tests {
         let result = table_entry.insert_all(batch);
         assert!(result.is_ok());
 
-        let batch = Batch::new(vec![
-            Row::filled(vec![ColumnValue::Int(10)]),
-        ]);
+        let batch = Batch::new(vec![Row::filled(vec![ColumnValue::Int(10)])]);
         let result = table_entry.insert_all(batch);
         assert!(matches!(result, Err(InsertError::DuplicatePrimaryKey)));
     }

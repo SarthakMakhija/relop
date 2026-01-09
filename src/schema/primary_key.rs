@@ -14,7 +14,7 @@ impl PrimaryKey {
 
     pub fn composite(column_names: Vec<&str>) -> Result<Self, SchemaError> {
         Self::ensure_non_empty_columns(&column_names)?;
-        
+
         let column_names = Self::ensure_unique_columns(&column_names)?;
         Ok(Self { column_names })
     }
@@ -85,10 +85,7 @@ mod tests {
     #[test]
     fn attempt_to_create_composite_primary_key_with_no_column_names() {
         let result = PrimaryKey::composite(vec![]);
-        assert!(matches!(
-            result,
-            Err(SchemaError::EmptyPrimaryKeyColumns)
-        ));
+        assert!(matches!(result, Err(SchemaError::EmptyPrimaryKeyColumns)));
     }
 
     #[test]

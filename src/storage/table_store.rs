@@ -44,7 +44,10 @@ impl TableStore {
 #[cfg(test)]
 impl TableStore {
     fn scan(&self) -> Vec<Row> {
-        self.entries.iter().map(|entry| entry.value().clone()).collect()
+        self.entries
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect()
     }
 }
 

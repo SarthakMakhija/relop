@@ -1,11 +1,10 @@
 pub(crate) mod error;
-pub(crate) mod token;
 mod keywords;
+pub(crate) mod token;
 
 use crate::query::lexer::error::LexError;
 use crate::query::lexer::keywords::Keywords;
 use crate::query::lexer::token::{Token, TokenStream, TokenType};
-use crate::query::lexer::token::TokenType::Keyword;
 
 pub(crate) struct Lexer {
     input: Vec<char>,
@@ -15,7 +14,7 @@ pub(crate) struct Lexer {
 
 impl Lexer {
     pub(crate) fn new_with_default_keywords(source: &str) -> Self {
-       Self::new(source, Keywords::new_with_default_keywords())
+        Self::new(source, Keywords::new_with_default_keywords())
     }
 
     pub(crate) fn new(source: &str, keywords: Keywords) -> Self {

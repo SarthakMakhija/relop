@@ -183,11 +183,8 @@ mod tests {
         let index = PrimaryKeyIndex::new();
         index.insert(primary_key_column_values, 100);
 
-        let result = index.ensure_no_duplicates(&[PrimaryKeyColumnValues::new(
-            &row,
-            &primary_key,
-            &schema,
-        )]);
+        let result =
+            index.ensure_no_duplicates(&[PrimaryKeyColumnValues::new(&row, &primary_key, &schema)]);
         assert!(matches!(result, Err(InsertError::DuplicatePrimaryKey)));
     }
 
@@ -200,11 +197,8 @@ mod tests {
         let primary_key = PrimaryKey::single("first_name");
         let index = PrimaryKeyIndex::new();
 
-        let result = index.ensure_no_duplicates(&[PrimaryKeyColumnValues::new(
-            &row,
-            &primary_key,
-            &schema,
-        )]);
+        let result =
+            index.ensure_no_duplicates(&[PrimaryKeyColumnValues::new(&row, &primary_key, &schema)]);
         assert!(result.is_ok());
     }
 }

@@ -4,7 +4,6 @@ use crate::schema::error::SchemaError;
 pub enum CatalogError {
     TableAlreadyExists(String),
     TableDoesNotExist(String),
-
 }
 #[derive(Debug, PartialEq)]
 pub enum InsertError {
