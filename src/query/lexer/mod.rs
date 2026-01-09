@@ -1,26 +1,28 @@
 pub(crate) mod error;
 pub(crate) mod token;
+mod keywords;
 
 use crate::query::lexer::error::LexError;
+use crate::query::lexer::keywords::Keywords;
 use crate::query::lexer::token::{Token, TokenStream, TokenType};
-use std::collections::HashSet;
+use crate::query::lexer::token::TokenType::Keyword;
 
 pub(crate) struct Lexer {
     input: Vec<char>,
     position: usize,
-    keywords: HashSet<String>,
+    keywords: Keywords,
 }
 
 impl Lexer {
-    pub(crate) fn new(source: &str) -> Self {
-        Self::new_with_keywords(source, &["show", "tables", "describe", "table"])
+    pub(crate) fn new_with_default_keywords(source: &str) -> Self {
+       Self::new(source, Keywords::new_with_default_keywords())
     }
 
-    pub(crate) fn new_with_keywords(source: &str, keywords: &[&str]) -> Self {
+    pub(crate) fn new(source: &str, keywords: Keywords) -> Self {
         Self {
             input: source.chars().collect(),
             position: 0,
-            keywords: keywords.iter().map(|keyword| keyword.to_string()).collect(),
+            keywords,
         }
     }
 
@@ -73,7 +75,7 @@ impl Lexer {
             }
         }
 
-        let is_keyword = self.keywords.contains(&lexeme.to_lowercase());
+        let is_keyword = self.keywords.contains(lexeme.as_str());
 
         if is_keyword {
             Token::new(lexeme, TokenType::Keyword)
@@ -93,7 +95,7 @@ mod tests {
 
     macro_rules! assert_lex {
         ($input:expr, [$(($ty:expr, $lex:expr)),* $(,)?]) => {{
-            let tokens = Lexer::new($input).lex().unwrap();
+            let tokens = Lexer::new_with_default_keywords($input).lex().unwrap();
             let expected = vec![$(($ty, $lex)),*];
 
             assert_eq!(expected.len(), tokens.len());
@@ -134,7 +136,7 @@ mod tests {
 
     #[test]
     fn unrecognized_character() {
-        let result = Lexer::new("select +").lex();
+        let result = Lexer::new_with_default_keywords("select +").lex();
         assert!(matches!(
             result,
             Err(LexError::UnexpectedCharacter(ch)) if ch == '+'
