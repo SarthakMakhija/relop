@@ -17,9 +17,9 @@ impl Column {
     ///
     /// let col = Column::new("age", ColumnType::Int);
     /// ```
-    pub fn new(name: &str, column_type: ColumnType) -> Column {
+    pub fn new<N: Into<String>>(name: N, column_type: ColumnType) -> Column {
         Column {
-            name: name.to_string(),
+            name: name.into(),
             column_type,
         }
     }
