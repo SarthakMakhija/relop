@@ -3,13 +3,17 @@ query
 
 statement
     = show_tables
-    | describe_table ;
+    | describe_table
+    | select;
 
 show_tables
     = "SHOW" "TABLES" [";"] ;
 
 describe_table
     = "DESCRIBE" "TABLE" identifier [";"] ;
+
+select
+    = "SELECT" "*" "FROM" identifier [";"] ;
 
 identifier
     = IDENTIFIER ;
