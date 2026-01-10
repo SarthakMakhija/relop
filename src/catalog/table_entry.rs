@@ -9,7 +9,7 @@ use crate::storage::table_store::{RowId, TableStore};
 use std::sync::{Arc, Mutex};
 
 pub(crate) struct TableEntry {
-    table: Table,
+    table: Arc<Table>,
     store: Arc<TableStore>,
     primary_key_index: Option<PrimaryKeyIndex>,
     insert_lock: Mutex<()>,
@@ -19,7 +19,7 @@ impl TableEntry {
     pub(crate) fn new(table: Table) -> Arc<TableEntry> {
         let primary_key_index = Self::maybe_primary_key_index(&table);
         Arc::new(Self {
-            table,
+            table: Arc::new(table),
             store: Arc::new(TableStore::new()),
             primary_key_index,
             insert_lock: Mutex::new(()),
