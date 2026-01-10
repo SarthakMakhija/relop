@@ -213,6 +213,22 @@ mod describe_table_tests {
     }
 
     #[test]
+    fn attempt_to_parse_with_another_keyword_token_instead_of_identifier() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("describe", TokenType::Keyword));
+        stream.add(Token::new("table", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("select", TokenType::Keyword));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "end of stream" && found == "select")
+        );
+    }
+
+    #[test]
     fn attempt_to_parse_with_another_token_instead_of_end_of_stream_token_with_semicolon() {
         let mut stream = TokenStream::new();
         stream.add(Token::new("describe", TokenType::Keyword));
