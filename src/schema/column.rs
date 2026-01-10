@@ -1,27 +1,27 @@
 use crate::types::column_type::ColumnType;
 
-pub(crate) struct Column {
+pub struct Column {
     name: String,
     column_type: ColumnType,
 }
 
 impl Column {
-    pub(crate) fn new(name: &str, column_type: ColumnType) -> Column {
+    pub fn new(name: &str, column_type: ColumnType) -> Column {
         Column {
             name: name.to_string(),
             column_type,
         }
     }
 
-    pub(crate) fn name(&self) -> &str {
+    pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub(crate) fn column_type(&self) -> &ColumnType {
+    pub fn column_type(&self) -> &ColumnType {
         &self.column_type
     }
 
-    pub(crate) fn matches_name(&self, name: &str) -> bool {
+    pub fn matches_name(&self, name: &str) -> bool {
         self.name.eq_ignore_ascii_case(name)
     }
 }

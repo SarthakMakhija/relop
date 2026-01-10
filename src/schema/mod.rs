@@ -1,4 +1,4 @@
-pub(crate) mod column;
+pub mod column;
 pub mod error;
 pub mod primary_key;
 
