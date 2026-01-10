@@ -1,5 +1,5 @@
 #[derive(Debug)]
-pub(crate) enum ParseError {
+pub enum ParseError {
     UnsupportedToken { expected: String, found: String },
     NoTokens,
     UnexpectedToken { expected: String, found: String },

@@ -12,16 +12,22 @@ use std::sync::{Arc, RwLock};
 
 pub mod error;
 pub(crate) mod table;
-pub(crate) mod table_descriptor;
+pub mod table_descriptor;
 pub(crate) mod table_entry;
 mod table_scan;
 
-pub(crate) struct Catalog {
+pub struct Catalog {
     tables: RwLock<HashMap<String, Arc<TableEntry>>>,
 }
 
+impl Default for Catalog {
+    fn default() -> Self {
+        Catalog::new()
+    }
+}
+
 impl Catalog {
-    pub(crate) fn new() -> Catalog {
+    pub fn new() -> Catalog {
         Self {
             tables: RwLock::new(HashMap::new()),
         }

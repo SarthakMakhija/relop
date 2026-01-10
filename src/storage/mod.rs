@@ -1,5 +1,5 @@
 pub(crate) mod batch;
-pub(crate) mod error;
+pub mod error;
 pub(crate) mod primary_key_column_values;
 pub(crate) mod primary_key_index;
 pub mod row;

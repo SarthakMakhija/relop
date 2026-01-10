@@ -1,4 +1,4 @@
 #[derive(Debug, PartialEq)]
-pub(crate) enum LexError {
+pub enum LexError {
     UnexpectedCharacter(char),
 }

@@ -14,7 +14,7 @@ impl Row {
         Self { values }
     }
 
-    pub fn add(mut self, value: ColumnValue) -> Self {
+    pub fn insert(mut self, value: ColumnValue) -> Self {
         self.values.push(value);
         self
     }
@@ -52,7 +52,7 @@ mod tests {
 
     #[test]
     fn create_a_row_with_two_column_values() {
-        let row = Row::single(ColumnValue::Text("relop".to_string())).add(ColumnValue::Int(100));
+        let row = Row::single(ColumnValue::Text("relop".to_string())).insert(ColumnValue::Int(100));
 
         assert_eq!(2, row.column_value_count());
         assert_eq!(

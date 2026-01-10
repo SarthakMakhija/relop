@@ -1,6 +1,6 @@
 use crate::catalog::error::CatalogError;
 
 #[derive(Debug)]
-pub(crate) enum ExecutionError {
+pub enum ExecutionError {
     Catalog(CatalogError),
 }

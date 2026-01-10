@@ -1,4 +1,4 @@
-pub(crate) mod error;
+pub mod error;
 mod keywords;
 pub(crate) mod token;
 pub(crate) mod token_cursor;

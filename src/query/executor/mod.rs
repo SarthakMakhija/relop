@@ -1,5 +1,5 @@
-pub(crate) mod error;
-pub(crate) mod result;
+pub mod error;
+pub mod result;
 
 use crate::catalog::Catalog;
 use crate::query::executor::error::ExecutionError;

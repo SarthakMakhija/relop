@@ -1,4 +1,4 @@
 #[derive(Debug, PartialEq)]
-pub(crate) enum BatchError {
+pub enum BatchError {
     DuplicatePrimaryKey,
 }

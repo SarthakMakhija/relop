@@ -1,4 +1,10 @@
-mod error;
+//! Client module for the Relop relational operator library.
+//!
+//! This module provides the main client interface (`Relop`) for interacting with
+//! the relational database system. It manages an in-memory catalog of tables and
+//! provides methods for table creation, data insertion, and query execution.
+
+pub mod error;
 
 use crate::catalog::Catalog;
 use crate::client::error::ClientError;
@@ -12,15 +18,88 @@ use crate::storage::batch::Batch;
 use crate::storage::row::Row;
 use crate::storage::table_store::RowId;
 
-pub(crate) struct Relop {
+/// The main client interface for the relational operator library.
+///
+/// `Relop` provides a high-level API for interacting with the relational database system.
+/// It manages an in-memory catalog of tables and provides methods for:
+/// - Creating tables with schemas
+/// - Inserting data into tables (single rows or batches)
+/// - Executing SQL queries through the full query processing pipeline
+pub struct Relop {
     catalog: Catalog,
 }
 
 impl Relop {
-    pub(crate) fn new(catalog: Catalog) -> Relop {
+    /// Creates a new `Relop` instance from a catalog.
+    ///
+    /// # Arguments
+    ///
+    /// * `catalog` - The [`Catalog`] instance that will manage tables and their data.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::catalog::Catalog;
+    /// use relop::client::Relop;
+    ///
+    /// let catalog = Catalog::new();
+    /// let relop = Relop::new(catalog);
+    /// ```
+    pub fn new(catalog: Catalog) -> Relop {
         Self { catalog }
     }
 
+    /// Creates a new table with the given name and schema.
+    ///
+    /// # Arguments
+    ///
+    /// * `table_name` - The name of the table to create. This can be any type that implements
+    ///   `Into<String>` (e.g., `&str`, `String`).
+    /// * `schema` - The [`Schema`] defining the table's columns and optional primary key.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the table was created successfully, or a [`ClientError::Catalog`]
+    /// if an error occurred.
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if:
+    /// - A table with the same name already exists (wrapped in [`ClientError::Catalog`])
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::catalog::Catalog;
+    /// use relop::client::Relop;
+    /// use relop::schema::Schema;
+    /// use relop::types::column_type::ColumnType;
+    ///
+    /// let relop = Relop::new(Catalog::new());
+    /// let schema = Schema::new()
+    ///     .add_column("id", ColumnType::Int)
+    ///     .unwrap();
+    ///
+    /// relop.create_table("employees", schema).unwrap();
+    /// ```
+    ///
+    /// Creating a table with a primary key:
+    ///
+    /// ```
+    /// use relop::catalog::Catalog;
+    /// use relop::client::Relop;
+    /// use relop::schema::{Schema, primary_key::PrimaryKey};
+    /// use relop::types::column_type::ColumnType;
+    ///
+    /// let relop = Relop::new(Catalog::new());
+    /// let schema = Schema::new()
+    ///     .add_column("id", ColumnType::Int)
+    ///     .unwrap()
+    ///     .add_primary_key(PrimaryKey::single("id"))
+    ///     .unwrap();
+    ///
+    /// relop.create_table("employees", schema).unwrap();
+    /// ```
     pub fn create_table<N: Into<String>>(
         &self,
         table_name: N,
@@ -31,12 +110,99 @@ impl Relop {
             .map_err(ClientError::Catalog)
     }
 
+    /// Inserts a single row into the specified table.
+    ///
+    /// # Arguments
+    ///
+    /// * `table_name` - The name of the table to insert into.
+    /// * `row` - The [`Row`] containing the column values to insert. The row must match
+    ///   the table's schema in terms of column count and types.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(RowId)` containing the unique identifier assigned to the inserted row,
+    /// or a [`ClientError::Insert`] if an error occurred.
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if:
+    /// - The table doesn't exist (wrapped in [`ClientError::Insert`])
+    /// - The row's column count doesn't match the table schema (wrapped in [`ClientError::Insert`])
+    /// - The row's column types don't match the table schema (wrapped in [`ClientError::Insert`])
+    /// - The row violates a primary key constraint (duplicate primary key, wrapped in [`ClientError::Insert`])
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::catalog::Catalog;
+    /// use relop::client::Relop;
+    /// use relop::schema::Schema;
+    /// use relop::storage::row::Row;
+    /// use relop::types::column_type::ColumnType;
+    /// use relop::types::column_value::ColumnValue;
+    ///
+    /// let relop = Relop::new(Catalog::new());
+    /// let schema = Schema::new()
+    ///     .add_column("id", ColumnType::Int)
+    ///     .unwrap();
+    ///
+    /// relop.create_table("employees", schema).unwrap();
+    ///
+    /// let row = Row::filled(vec![ColumnValue::Int(1)]);
+    /// let row_id = relop.insert_into("employees", row).unwrap();
+    /// ```
     pub fn insert_into(&self, table_name: &str, row: Row) -> Result<RowId, ClientError> {
         self.catalog
             .insert_into(table_name, row)
             .map_err(ClientError::Insert)
     }
 
+    /// Inserts multiple rows (batch insert) into the specified table.
+    ///
+    /// # Arguments
+    ///
+    /// * `table_name` - The name of the table to insert into.
+    /// * `batch` - A collection of rows that can be converted into a [`Batch`]. This accepts
+    ///   any type that implements `Into<Batch>`, such as `Vec<Row>` or a `Batch` directly.
+    ///   Each row must match the table's schema in terms of column count and types.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(Vec<RowId>)` containing the unique identifiers assigned to each inserted row,
+    /// in the same order as the input rows, or a [`ClientError::Insert`] if an error occurred.
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if:
+    /// - The table doesn't exist (wrapped in [`ClientError::Insert`])
+    /// - Any row's column count doesn't match the table schema (wrapped in [`ClientError::Insert`])
+    /// - Any row's column types don't match the table schema (wrapped in [`ClientError::Insert`])
+    /// - There are duplicate primary keys within the batch (wrapped in [`ClientError::Insert`])
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::catalog::Catalog;
+    /// use relop::client::Relop;
+    /// use relop::schema::Schema;
+    /// use relop::storage::row::Row;
+    /// use relop::types::column_type::ColumnType;
+    /// use relop::types::column_value::ColumnValue;
+    ///
+    /// let relop = Relop::new(Catalog::new());
+    /// let schema = Schema::new()
+    ///     .add_column("id", ColumnType::Int)
+    ///     .unwrap();
+    ///
+    /// relop.create_table("employees", schema).unwrap();
+    ///
+    /// let rows = vec![
+    ///     Row::filled(vec![ColumnValue::Int(1)]),
+    ///     Row::filled(vec![ColumnValue::Int(2)]),
+    /// ];
+    /// let row_ids = relop.insert_all_into("employees", rows).unwrap();
+    /// assert_eq!(2, row_ids.len());
+    /// ```
     pub fn insert_all_into(
         &self,
         table_name: &str,
@@ -47,6 +213,80 @@ impl Relop {
             .map_err(ClientError::Insert)
     }
 
+    /// Executes a SQL query string through the full query processing pipeline.
+    ///
+    /// This method processes a SQL query through multiple stages:
+    /// 1. **Lexical Analysis**: The query string is tokenized by the [`Lexer`]
+    /// 2. **Parsing**: Tokens are parsed into an Abstract Syntax Tree (AST) by the [`Parser`]
+    /// 3. **Logical Planning**: The AST is converted into a logical plan by the [`LogicalPlanner`]
+    /// 4. **Execution**: The logical plan is executed by the [`Executor`], which returns a [`QueryResult`]
+    ///
+    /// The processing pipeline follows this flow: `Lexer` → `Parser` → `LogicalPlanner` → `Executor`
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The SQL query string to execute.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(QueryResult)` containing the query results, or a [`ClientError`] if an error
+    /// occurred during any stage of processing.
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if:
+    /// - The query contains invalid characters or syntax that cannot be lexed (wrapped in [`ClientError::Lex`])
+    /// - The query syntax is invalid or unsupported (wrapped in [`ClientError::Parse`])
+    /// - An error occurs during query execution, such as referencing a non-existent table
+    ///   (wrapped in [`ClientError::Execution`])
+    ///
+    /// # Supported Queries
+    ///
+    /// Currently supports the following query types:
+    /// - `show tables` - Lists all tables in the catalog
+    /// - `describe table <name>` - Shows the schema of a specific table
+    ///
+    /// # Examples
+    ///
+    /// Listing all tables:
+    ///
+    /// ```
+    /// use relop::catalog::Catalog;
+    /// use relop::client::Relop;
+    /// use relop::schema::Schema;
+    /// use relop::types::column_type::ColumnType;
+    ///
+    /// let relop = Relop::new(Catalog::new());
+    /// let schema = Schema::new()
+    ///     .add_column("id", ColumnType::Int)
+    ///     .unwrap();
+    ///
+    /// relop.create_table("employees", schema).unwrap();
+    ///
+    /// let result = relop.execute("show tables").unwrap();
+    /// let tables = result.all_tables().unwrap();
+    /// assert_eq!(&vec!["employees".to_string()], tables);
+    /// ```
+    ///
+    /// Describing a table:
+    ///
+    /// ```
+    /// use relop::catalog::Catalog;
+    /// use relop::client::Relop;
+    /// use relop::schema::Schema;
+    /// use relop::types::column_type::ColumnType;
+    ///
+    /// let relop = Relop::new(Catalog::new());
+    /// let schema = Schema::new()
+    ///     .add_column("id", ColumnType::Int)
+    ///     .unwrap();
+    ///
+    /// relop.create_table("employees", schema).unwrap();
+    ///
+    /// let result = relop.execute("describe table employees").unwrap();
+    /// let descriptor = result.table_descriptor().unwrap();
+    /// assert_eq!("employees", descriptor.table_name());
+    /// ```
     pub fn execute(&self, query: &str) -> Result<QueryResult, ClientError> {
         let mut lexer = Lexer::new_with_default_keywords(query);
         let tokens = lexer.lex().map_err(ClientError::Lex)?;

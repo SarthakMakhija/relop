@@ -7,21 +7,21 @@ pub enum ColumnValue {
 }
 
 impl ColumnValue {
-    pub(crate) fn int_value(&self) -> Option<i64> {
+    pub fn int_value(&self) -> Option<i64> {
         if let ColumnValue::Int(value) = self {
             return Some(*value);
         }
         None
     }
 
-    pub(crate) fn text_value(&self) -> Option<&str> {
+    pub fn text_value(&self) -> Option<&str> {
         if let ColumnValue::Text(ref value) = self {
             return Some(value);
         }
         None
     }
 
-    pub(crate) fn column_type(&self) -> ColumnType {
+    pub fn column_type(&self) -> ColumnType {
         match self {
             ColumnValue::Int(_) => ColumnType::Int,
             ColumnValue::Text(_) => ColumnType::Text,

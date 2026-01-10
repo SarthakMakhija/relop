@@ -1,7 +1,7 @@
 use crate::catalog::table::Table;
 use std::sync::Arc;
 
-pub(crate) struct TableDescriptor {
+pub struct TableDescriptor {
     table: Arc<Table>,
 }
 
@@ -10,15 +10,15 @@ impl TableDescriptor {
         Self { table }
     }
 
-    pub(crate) fn table_name(&self) -> &str {
+    pub fn table_name(&self) -> &str {
         self.table.name()
     }
 
-    pub(crate) fn column_names(&self) -> Vec<&str> {
+    pub fn column_names(&self) -> Vec<&str> {
         self.table.schema().column_names()
     }
 
-    pub(crate) fn primary_key_column_names(&self) -> Option<&[String]> {
+    pub fn primary_key_column_names(&self) -> Option<&[String]> {
         self.table.schema().primary_key_column_names()
     }
 }
