@@ -27,15 +27,20 @@ impl Catalog {
         }
     }
 
-    pub(crate) fn create_table(&self, name: &str, schema: Schema) -> Result<(), CatalogError> {
+    pub(crate) fn create_table<N: Into<String>>(
+        &self,
+        name: N,
+        schema: Schema,
+    ) -> Result<(), CatalogError> {
+        let table_name = name.into();
         let mut tables = self.tables.write().unwrap();
 
-        if tables.contains_key(name) {
-            return Err(CatalogError::TableAlreadyExists(name.to_string()));
+        if tables.contains_key(&table_name) {
+            return Err(CatalogError::TableAlreadyExists(table_name));
         }
 
-        let table = Table::new(name, schema);
-        tables.insert(name.to_string(), TableEntry::new(table));
+        let table = Table::new(&table_name, schema);
+        tables.insert(table_name, TableEntry::new(table));
 
         Ok(())
     }
