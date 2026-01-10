@@ -17,13 +17,15 @@ The project intentionally focuses on a **small subset of SQL SELECT** and operat
   - [ ] Parser
   - [ ] AST
   - [ ] Logical plan
-  - [ ] Operator-based execution
-- [ ] Implement core relational operators:
+  - [ ] Operator-based execution 
+- [ ] Implement core relational operators and metadata queries
   - [ ] Scan
   - [ ] Filter
   - [ ] Projection
   - [ ] Join  (incrementally) 
   - [ ] Limit (incrementally)
+  - [X] Show tables
+  - [X] Describe table
 - [X] Build a minimal in-memory store to mimic relational database storage
   - [X] Tables with schemas
   - [X] Rows stored in memory
