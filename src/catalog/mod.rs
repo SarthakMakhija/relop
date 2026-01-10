@@ -34,7 +34,7 @@ impl Catalog {
             return Err(CatalogError::TableAlreadyExists(name.to_string()));
         }
 
-        let table = Table::new(name.to_string(), schema);
+        let table = Table::new(name, schema);
         tables.insert(name.to_string(), TableEntry::new(table));
 
         Ok(())

@@ -33,7 +33,7 @@ mod tests {
     #[test]
     fn table_name() {
         let table = Table::new(
-            "employees".to_string(),
+            "employees",
             Schema::new().add_column("id", ColumnType::Int).unwrap(),
         );
         let table_descriptor = TableDescriptor::new(Arc::new(table));
@@ -44,7 +44,7 @@ mod tests {
     #[test]
     fn column_names() {
         let table = Table::new(
-            "employees".to_string(),
+            "employees",
             Schema::new().add_column("id", ColumnType::Int).unwrap(),
         );
         let table_descriptor = TableDescriptor::new(Arc::new(table));
@@ -55,7 +55,7 @@ mod tests {
     #[test]
     fn primary_key_column_names() {
         let table = Table::new(
-            "employees".to_string(),
+            "employees",
             Schema::new()
                 .add_column("id", ColumnType::Int)
                 .unwrap()

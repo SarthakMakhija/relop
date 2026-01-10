@@ -126,7 +126,7 @@ mod tests {
     #[test]
     fn insert_row() {
         let table_entry = TableEntry::new(Table::new(
-            "employees".to_string(),
+            "employees",
             Schema::new().add_column("id", ColumnType::Int).unwrap(),
         ));
         table_entry
@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn insert_row_with_primary_key() {
         let table_entry = TableEntry::new(Table::new(
-            "employees".to_string(),
+            "employees",
             Schema::new()
                 .add_column("id", ColumnType::Int)
                 .unwrap()
@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn attempt_to_insert_row_with_duplicate_primary_key() {
         let table_entry = TableEntry::new(Table::new(
-            "employees".to_string(),
+            "employees",
             Schema::new()
                 .add_column("id", ColumnType::Int)
                 .unwrap()
@@ -194,7 +194,7 @@ mod tests {
     #[test]
     fn insert_rows() {
         let table_entry = TableEntry::new(Table::new(
-            "employees".to_string(),
+            "employees",
             Schema::new().add_column("id", ColumnType::Int).unwrap(),
         ));
         let batch = Batch::new(vec![
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn insert_rows_with_duplicate_primary_key_values() {
         let table_entry = TableEntry::new(Table::new(
-            "employees".to_string(),
+            "employees",
             Schema::new()
                 .add_column("id", ColumnType::Int)
                 .unwrap()
@@ -231,7 +231,7 @@ mod tests {
     #[test]
     fn insert_rows_with_duplicate_primary_key_values_in_index() {
         let table_entry = TableEntry::new(Table::new(
-            "employees".to_string(),
+            "employees",
             Schema::new()
                 .add_column("id", ColumnType::Int)
                 .unwrap()
@@ -253,7 +253,7 @@ mod tests {
     #[test]
     fn insert_row_and_get_by_row_id() {
         let table_entry = TableEntry::new(Table::new(
-            "employees".to_string(),
+            "employees",
             Schema::new().add_column("id", ColumnType::Int).unwrap(),
         ));
         let row_id = table_entry
@@ -267,7 +267,7 @@ mod tests {
     #[test]
     fn insert_row_and_attempt_to_get_by_non_existent_row_id() {
         let table_entry = TableEntry::new(Table::new(
-            "employees".to_string(),
+            "employees",
             Schema::new().add_column("id", ColumnType::Int).unwrap(),
         ));
         table_entry
@@ -281,7 +281,7 @@ mod tests {
     #[test]
     fn should_create_primary_key_index() {
         let table_entry = TableEntry::new(Table::new(
-            "employees".to_string(),
+            "employees",
             Schema::new()
                 .add_column("id", ColumnType::Int)
                 .unwrap()
@@ -294,7 +294,7 @@ mod tests {
     #[test]
     fn should_not_create_primary_key_index() {
         let table_entry = TableEntry::new(Table::new(
-            "employees".to_string(),
+            "employees",
             Schema::new().add_column("id", ColumnType::Int).unwrap(),
         ));
         assert!(!table_entry.has_primary_key_index());

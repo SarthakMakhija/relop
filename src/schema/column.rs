@@ -16,6 +16,7 @@ impl Column {
     pub(crate) fn name(&self) -> &str {
         &self.name
     }
+
     pub(crate) fn column_type(&self) -> &ColumnType {
         &self.column_type
     }

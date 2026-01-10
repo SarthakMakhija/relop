@@ -6,8 +6,11 @@ pub(crate) struct Table {
 }
 
 impl Table {
-    pub fn new(name: String, schema: Schema) -> Table {
-        Self { name, schema }
+    pub fn new<N: Into<String>>(name: N, schema: Schema) -> Table {
+        Self {
+            name: name.into(),
+            schema,
+        }
     }
 
     pub fn name(&self) -> &str {
