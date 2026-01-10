@@ -21,7 +21,11 @@ impl Relop {
         Self { catalog }
     }
 
-    pub fn create_table(&self, table_name: &str, schema: Schema) -> Result<(), ClientError> {
+    pub fn create_table<N: Into<String>>(
+        &self,
+        table_name: N,
+        schema: Schema,
+    ) -> Result<(), ClientError> {
         self.catalog
             .create_table(table_name, schema)
             .map_err(ClientError::Catalog)
