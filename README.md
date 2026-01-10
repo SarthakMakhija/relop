@@ -34,6 +34,7 @@ The project intentionally focuses on a **small subset of SQL SELECT** and operat
   - [X] Row lookup via internal row identifiers
   - [X] Sequential table scan abstraction
   - [X] Primary key index for enforcing uniqueness and lookup
+  - [ ] Thin client to demonstrate end-to-end pipeline
 - [ ] Keep the system small, explicit, and easy to reason about.
 
 ## Non-goals
