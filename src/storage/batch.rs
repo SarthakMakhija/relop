@@ -5,11 +5,34 @@ use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
 use crate::storage::row::Row;
 use std::collections::HashSet;
 
+/// Represents a collection of rows to be processed together.
+///
+/// Batches are used for bulk insertion operations to improve performance
+/// and allow for atomic validation of multiple rows.
 pub struct Batch {
     rows: Vec<Row>,
 }
 
 impl Batch {
+    /// Creates a new `Batch` from a vector of rows.
+    ///
+    /// # Arguments
+    ///
+    /// * `rows` - A `Vec<Row>` containing the rows to include in the batch.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::storage::batch::Batch;
+    /// use relop::storage::row::Row;
+    /// use relop::types::column_value::ColumnValue;
+    ///
+    /// let rows = vec![
+    ///     Row::filled(vec![ColumnValue::Int(1)]),
+    ///     Row::filled(vec![ColumnValue::Int(2)]),
+    /// ];
+    /// let batch = Batch::new(rows);
+    /// ```
     pub fn new(rows: Vec<Row>) -> Self {
         Self { rows }
     }

@@ -3,6 +3,7 @@ use crossbeam_skiplist::SkipMap;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::AcqRel;
 
+/// Unique identifier for a row in a table.
 pub type RowId = u64;
 
 pub(crate) struct TableStore {

@@ -5,10 +5,10 @@
 //! provides methods for table creation, data insertion, and query execution.
 
 pub mod error;
+pub use crate::query::executor::result::QueryResult;
 
 use crate::catalog::Catalog;
 use crate::client::error::ClientError;
-use crate::query::executor::result::QueryResult;
 use crate::query::executor::Executor;
 use crate::query::lexer::Lexer;
 use crate::query::parser::Parser;
@@ -216,10 +216,10 @@ impl Relop {
     /// Executes a SQL query string through the full query processing pipeline.
     ///
     /// This method processes a SQL query through multiple stages:
-    /// 1. **Lexical Analysis**: The query string is tokenized by the [`Lexer`]
-    /// 2. **Parsing**: Tokens are parsed into an Abstract Syntax Tree (AST) by the [`Parser`]
-    /// 3. **Logical Planning**: The AST is converted into a logical plan by the [`LogicalPlanner`]
-    /// 4. **Execution**: The logical plan is executed by the [`Executor`], which returns a [`QueryResult`]
+    /// 1. **Lexical Analysis**: The query string is tokenized by the `Lexer`
+    /// 2. **Parsing**: Tokens are parsed into an Abstract Syntax Tree (AST) by the `Parser`
+    /// 3. **Logical Planning**: The AST is converted into a logical plan by the `LogicalPlanner`
+    /// 4. **Execution**: The logical plan is executed by the `Executor`, which returns a [`QueryResult`]
     ///
     /// The processing pipeline follows this flow: `Lexer` → `Parser` → `LogicalPlanner` → `Executor`
     ///
