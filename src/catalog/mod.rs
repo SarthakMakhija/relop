@@ -367,6 +367,7 @@ mod tests {
             .get("employees", *row_ids.first().unwrap())
             .unwrap()
             .unwrap();
+
         let expected_row = Row::filled(vec![ColumnValue::Int(1)]);
         assert_eq!(expected_row, row);
 

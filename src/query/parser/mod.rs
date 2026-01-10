@@ -1,5 +1,5 @@
 pub(crate) mod ast;
-mod error;
+pub(crate) mod error;
 
 use crate::query::lexer::token::{TokenStream, TokenType};
 use crate::query::lexer::token_cursor::TokenCursor;

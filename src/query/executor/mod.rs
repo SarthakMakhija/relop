@@ -1,4 +1,4 @@
-mod error;
+pub(crate) mod error;
 pub(crate) mod result;
 
 use crate::catalog::Catalog;
@@ -11,11 +11,11 @@ pub struct Executor<'a> {
 }
 
 impl<'a> Executor<'a> {
-    fn new(catalog: &'a Catalog) -> Self {
+    pub(crate) fn new(catalog: &'a Catalog) -> Self {
         Self { catalog }
     }
 
-    fn execute(&self, logical_plan: LogicalPlan) -> Result<QueryResult, ExecutionError> {
+    pub(crate) fn execute(&self, logical_plan: LogicalPlan) -> Result<QueryResult, ExecutionError> {
         match logical_plan {
             LogicalPlan::ShowTables => Ok(QueryResult::TableList(self.catalog.show_tables())),
             LogicalPlan::DescribeTable { table_name } => {
