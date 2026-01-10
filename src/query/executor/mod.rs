@@ -6,15 +6,20 @@ use crate::query::executor::error::ExecutionError;
 use crate::query::executor::result::QueryResult;
 use crate::query::plan::LogicalPlan;
 
-pub struct Executor<'a> {
+/// Executes logical plans against the catalog.
+pub(crate) struct Executor<'a> {
     catalog: &'a Catalog,
 }
 
 impl<'a> Executor<'a> {
+    /// Creates a new `Executor` with the given catalog.
     pub(crate) fn new(catalog: &'a Catalog) -> Self {
         Self { catalog }
     }
 
+    /// Executes the given logical plan and returns the result.
+    ///
+    /// Returns an `ExecutionError` if the plan cannot be executed.
     pub(crate) fn execute(&self, logical_plan: LogicalPlan) -> Result<QueryResult, ExecutionError> {
         match logical_plan {
             LogicalPlan::ShowTables => Ok(QueryResult::TableList(self.catalog.show_tables())),

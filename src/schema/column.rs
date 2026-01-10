@@ -1,11 +1,22 @@
 use crate::types::column_type::ColumnType;
 
+/// Represents a column in a table schema, including its name and type.
 pub struct Column {
     name: String,
     column_type: ColumnType,
 }
 
 impl Column {
+    /// Creates a new `Column` with the given name and type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::schema::column::Column;
+    /// use relop::types::column_type::ColumnType;
+    ///
+    /// let col = Column::new("age", ColumnType::Int);
+    /// ```
     pub fn new(name: &str, column_type: ColumnType) -> Column {
         Column {
             name: name.to_string(),
@@ -13,14 +24,47 @@ impl Column {
         }
     }
 
+    /// Returns the name of the column.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::schema::column::Column;
+    /// use relop::types::column_type::ColumnType;
+    ///
+    /// let col = Column::new("age", ColumnType::Int);
+    /// assert_eq!(col.name(), "age");
+    /// ```
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Returns the type of the column.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::schema::column::Column;
+    /// use relop::types::column_type::ColumnType;
+    ///
+    /// let col = Column::new("age", ColumnType::Int);
+    /// assert_eq!(col.column_type(), &ColumnType::Int);
+    /// ```
     pub fn column_type(&self) -> &ColumnType {
         &self.column_type
     }
 
+    /// Checks if the column name matches the given name, ignoring case.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::schema::column::Column;
+    /// use relop::types::column_type::ColumnType;
+    ///
+    /// let col = Column::new("age", ColumnType::Int);
+    /// assert!(col.matches_name("AGE"));
+    /// ```
     pub fn matches_name(&self, name: &str) -> bool {
         self.name.eq_ignore_ascii_case(name)
     }

@@ -1,12 +1,37 @@
 use crate::types::column_type::ColumnType;
 
+/// Represents the value stored in a column.
+///
+/// # Examples
+///
+/// ```
+/// use relop::types::column_value::ColumnValue;
+///
+/// let int_val = ColumnValue::Int(42);
+/// let text_val = ColumnValue::Text("hello".to_string());
+/// ```
 #[derive(Debug, PartialEq, Hash, Eq, Clone)]
 pub enum ColumnValue {
+    /// Integer 64-bit value.
     Int(i64),
+    /// String value.
     Text(String),
 }
 
 impl ColumnValue {
+    /// Extracts the integer value if this is an `Int` variant.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::types::column_value::ColumnValue;
+    ///
+    /// let val = ColumnValue::Int(42);
+    /// assert_eq!(val.int_value(), Some(42));
+    ///
+    /// let text = ColumnValue::Text("s".to_string());
+    /// assert_eq!(text.int_value(), None);
+    /// ```
     pub fn int_value(&self) -> Option<i64> {
         if let ColumnValue::Int(value) = self {
             return Some(*value);
@@ -14,6 +39,19 @@ impl ColumnValue {
         None
     }
 
+    /// Extracts the string slice if this is a `Text` variant.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::types::column_value::ColumnValue;
+    ///
+    /// let val = ColumnValue::Text("hello".to_string());
+    /// assert_eq!(val.text_value(), Some("hello"));
+    ///
+    /// let int = ColumnValue::Int(42);
+    /// assert_eq!(int.text_value(), None);
+    /// ```
     pub fn text_value(&self) -> Option<&str> {
         if let ColumnValue::Text(ref value) = self {
             return Some(value);
@@ -21,6 +59,17 @@ impl ColumnValue {
         None
     }
 
+    /// Returns the corresponding [`ColumnType`] for this value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::types::column_value::ColumnValue;
+    /// use relop::types::column_type::ColumnType;
+    ///
+    /// let val = ColumnValue::Int(42);
+    /// assert_eq!(val.column_type(), ColumnType::Int);
+    /// ```
     pub fn column_type(&self) -> ColumnType {
         match self {
             ColumnValue::Int(_) => ColumnType::Int,

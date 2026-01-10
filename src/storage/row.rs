@@ -1,19 +1,54 @@
 use crate::types::column_value::ColumnValue;
 
+/// Represents a single row of data in a table, consisting of multiple column values.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Row {
     values: Vec<ColumnValue>,
 }
 
 impl Row {
+    /// Creates a row with a single column value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::storage::row::Row;
+    /// use relop::types::column_value::ColumnValue;
+    ///
+    /// let row = Row::single(ColumnValue::Int(42));
+    /// ```
     pub fn single(value: ColumnValue) -> Row {
         Self::filled(vec![value])
     }
 
+    /// Creates a row with multiple column values.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::storage::row::Row;
+    /// use relop::types::column_value::ColumnValue;
+    ///
+    /// let row = Row::filled(vec![
+    ///     ColumnValue::Int(1),
+    ///     ColumnValue::Text("alice".to_string())
+    /// ]);
+    /// ```
     pub fn filled(values: Vec<ColumnValue>) -> Row {
         Self { values }
     }
 
+    /// Appends a column value to the row.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::storage::row::Row;
+    /// use relop::types::column_value::ColumnValue;
+    ///
+    /// let row = Row::single(ColumnValue::Int(1))
+    ///     .insert(ColumnValue::Text("alice".to_string()));
+    /// ```
     pub fn insert(mut self, value: ColumnValue) -> Self {
         self.values.push(value);
         self

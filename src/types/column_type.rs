@@ -1,12 +1,27 @@
 use crate::types::column_value::ColumnValue;
 
+/// Represents the supported data types for columns in the database.
+///
+/// # Examples
+///
+/// ```
+/// use relop::types::column_type::ColumnType;
+///
+/// let int_type = ColumnType::Int;
+/// let text_type = ColumnType::Text;
+/// ```
 #[derive(Debug, PartialEq, Clone)]
 pub enum ColumnType {
+    /// Integer 64-bit signed type.
     Int,
+    /// String type.
     Text,
 }
 
 impl ColumnType {
+    /// Checks if the given `ColumnValue` matches this `ColumnType`.
+    ///
+    /// This is an internal helper to validate data insertion compatibility.
     pub(crate) fn accepts(&self, value: &ColumnValue) -> bool {
         matches!(
             (self, value),

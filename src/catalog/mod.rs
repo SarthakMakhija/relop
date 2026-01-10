@@ -11,11 +11,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 pub mod error;
-pub(crate) mod table;
+pub mod table;
 pub mod table_descriptor;
 pub(crate) mod table_entry;
-mod table_scan;
+pub mod table_scan;
 
+/// Manages the database tables and their associated memory storage.
 pub struct Catalog {
     tables: RwLock<HashMap<String, Arc<TableEntry>>>,
 }
@@ -27,12 +28,24 @@ impl Default for Catalog {
 }
 
 impl Catalog {
+    /// Creates a new, empty `Catalog`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::catalog::Catalog;
+    ///
+    /// let catalog = Catalog::new();
+    /// ```
     pub fn new() -> Catalog {
         Self {
             tables: RwLock::new(HashMap::new()),
         }
     }
 
+    /// Creates a new table with the given name and schema.
+    ///
+    /// Returns an error if a table with the same name already exists.
     pub(crate) fn create_table<N: Into<String>>(
         &self,
         name: N,
@@ -51,6 +64,7 @@ impl Catalog {
         Ok(())
     }
 
+    /// Returns a list of all table names in the catalog.
     pub(crate) fn show_tables(&self) -> Vec<String> {
         let tables = self.tables.read().unwrap();
         tables
@@ -59,11 +73,15 @@ impl Catalog {
             .collect()
     }
 
+    /// Returns the descriptor for the specified table.
     pub(crate) fn describe_table(&self, table_name: &str) -> Result<TableDescriptor, CatalogError> {
         let table_entry = self.table_entry_or_error(table_name)?;
         Ok(table_entry.table_descriptor())
     }
 
+    /// Inserts a single row into the specified table.
+    ///
+    /// Returns the `RowId` of the inserted row.
     pub(crate) fn insert_into(&self, table_name: &str, row: Row) -> Result<RowId, InsertError> {
         let table_entry = self
             .table_entry_or_error(table_name)
@@ -78,6 +96,9 @@ impl Catalog {
         table_entry.insert(row)
     }
 
+    /// Inserts multiple rows into the specified table.
+    ///
+    /// Returns the `RowId`s of all inserted rows.
     pub(crate) fn insert_all_into(
         &self,
         table_name: &str,
@@ -95,11 +116,13 @@ impl Catalog {
         table_entry.insert_all(batch)
     }
 
+    /// Retrieves a row by its `RowId` from the specified table.
     pub(crate) fn get(&self, table_name: &str, row_id: RowId) -> Result<Option<Row>, CatalogError> {
         let table_entry = self.table_entry_or_error(table_name)?;
         Ok(table_entry.get(row_id))
     }
 
+    /// Creates a table scan iterator for the specified table.
     pub(crate) fn scan(&self, table_name: &str) -> Result<TableScan, CatalogError> {
         let table_entry = self.table_entry_or_error(table_name)?;
         Ok(table_entry.scan())

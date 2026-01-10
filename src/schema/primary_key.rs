@@ -1,17 +1,38 @@
 use crate::schema::error::SchemaError;
 use std::collections::HashSet;
 
+/// Represents the primary key of a table, which may consist of one or more columns.
 pub struct PrimaryKey {
     column_names: Vec<String>,
 }
 
 impl PrimaryKey {
+    /// Creates a single-column primary key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::schema::primary_key::PrimaryKey;
+    ///
+    /// let pk = PrimaryKey::single("id");
+    /// ```
     pub fn single(column_name: &str) -> Self {
         PrimaryKey {
             column_names: vec![column_name.to_string()],
         }
     }
 
+    /// Creates a composite primary key from multiple columns.
+    ///
+    /// Returns an error if the column names list is empty or contains duplicates.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::schema::primary_key::PrimaryKey;
+    ///
+    /// let pk = PrimaryKey::composite(vec!["id", "username"]).unwrap();
+    /// ```
     pub fn composite(column_names: Vec<&str>) -> Result<Self, SchemaError> {
         Self::ensure_non_empty_columns(&column_names)?;
 
@@ -19,10 +40,12 @@ impl PrimaryKey {
         Ok(Self { column_names })
     }
 
+    /// Returns the names of the columns in the primary key.
     pub(crate) fn column_names(&self) -> &[String] {
         &self.column_names
     }
 
+    /// Returns the number of columns in the primary key.
     pub(crate) fn column_count(&self) -> usize {
         self.column_names.len()
     }

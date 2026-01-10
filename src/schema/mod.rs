@@ -8,6 +8,7 @@ use crate::schema::primary_key::PrimaryKey;
 use crate::types::column_type::ColumnType;
 use crate::types::column_value::ColumnValue;
 
+/// Represents the schema of a table, defining its columns and optional primary key.
 pub struct Schema {
     columns: Vec<Column>,
     primary_key: Option<PrimaryKey>,
@@ -20,6 +21,15 @@ impl Default for Schema {
 }
 
 impl Schema {
+    /// Creates a new, empty `Schema`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::schema::Schema;
+    ///
+    /// let schema = Schema::new();
+    /// ```
     pub fn new() -> Self {
         Self {
             columns: Vec::new(),
@@ -27,6 +37,20 @@ impl Schema {
         }
     }
 
+    /// Adds a column to the schema.
+    ///
+    /// Returns an error if a column with the same name already exists.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::schema::Schema;
+    /// use relop::types::column_type::ColumnType;
+    ///
+    /// let schema = Schema::new()
+    ///     .add_column("id", ColumnType::Int).unwrap()
+    ///     .add_column("name", ColumnType::Text).unwrap();
+    /// ```
     pub fn add_column(mut self, name: &str, column_type: ColumnType) -> Result<Self, SchemaError> {
         self.ensure_column_not_already_defined(name)?;
 
@@ -34,6 +58,21 @@ impl Schema {
         Ok(self)
     }
 
+    /// Adds a primary key to the schema.
+    ///
+    /// Returns an error if a primary key is already defined, or if the primary key columns do not exist.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::schema::Schema;
+    /// use relop::schema::primary_key::PrimaryKey;
+    /// use relop::types::column_type::ColumnType;
+    ///
+    /// let schema = Schema::new()
+    ///     .add_column("id", ColumnType::Int).unwrap()
+    ///     .add_primary_key(PrimaryKey::single("id")).unwrap();
+    /// ```
     pub fn add_primary_key(mut self, primary_key: PrimaryKey) -> Result<Self, SchemaError> {
         self.ensure_primary_key_not_already_defined()?;
         self.ensure_primary_key_columns_exist(&primary_key)?;
@@ -42,6 +81,17 @@ impl Schema {
         Ok(self)
     }
 
+    /// Returns the position (index) of the column with the given name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::schema::Schema;
+    /// use relop::types::column_type::ColumnType;
+    ///
+    /// let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
+    /// assert_eq!(schema.column_position("id"), Some(0));
+    /// ```
     pub fn column_position(&self, column_name: &str) -> Option<usize> {
         self.columns
             .iter()
@@ -54,10 +104,36 @@ impl Schema {
             })
     }
 
+    /// Returns the number of columns in the schema.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::schema::Schema;
+    /// use relop::types::column_type::ColumnType;
+    ///
+    /// let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
+    /// assert_eq!(schema.column_count(), 1);
+    /// ```
     pub fn column_count(&self) -> usize {
         self.columns.len()
     }
 
+    /// Checks if the schema has a primary key defined.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::schema::Schema;
+    /// use relop::schema::primary_key::PrimaryKey;
+    /// use relop::types::column_type::ColumnType;
+    ///
+    /// let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
+    /// assert!(!schema.has_primary_key());
+    ///
+    /// let schema = schema.add_primary_key(PrimaryKey::single("id")).unwrap();
+    /// assert!(schema.has_primary_key());
+    /// ```
     pub fn has_primary_key(&self) -> bool {
         self.primary_key.is_some()
     }

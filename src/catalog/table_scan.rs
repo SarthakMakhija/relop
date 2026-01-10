@@ -2,7 +2,8 @@ use crate::storage::row::Row;
 use crate::storage::table_store::TableStore;
 use std::sync::Arc;
 
-pub(crate) struct TableScan {
+/// Iterator that scans all rows in a table.
+pub struct TableScan {
     store: Arc<TableStore>,
 }
 
@@ -11,6 +12,10 @@ impl TableScan {
         Self { store: table_store }
     }
 
+    /// Returns an iterator over the rows in the table.
+    ///
+    /// The iterator yields `Row` items in an unspecified order.
+    ///
     pub fn iter(&self) -> impl Iterator<Item = Row> + '_ {
         self.store
             .entries()
