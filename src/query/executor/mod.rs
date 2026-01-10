@@ -1,6 +1,8 @@
+mod error;
 pub(crate) mod result;
 
 use crate::catalog::Catalog;
+use crate::query::executor::error::ExecutionError;
 use crate::query::executor::result::QueryResult;
 use crate::query::plan::LogicalPlan;
 
@@ -13,10 +15,17 @@ impl<'a> Executor<'a> {
         Self { catalog }
     }
 
-    fn execute(&self, logical_plan: LogicalPlan) -> Result<QueryResult, ()> {
+    fn execute(&self, logical_plan: LogicalPlan) -> Result<QueryResult, ExecutionError> {
         match logical_plan {
-            LogicalPlan::ShowTables => Ok(QueryResult::AllTables(self.catalog.show_tables())),
-            LogicalPlan::DescribeTable { .. } => unimplemented!(),
+            LogicalPlan::ShowTables => Ok(QueryResult::TableList(self.catalog.show_tables())),
+            LogicalPlan::DescribeTable { table_name } => {
+                let table_descriptor = self
+                    .catalog
+                    .describe_table(&table_name)
+                    .map_err(ExecutionError::Catalog)?;
+
+                Ok(QueryResult::TableDescription(table_descriptor))
+            }
         }
     }
 }
@@ -24,6 +33,8 @@ impl<'a> Executor<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::catalog::error::CatalogError;
+    use crate::schema::primary_key::PrimaryKey;
     use crate::schema::Schema;
     use crate::types::column_type::ColumnType;
 
@@ -44,5 +55,75 @@ mod tests {
 
         assert_eq!(1, table_names.len());
         assert_eq!(&vec!["employees"], table_names);
+    }
+
+    #[test]
+    fn execute_describe_table() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor
+            .execute(LogicalPlan::DescribeTable {
+                table_name: "employees".to_string(),
+            })
+            .unwrap();
+
+        assert!(query_result.table_descriptor().is_some());
+        let table_descriptor = query_result.table_descriptor().unwrap();
+
+        assert_eq!("employees", table_descriptor.table_name());
+        assert_eq!(vec!["id"], table_descriptor.column_names());
+        assert!(table_descriptor.primary_key_column_names().is_none())
+    }
+
+    #[test]
+    fn execute_describe_table_with_primary_key() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_primary_key(PrimaryKey::single("id"))
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor
+            .execute(LogicalPlan::DescribeTable {
+                table_name: "employees".to_string(),
+            })
+            .unwrap();
+
+        assert!(query_result.table_descriptor().is_some());
+        let table_descriptor = query_result.table_descriptor().unwrap();
+
+        assert_eq!("employees", table_descriptor.table_name());
+        assert_eq!(vec!["id"], table_descriptor.column_names());
+        assert_eq!(
+            vec!["id"],
+            table_descriptor.primary_key_column_names().unwrap()
+        );
+    }
+
+    #[test]
+    fn attempt_to_execute_describe_table_for_non_existent_table() {
+        let catalog = Catalog::new();
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor.execute(LogicalPlan::DescribeTable {
+            table_name: "employees".to_string(),
+        });
+
+        assert!(matches!(
+            query_result,
+            Err(ExecutionError::Catalog(CatalogError::TableDoesNotExist(table_name))) if table_name == "employees"
+        ))
     }
 }

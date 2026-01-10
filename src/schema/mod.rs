@@ -66,6 +66,17 @@ impl Schema {
         self.primary_key.as_ref()
     }
 
+    pub(crate) fn column_names(&self) -> Vec<&str> {
+        self.columns.iter().map(|column| column.name()).collect()
+    }
+
+    pub(crate) fn primary_key_column_names(&self) -> Option<&[String]> {
+        if self.has_primary_key() {
+            return Some(self.primary_key.as_ref().unwrap().column_names());
+        }
+        None
+    }
+
     pub(crate) fn check_type_compatability(
         &self,
         values: &[ColumnValue],
@@ -286,5 +297,37 @@ mod tests {
 
         let result = schema.check_type_compatability(&[ColumnValue::Int(100)]);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn column_names() {
+        let mut schema = Schema::new();
+        schema = schema
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+
+        assert_eq!(vec!["id", "name"], schema.column_names());
+    }
+
+    #[test]
+    fn primary_key_column_names() {
+        let mut schema = Schema::new();
+        schema = schema
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_primary_key(PrimaryKey::single("id"))
+            .unwrap();
+
+        assert_eq!(vec!["id"], schema.primary_key_column_names().unwrap());
+    }
+
+    #[test]
+    fn primary_key_column_names_given_no_primary_key() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("id", ColumnType::Int).unwrap();
+
+        assert!(schema.primary_key_column_names().is_none());
     }
 }

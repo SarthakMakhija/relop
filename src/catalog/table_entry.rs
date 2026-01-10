@@ -1,5 +1,6 @@
 use crate::catalog::error::InsertError;
 use crate::catalog::table::Table;
+use crate::catalog::table_descriptor::TableDescriptor;
 use crate::catalog::table_scan::TableScan;
 use crate::storage::batch::Batch;
 use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
@@ -84,6 +85,10 @@ impl TableEntry {
 
     pub(crate) fn scan(&self) -> TableScan {
         TableScan::new(self.store.clone())
+    }
+
+    pub(crate) fn table_descriptor(&self) -> TableDescriptor {
+        TableDescriptor::new(self.table.clone())
     }
 
     pub(crate) fn table(&self) -> &Table {

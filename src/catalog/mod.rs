@@ -1,5 +1,6 @@
 use crate::catalog::error::{CatalogError, InsertError};
 use crate::catalog::table::Table;
+use crate::catalog::table_descriptor::TableDescriptor;
 use crate::catalog::table_entry::TableEntry;
 use crate::catalog::table_scan::TableScan;
 use crate::schema::Schema;
@@ -11,6 +12,7 @@ use std::sync::{Arc, RwLock};
 
 pub mod error;
 pub(crate) mod table;
+pub(crate) mod table_descriptor;
 pub(crate) mod table_entry;
 mod table_scan;
 
@@ -44,6 +46,11 @@ impl Catalog {
             .keys()
             .map(|table_name| table_name.to_string())
             .collect()
+    }
+
+    pub(crate) fn describe_table(&self, table_name: &str) -> Result<TableDescriptor, CatalogError> {
+        let table_entry = self.table_entry_or_error(table_name)?;
+        Ok(table_entry.table_descriptor())
     }
 
     pub(crate) fn insert_into(&self, table_name: &str, row: Row) -> Result<RowId, InsertError> {
@@ -185,6 +192,52 @@ mod tests {
         let catalog = Catalog::new();
         let tables = catalog.show_tables();
         assert_eq!(0, tables.len());
+    }
+
+    #[test]
+    fn describe_table_with_name() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let table_descriptor = catalog.describe_table("employees").unwrap();
+        assert_eq!("employees", table_descriptor.table_name());
+    }
+
+    #[test]
+    fn describe_table_with_column_names() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let table_descriptor = catalog.describe_table("employees").unwrap();
+        assert_eq!(vec!["id"], table_descriptor.column_names());
+    }
+
+    #[test]
+    fn describe_table_with_primary_key_column_names() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_primary_key(PrimaryKey::single("id"))
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let table_descriptor = catalog.describe_table("employees").unwrap();
+        assert_eq!(
+            vec!["id"],
+            table_descriptor.primary_key_column_names().unwrap()
+        );
     }
 
     #[test]
