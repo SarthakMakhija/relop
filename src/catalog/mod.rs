@@ -14,7 +14,7 @@ pub(crate) mod table;
 pub(crate) mod table_entry;
 mod table_scan;
 
-struct Catalog {
+pub(crate) struct Catalog {
     tables: RwLock<HashMap<String, Arc<TableEntry>>>,
 }
 
@@ -36,6 +36,14 @@ impl Catalog {
         tables.insert(name.to_string(), TableEntry::new(table));
 
         Ok(())
+    }
+
+    pub(crate) fn show_tables(&self) -> Vec<String> {
+        let tables = self.tables.read().unwrap();
+        tables
+            .keys()
+            .map(|table_name| table_name.to_string())
+            .collect()
     }
 
     pub(crate) fn insert_into(&self, table_name: &str, row: Row) -> Result<RowId, InsertError> {
@@ -156,6 +164,27 @@ mod tests {
 
         let table_entry = catalog.table_entry("employees").unwrap();
         assert_eq!("employees", table_entry.table_name());
+    }
+
+    #[test]
+    fn get_all_tables() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let tables = catalog.show_tables();
+        assert_eq!(1, tables.len());
+        assert_eq!(vec!["employees"], tables);
+    }
+
+    #[test]
+    fn get_all_tables_given_no_tables_are_created() {
+        let catalog = Catalog::new();
+        let tables = catalog.show_tables();
+        assert_eq!(0, tables.len());
     }
 
     #[test]
