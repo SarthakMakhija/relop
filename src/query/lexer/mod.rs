@@ -35,6 +35,10 @@ impl Lexer {
                     stream.add(Token::semicolon());
                     self.eat();
                 }
+                '*' => {
+                    stream.add(Token::star());
+                    self.eat();
+                }
                 ch if Self::looks_like_an_identifier(ch) => {
                     stream.add(self.identifier_or_keyword());
                 }
@@ -128,6 +132,20 @@ mod tests {
             [
                 (TokenType::Keyword, "DESCRIBE"),
                 (TokenType::Keyword, "TABLE"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_star() {
+        assert_lex!(
+            "SELECT * FROM employees",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
                 (TokenType::Identifier, "employees"),
                 (TokenType::EndOfStream, ""),
             ]

@@ -14,6 +14,7 @@ pub(crate) enum TokenType {
     Identifier,
     Keyword,
     Semicolon,
+    Star,
     EndOfStream,
 }
 
@@ -31,6 +32,10 @@ impl Token {
 
     pub(crate) fn semicolon() -> Token {
         Token::new(";", TokenType::Semicolon)
+    }
+
+    pub(crate) fn star() -> Token {
+        Token::new("*", TokenType::Star)
     }
 
     pub(crate) fn lexeme(&self) -> &str {
@@ -67,16 +72,19 @@ impl TokenStream {
         self.tokens.push(token);
     }
 
-    pub(crate) fn len(&self) -> usize {
-        self.tokens.len()
-    }
-
     pub(crate) fn token_at(&self, index: usize) -> Option<&Token> {
         self.tokens.get(index)
     }
 
     pub(crate) fn cursor(self) -> TokenCursor {
         TokenCursor::new(self)
+    }
+}
+
+#[cfg(test)]
+impl TokenStream {
+    pub(crate) fn len(&self) -> usize {
+        self.tokens.len()
     }
 }
 
@@ -133,6 +141,13 @@ mod token_tests {
         let token = Token::semicolon();
         assert_eq!(";", token.lexeme());
         assert_eq!(TokenType::Semicolon, token.token_type());
+    }
+
+    #[test]
+    fn star_token() {
+        let token = Token::star();
+        assert_eq!("*", token.lexeme());
+        assert_eq!(TokenType::Star, token.token_type());
     }
 
     #[test]

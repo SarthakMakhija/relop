@@ -4,7 +4,7 @@ pub(crate) struct Keywords {
 
 impl Keywords {
     pub(crate) fn new_with_default_keywords() -> Keywords {
-        Self::new_with_keywords(&["show", "tables", "describe", "table"])
+        Self::new_with_keywords(&["show", "tables", "describe", "table", "select", "from"])
     }
 
     pub(crate) fn new_with_keywords(words: &'static [&'static str]) -> Keywords {
