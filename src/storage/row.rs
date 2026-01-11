@@ -64,8 +64,11 @@ impl Row {
         }
         None
     }
+}
 
-    fn column_value_count(&self) -> usize {
+#[cfg(test)]
+impl Row {
+    fn columns(&self) -> usize {
         self.values.len()
     }
 }
@@ -78,7 +81,7 @@ mod tests {
     fn create_a_row_with_a_single_column_value() {
         let row = Row::single(ColumnValue::Text("relop".to_string()));
 
-        assert_eq!(1, row.column_value_count());
+        assert_eq!(1, row.columns());
         assert_eq!(
             &ColumnValue::Text("relop".to_string()),
             row.column_value_at(0).unwrap()
@@ -89,7 +92,7 @@ mod tests {
     fn create_a_row_with_two_column_values() {
         let row = Row::single(ColumnValue::Text("relop".to_string())).insert(ColumnValue::Int(100));
 
-        assert_eq!(2, row.column_value_count());
+        assert_eq!(2, row.columns());
         assert_eq!(
             &ColumnValue::Text("relop".to_string()),
             row.column_value_at(0).unwrap()
@@ -104,7 +107,7 @@ mod tests {
             ColumnValue::Int(200),
         ]);
 
-        assert_eq!(2, row.column_value_count());
+        assert_eq!(2, row.columns());
         assert_eq!(
             &ColumnValue::Text("relop".to_string()),
             row.column_value_at(0).unwrap()
