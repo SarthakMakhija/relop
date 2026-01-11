@@ -54,10 +54,36 @@ impl Row {
         self
     }
 
+    /// Returns all column values in the row.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::storage::row::Row;
+    /// use relop::types::column_value::ColumnValue;
+    ///
+    /// let row = Row::filled(vec![ColumnValue::Int(1)]);
+    /// let values = row.column_values();
+    /// assert_eq!(1, values.len());
+    /// ```
     pub fn column_values(&self) -> &[ColumnValue] {
         &self.values
     }
 
+    /// Returns the column value at the specified index.
+    ///
+    /// Returns `None` if the index is out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use relop::storage::row::Row;
+    /// use relop::types::column_value::ColumnValue;
+    ///
+    /// let row = Row::single(ColumnValue::Int(42));
+    /// assert_eq!(Some(&ColumnValue::Int(42)), row.column_value_at(0));
+    /// assert_eq!(None, row.column_value_at(1));
+    /// ```
     pub fn column_value_at(&self, index: usize) -> Option<&ColumnValue> {
         if index < self.values.len() {
             return Some(&self.values[index]);
