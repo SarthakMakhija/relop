@@ -1,7 +1,6 @@
 use crate::catalog::table::Table;
 use crate::catalog::table_scan::TableScan;
-use crate::storage::row::Row;
-use crate::types::column_value::ColumnValue;
+use crate::storage::row_view::RowView;
 use std::sync::Arc;
 
 /// Represents the result of a query, providing access to the rows and column values.
@@ -25,24 +24,10 @@ impl ResultSet {
     }
 
     /// Returns an iterator over the rows in the result set.
-    pub fn iter(&self) -> impl Iterator<Item = Row> + '_ {
-        self.table_scan.iter()
-    }
-
-    /// Retrieves the value of a specific column from a row.
-    ///
-    /// # Arguments
-    ///
-    /// * `row` - The row to retrieve the value from.
-    /// * `column_name` - The name of the column to retrieve.
-    ///
-    /// # Returns
-    ///
-    /// * `Some(&ColumnValue)` - The value of the column if it exists.
-    /// * `None` - If the column name is invalid.
-    pub fn column<'a>(&self, row: &'a Row, column_name: &str) -> Option<&'a ColumnValue> {
-        let column_position = self.table.schema().column_position(column_name)?;
-        row.column_value_at(column_position)
+    pub fn iter(&self) -> impl Iterator<Item = RowView> + '_ {
+        self.table_scan
+            .iter()
+            .map(move |row| RowView::new(row, &self.table))
     }
 }
 
@@ -51,8 +36,10 @@ mod tests {
     use super::*;
 
     use crate::schema::Schema;
+    use crate::storage::row::Row;
     use crate::storage::table_store::TableStore;
     use crate::types::column_type::ColumnType;
+    use crate::types::column_value::ColumnValue;
 
     #[test]
     fn result_set() {
@@ -75,11 +62,11 @@ mod tests {
         let rows: Vec<_> = result_set.iter().collect();
         assert_eq!(1, rows.len());
 
-        let row = rows.first().unwrap();
-        assert_eq!(&ColumnValue::Int(1), result_set.column(row, "id").unwrap());
+        let row_view = result_set.iter().next().unwrap();
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
         assert_eq!(
             &ColumnValue::Text("relop".to_string()),
-            result_set.column(row, "name").unwrap()
+            row_view.column("name").unwrap()
         );
     }
 
@@ -95,8 +82,8 @@ mod tests {
         let result_set = ResultSet::new(table_scan, Arc::new(table));
 
         let rows: Vec<_> = result_set.iter().collect();
-        let row = rows.first().unwrap();
+        let row_view = rows.first().unwrap();
 
-        assert!(result_set.column(row, "name").is_none());
+        assert!(row_view.column("name").is_none());
     }
 }

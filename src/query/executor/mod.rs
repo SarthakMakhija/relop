@@ -167,12 +167,13 @@ mod tests {
             .unwrap();
 
         assert!(query_result.result_set().is_some());
+
         let result_set = query_result.result_set().unwrap();
+        let row_views: Vec<_> = result_set.iter().collect();
+        assert_eq!(1, row_views.len());
 
-        let rows: Vec<_> = result_set.iter().collect();
-        assert_eq!(1, rows.len());
-
-        let column_value = result_set.column(rows.first().unwrap(), "id").unwrap();
+        let row_view = result_set.iter().next().unwrap();
+        let column_value = row_view.column("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
     }
 

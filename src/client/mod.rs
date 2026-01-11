@@ -313,10 +313,8 @@ impl Relop {
     ///  let query_result = relop.execute("select * from employees").unwrap();
     ///  let result_set = query_result.result_set().unwrap();
     ///
-    ///  let mut iterator = result_set.iter();
-    ///
-    ///  let row = iterator.next().unwrap();
-    ///  assert_eq!(&ColumnValue::Int(1), result_set.column(&row, "id").unwrap());
+    ///  let row_view = result_set.iter().next().unwrap();
+    ///  assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
     /// ```
     pub fn execute(&self, query: &str) -> Result<QueryResult, ClientError> {
         let mut lexer = Lexer::new_with_default_keywords(query);
@@ -555,11 +553,11 @@ mod tests {
 
         let mut iterator = result_set.iter();
 
-        let row = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), result_set.column(&row, "id").unwrap());
+        let row_view = iterator.next().unwrap();
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
 
-        let row = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(2), result_set.column(&row, "id").unwrap());
+        let row_view = iterator.next().unwrap();
+        assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
     }
 
     #[test]
