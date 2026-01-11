@@ -3,6 +3,7 @@ use crate::query::parser::ast::Ast;
 pub(crate) enum LogicalPlan {
     ShowTables,
     DescribeTable { table_name: String },
+    ScanTable { table_name: String },
 }
 
 pub(crate) struct LogicalPlanner;
@@ -12,7 +13,7 @@ impl LogicalPlanner {
         match ast {
             Ast::ShowTables => LogicalPlan::ShowTables,
             Ast::DescribeTable { table_name } => LogicalPlan::DescribeTable { table_name },
-            _ => unimplemented!(),
+            Ast::Select { table_name } => LogicalPlan::ScanTable { table_name },
         }
     }
 }
@@ -35,6 +36,17 @@ mod tests {
         assert!(matches!(
             logical_plan,
             LogicalPlan::DescribeTable { table_name } if table_name == "employees"
+        ));
+    }
+
+    #[test]
+    fn logical_plan_for_select() {
+        let logical_plan = LogicalPlanner::plan(Ast::Select {
+            table_name: "employees".to_string(),
+        });
+        assert!(matches!(
+            logical_plan,
+            LogicalPlan::ScanTable { table_name } if table_name == "employees"
         ));
     }
 }

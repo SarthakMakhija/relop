@@ -31,6 +31,7 @@ impl<'a> Executor<'a> {
 
                 Ok(QueryResult::TableDescription(table_descriptor))
             }
+            _ => unimplemented!(),
         }
     }
 }
