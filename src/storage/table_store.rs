@@ -6,12 +6,19 @@ use std::sync::atomic::Ordering::AcqRel;
 /// Unique identifier for a row in a table.
 pub type RowId = u64;
 
+/// Manages the in-memory storage of rows for a table.
+///
+/// `TableStore` implementation is based on `SkipMap` for concurrent access and uses
+/// `AtomicU64` for generating unique row IDs.
 pub(crate) struct TableStore {
     entries: SkipMap<RowId, Row>,
     current_row_id: AtomicU64,
 }
 
 impl TableStore {
+    /// Creates a new, empty `TableStore`.
+    ///
+    /// The row IDs start at 1.
     pub(crate) fn new() -> TableStore {
         Self {
             entries: SkipMap::new(),
@@ -19,6 +26,9 @@ impl TableStore {
         }
     }
 
+    /// Inserts multiple rows into the store.
+    ///
+    /// Returns a vector of `RowId`s corresponding to the inserted rows.
     pub(crate) fn insert_all(&self, rows: Vec<Row>) -> Vec<RowId> {
         let mut row_ids = Vec::with_capacity(rows.len());
         for row in rows {
@@ -27,16 +37,23 @@ impl TableStore {
         row_ids
     }
 
+    /// Inserts a single row into the store.
+    ///
+    /// Returns the assigned `RowId`.
     pub(crate) fn insert(&self, row: Row) -> RowId {
         let row_id = self.current_row_id.fetch_add(1, AcqRel);
         self.entries.insert(row_id, row);
         row_id
     }
 
+    /// Retrieves a row by its `RowId`.
+    ///
+    /// Returns `Some(Row)` if the row exists, `None` otherwise.
     pub(crate) fn get(&self, row_id: RowId) -> Option<Row> {
         self.entries.get(&row_id).map(|entry| entry.value().clone())
     }
 
+    /// Returns a reference to the underlying `SkipMap` containing the rows.
     pub(crate) fn entries(&self) -> &SkipMap<RowId, Row> {
         &self.entries
     }
