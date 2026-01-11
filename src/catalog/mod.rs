@@ -88,7 +88,7 @@ impl Catalog {
             .map_err(InsertError::Catalog)?;
 
         table_entry
-            .table()
+            .table_ref()
             .schema()
             .check_type_compatability(row.column_values())
             .map_err(InsertError::Schema)?;
@@ -110,7 +110,7 @@ impl Catalog {
 
         let batch = batch.into();
         batch
-            .check_type_compatability(table_entry.table().schema())
+            .check_type_compatability(table_entry.table_ref().schema())
             .map_err(InsertError::Schema)?;
 
         table_entry.insert_all(batch)
@@ -123,9 +123,9 @@ impl Catalog {
     }
 
     /// Creates a table scan iterator for the specified table.
-    pub(crate) fn scan(&self, table_name: &str) -> Result<TableScan, CatalogError> {
+    pub(crate) fn scan(&self, table_name: &str) -> Result<(TableScan, Arc<Table>), CatalogError> {
         let table_entry = self.table_entry_or_error(table_name)?;
-        Ok(table_entry.scan())
+        Ok((table_entry.scan(), table_entry.table()))
     }
 
     fn table_entry_or_error(&self, table_name: &str) -> Result<Arc<TableEntry>, CatalogError> {
@@ -523,6 +523,7 @@ mod tests {
         let rows = catalog
             .scan("employees")
             .unwrap()
+            .0
             .iter()
             .collect::<Vec<_>>();
         assert_eq!(1, rows.len());

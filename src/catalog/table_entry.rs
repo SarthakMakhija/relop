@@ -91,8 +91,12 @@ impl TableEntry {
         TableDescriptor::new(self.table.clone())
     }
 
-    pub(crate) fn table(&self) -> &Table {
+    pub(crate) fn table_ref(&self) -> &Table {
         &self.table
+    }
+
+    pub(crate) fn table(&self) -> Arc<Table> {
+        self.table.clone()
     }
 
     pub(crate) fn table_name(&self) -> &str {

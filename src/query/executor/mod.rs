@@ -5,6 +5,7 @@ use crate::catalog::Catalog;
 use crate::query::executor::error::ExecutionError;
 use crate::query::executor::result::QueryResult;
 use crate::query::plan::LogicalPlan;
+use crate::storage::result_set::ResultSet;
 
 /// Executes logical plans against the catalog.
 pub(crate) struct Executor<'a> {
@@ -32,12 +33,15 @@ impl<'a> Executor<'a> {
                 Ok(QueryResult::TableDescription(table_descriptor))
             }
             LogicalPlan::ScanTable { table_name } => {
-                let table_scan = self
+                let scan_tuple = self
                     .catalog
                     .scan(&table_name)
                     .map_err(ExecutionError::Catalog)?;
 
-                Ok(QueryResult::TableScan(table_scan))
+                Ok(QueryResult::ResultSet(ResultSet::new(
+                    scan_tuple.0,
+                    scan_tuple.1,
+                )))
             }
         }
     }
@@ -162,13 +166,13 @@ mod tests {
             })
             .unwrap();
 
-        assert!(query_result.table_scan().is_some());
-        let table_scan = query_result.table_scan().unwrap();
+        assert!(query_result.result_set().is_some());
+        let result_set = query_result.result_set().unwrap();
 
-        let rows: Vec<_> = table_scan.iter().collect();
+        let rows: Vec<_> = result_set.iter().collect();
         assert_eq!(1, rows.len());
 
-        let column_value = rows.first().unwrap().column_value_at(0).unwrap();
+        let column_value = result_set.column(rows.first().unwrap(), "id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
     }
 
