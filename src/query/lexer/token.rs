@@ -42,10 +42,6 @@ impl Token {
         &self.lexeme
     }
 
-    pub(crate) fn token_type(&self) -> TokenType {
-        self.token_type
-    }
-
     pub(crate) fn matches(&self, token_type: TokenType, text: &str) -> bool {
         self.lexeme.eq_ignore_ascii_case(text) && self.token_type == token_type
     }
@@ -89,6 +85,13 @@ impl TokenStream {
 impl TokenStream {
     pub(crate) fn len(&self) -> usize {
         self.tokens.len()
+    }
+}
+
+#[cfg(test)]
+impl Token {
+    pub(crate) fn token_type(&self) -> TokenType {
+        self.token_type
     }
 }
 
