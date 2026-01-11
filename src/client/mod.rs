@@ -242,9 +242,10 @@ impl Relop {
     ///
     /// # Supported Queries
     ///
-    /// Currently supports the following query types:
+    /// Currently, supports the following query types:
     /// - `show tables` - Lists all tables in the catalog
     /// - `describe table <name>` - Shows the schema of a specific table
+    /// - `select * from table <name>` - Gets the result-set from a specific table
     ///
     /// # Examples
     ///
@@ -286,6 +287,36 @@ impl Relop {
     /// let result = relop.execute("describe table employees").unwrap();
     /// let descriptor = result.table_descriptor().unwrap();
     /// assert_eq!("employees", descriptor.table_name());
+    /// ```
+    ///
+    /// Selecting from a table
+    ///
+    /// ```
+    /// use relop::catalog::Catalog;
+    /// use relop::client::Relop;
+    /// use relop::schema::Schema;
+    /// use relop::storage::row::Row;
+    /// use relop::types::column_type::ColumnType;
+    /// use relop::types::column_value::ColumnValue;
+    ///
+    /// let relop = Relop::new(Catalog::new());
+    /// let schema = Schema::new()
+    ///     .add_column("id", ColumnType::Int)
+    ///     .unwrap();
+    ///
+    /// relop.create_table("employees", schema).unwrap();
+    ///
+    /// let _ = relop
+    ///     .insert_into("employees", Row::filled(vec![ColumnValue::Int(1)]))
+    ///     .unwrap();
+    ///
+    ///  let query_result = relop.execute("select * from employees").unwrap();
+    ///  let result_set = query_result.result_set().unwrap();
+    ///
+    ///  let mut iterator = result_set.iter();
+    ///
+    ///  let row = iterator.next().unwrap();
+    ///  assert_eq!(&ColumnValue::Int(1), result_set.column(&row, "id").unwrap());
     /// ```
     pub fn execute(&self, query: &str) -> Result<QueryResult, ClientError> {
         let mut lexer = Lexer::new_with_default_keywords(query);
@@ -493,6 +524,49 @@ mod tests {
         let relop = Relop::new(Catalog::new());
 
         let query_result = relop.execute("describe table employees");
+
+        assert!(matches!(
+            query_result,
+            Err(ClientError::Execution(ExecutionError::Catalog(CatalogError::TableDoesNotExist(table_name)))) if table_name == "employees"
+        ));
+    }
+
+    #[test]
+    fn execute_select_star() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = relop
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::filled(vec![ColumnValue::Int(1)]),
+                    Row::filled(vec![ColumnValue::Int(2)]),
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop.execute("select * from employees").unwrap();
+        let result_set = query_result.result_set().unwrap();
+
+        let mut iterator = result_set.iter();
+
+        let row = iterator.next().unwrap();
+        assert_eq!(&ColumnValue::Int(1), result_set.column(&row, "id").unwrap());
+
+        let row = iterator.next().unwrap();
+        assert_eq!(&ColumnValue::Int(2), result_set.column(&row, "id").unwrap());
+    }
+
+    #[test]
+    fn execute_select_star_for_non_existing_table() {
+        let relop = Relop::new(Catalog::new());
+
+        let query_result = relop.execute("select * from employees");
 
         assert!(matches!(
             query_result,
