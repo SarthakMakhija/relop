@@ -39,7 +39,7 @@ impl Parser {
                     })
                 }
             }
-            None => Err(ParseError::NoTokens)
+            None => Err(ParseError::NoTokens),
         }
     }
 
