@@ -31,7 +31,14 @@ impl<'a> Executor<'a> {
 
                 Ok(QueryResult::TableDescription(table_descriptor))
             }
-            _ => unimplemented!(),
+            LogicalPlan::ScanTable { table_name } => {
+                let table_scan = self
+                    .catalog
+                    .scan(&table_name)
+                    .map_err(ExecutionError::Catalog)?;
+
+                Ok(QueryResult::TableScan(table_scan))
+            }
         }
     }
 }
@@ -42,7 +49,9 @@ mod tests {
     use crate::catalog::error::CatalogError;
     use crate::schema::primary_key::PrimaryKey;
     use crate::schema::Schema;
+    use crate::storage::row::Row;
     use crate::types::column_type::ColumnType;
+    use crate::types::column_value::ColumnValue;
 
     #[test]
     fn execute_show_tables() {
@@ -131,5 +140,50 @@ mod tests {
             query_result,
             Err(ExecutionError::Catalog(CatalogError::TableDoesNotExist(table_name))) if table_name == "employees"
         ))
+    }
+
+    #[test]
+    fn execute_select_star() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = catalog
+            .insert_into("employees", Row::single(ColumnValue::Int(100)))
+            .unwrap();
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor
+            .execute(LogicalPlan::ScanTable {
+                table_name: "employees".to_string(),
+            })
+            .unwrap();
+
+        assert!(query_result.table_scan().is_some());
+        let table_scan = query_result.table_scan().unwrap();
+
+        let rows: Vec<_> = table_scan.iter().collect();
+        assert_eq!(1, rows.len());
+
+        let column_value = rows.first().unwrap().column_value_at(0).unwrap();
+        assert_eq!(100, column_value.int_value().unwrap());
+    }
+
+    #[test]
+    fn attempt_to_execute_select_star_for_non_existent_table() {
+        let catalog = Catalog::new();
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor.execute(LogicalPlan::ScanTable {
+            table_name: "employees".to_string(),
+        });
+
+        assert!(matches!(
+            query_result,
+            Err(ExecutionError::Catalog(CatalogError::TableDoesNotExist(table_name))) if table_name == "employees"
+        ));
     }
 }

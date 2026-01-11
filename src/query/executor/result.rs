@@ -1,4 +1,5 @@
 use crate::catalog::table_descriptor::TableDescriptor;
+use crate::catalog::table_scan::TableScan;
 
 /// Represents the result of a query execution.
 pub enum QueryResult {
@@ -6,6 +7,8 @@ pub enum QueryResult {
     TableList(Vec<String>),
     /// Result of a `DESCRIBE TABLE` query, containing the table's schema information.
     TableDescription(TableDescriptor),
+    /// Result of a `SELECT *` query without where clause.
+    TableScan(TableScan),
 }
 
 impl QueryResult {
@@ -31,6 +34,19 @@ impl QueryResult {
     pub fn table_descriptor(&self) -> Option<&TableDescriptor> {
         match self {
             QueryResult::TableDescription(table_descriptor) => Some(table_descriptor),
+            _ => None,
+        }
+    }
+
+    /// Returns the table scan if the result is a `TableScan`.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(&TableScan)` - If the result is a `TableScan`.
+    /// * `None` - Otherwise.
+    pub fn table_scan(&self) -> Option<&TableScan> {
+        match self {
+            QueryResult::TableScan(table_scan) => Some(table_scan),
             _ => None,
         }
     }

@@ -54,11 +54,11 @@ impl Row {
         self
     }
 
-    pub(crate) fn column_values(&self) -> &[ColumnValue] {
+    pub fn column_values(&self) -> &[ColumnValue] {
         &self.values
     }
 
-    pub(crate) fn column_value_at(&self, index: usize) -> Option<&ColumnValue> {
+    pub fn column_value_at(&self, index: usize) -> Option<&ColumnValue> {
         if index < self.values.len() {
             return Some(&self.values[index]);
         }
