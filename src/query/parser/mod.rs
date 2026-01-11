@@ -29,6 +29,8 @@ impl Parser {
                 self.parse_show_tables()
             } else if token.matches(TokenType::Keyword, "describe") {
                 self.parse_describe_table()
+            } else if token.matches(TokenType::Keyword, "select") {
+                self.parse_select()
             } else {
                 Err(ParseError::UnsupportedToken {
                     expected: "show | describe | select".to_string(),
@@ -58,6 +60,18 @@ impl Parser {
         })
     }
 
+    fn parse_select(&mut self) -> Result<Ast, ParseError> {
+        self.expect_keyword("select")?;
+        self.expect_star()?;
+        self.expect_keyword("from")?;
+        let table_name = self.expect_identifier()?;
+        self.maybe_semicolon();
+
+        Ok(Ast::Select {
+            table_name: table_name.to_string(),
+        })
+    }
+
     fn expect_keyword(&mut self, keyword: &str) -> Result<(), ParseError> {
         match self.cursor.next() {
             Some(token) if token.matches(TokenType::Keyword, keyword) => Ok(()),
@@ -74,6 +88,17 @@ impl Parser {
             Some(token) if token.is_identifier() => Ok(token.lexeme().to_string()),
             Some(token) => Err(ParseError::UnexpectedToken {
                 expected: "identifier".to_string(),
+                found: token.lexeme().to_string(),
+            }),
+            None => Err(ParseError::UnexpectedEndOfInput),
+        }
+    }
+
+    fn expect_star(&mut self) -> Result<(), ParseError> {
+        match self.cursor.next() {
+            Some(token) if token.is_star() => Ok(()),
+            Some(token) => Err(ParseError::UnexpectedToken {
+                expected: "*".to_string(),
                 found: token.lexeme().to_string(),
             }),
             None => Err(ParseError::UnexpectedEndOfInput),
@@ -97,6 +122,145 @@ impl Parser {
             }),
             None => Err(ParseError::UnexpectedEndOfInput),
         }
+    }
+}
+
+#[cfg(test)]
+mod show_tables_tests {
+    use super::*;
+    use crate::query::lexer::token::Token;
+
+    #[test]
+    fn parse_show_tables() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("show", TokenType::Keyword));
+        stream.add(Token::new("tables", TokenType::Keyword));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(ast, Ast::ShowTables));
+    }
+
+    #[test]
+    fn parse_show_tables_with_semicolon() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("show", TokenType::Keyword));
+        stream.add(Token::new("tables", TokenType::Keyword));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(ast, Ast::ShowTables));
+    }
+
+    #[test]
+    fn attempt_to_parse_with_no_tokens() {
+        let stream = TokenStream::new();
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(result, Err(ParseError::NoTokens)));
+    }
+
+    #[test]
+    fn attempt_to_parse_with_unsupported_token() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("unsupported", TokenType::Keyword));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnsupportedToken {expected, found}) if expected == "show | describe | select" && found == "unsupported")
+        );
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_show_tables() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("show", TokenType::Keyword));
+        stream.add(Token::new("invalid", TokenType::Keyword));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "tables" && found == "invalid" )
+        );
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_show_tables_with_no_token_after_show() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("show", TokenType::Keyword));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(result, Err(ParseError::UnexpectedEndOfInput)));
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_show_tables_with_end_of_stream_token_after_show() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("show", TokenType::Keyword));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "tables" && found.is_empty())
+        );
+    }
+
+    #[test]
+    fn attempt_to_parse_with_missing_end_of_stream_token() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("show", TokenType::Keyword));
+        stream.add(Token::new("tables", TokenType::Keyword));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(result, Err(ParseError::UnexpectedEndOfInput)));
+    }
+
+    #[test]
+    fn attempt_to_parse_with_another_token_instead_of_end_of_stream_token() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("show", TokenType::Keyword));
+        stream.add(Token::new("tables", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "end of stream" && found == "employees")
+        );
+    }
+
+    #[test]
+    fn attempt_to_parse_with_another_token_instead_of_end_of_stream_token_with_semicolon() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("show", TokenType::Keyword));
+        stream.add(Token::new("tables", TokenType::Keyword));
+        stream.add(Token::semicolon());
+        stream.add(Token::new("employees", TokenType::Identifier));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "end of stream" && found == "employees")
+        );
     }
 }
 
@@ -247,35 +411,39 @@ mod describe_table_tests {
 }
 
 #[cfg(test)]
-mod show_tables_tests {
+mod select_star_tests {
     use super::*;
     use crate::query::lexer::token::Token;
 
     #[test]
-    fn parse_show_tables() {
+    fn parse_select_star() {
         let mut stream = TokenStream::new();
-        stream.add(Token::new("show", TokenType::Keyword));
-        stream.add(Token::new("tables", TokenType::Keyword));
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
         stream.add(Token::end_of_stream());
 
         let mut parser = Parser::new(stream);
         let ast = parser.parse().unwrap();
 
-        assert!(matches!(ast, Ast::ShowTables));
+        assert!(matches!(ast, Ast::Select { table_name } if table_name == "employees"));
     }
 
     #[test]
-    fn parse_show_tables_with_semicolon() {
+    fn parse_select_star_with_semicolon() {
         let mut stream = TokenStream::new();
-        stream.add(Token::new("show", TokenType::Keyword));
-        stream.add(Token::new("tables", TokenType::Keyword));
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
         stream.add(Token::semicolon());
         stream.add(Token::end_of_stream());
 
         let mut parser = Parser::new(stream);
         let ast = parser.parse().unwrap();
 
-        assert!(matches!(ast, Ast::ShowTables));
+        assert!(matches!(ast, Ast::Select { table_name } if table_name == "employees"));
     }
 
     #[test]
@@ -289,37 +457,24 @@ mod show_tables_tests {
     }
 
     #[test]
-    fn attempt_to_parse_with_unsupported_token() {
+    fn attempt_to_parse_invalid_select_with_missing_star() {
         let mut stream = TokenStream::new();
-        stream.add(Token::new("unsupported", TokenType::Keyword));
-
-        let mut parser = Parser::new(stream);
-        let result = parser.parse();
-
-        assert!(
-            matches!(result, Err(ParseError::UnsupportedToken {expected, found}) if expected == "show | describe | select" && found == "unsupported")
-        );
-    }
-
-    #[test]
-    fn attempt_to_parse_invalid_show_tables() {
-        let mut stream = TokenStream::new();
-        stream.add(Token::new("show", TokenType::Keyword));
-        stream.add(Token::new("invalid", TokenType::Keyword));
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("from", TokenType::Star));
         stream.add(Token::end_of_stream());
 
         let mut parser = Parser::new(stream);
         let result = parser.parse();
 
         assert!(
-            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "tables" && found == "invalid" )
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "*" && found == "from" )
         );
     }
 
     #[test]
-    fn attempt_to_parse_invalid_show_tables_with_no_token_after_show() {
+    fn attempt_to_parse_invalid_select_with_no_token_after_select() {
         let mut stream = TokenStream::new();
-        stream.add(Token::new("show", TokenType::Keyword));
+        stream.add(Token::new("select", TokenType::Keyword));
 
         let mut parser = Parser::new(stream);
         let result = parser.parse();
@@ -328,24 +483,25 @@ mod show_tables_tests {
     }
 
     #[test]
-    fn attempt_to_parse_invalid_show_tables_with_end_of_stream_token_after_show() {
+    fn attempt_to_parse_invalid_select_with_missing_from() {
         let mut stream = TokenStream::new();
-        stream.add(Token::new("show", TokenType::Keyword));
-        stream.add(Token::end_of_stream());
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("employees", TokenType::Keyword));
 
         let mut parser = Parser::new(stream);
         let result = parser.parse();
 
         assert!(
-            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "tables" && found.is_empty())
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "from" && found == "employees" )
         );
     }
 
     #[test]
-    fn attempt_to_parse_with_missing_end_of_stream_token() {
+    fn attempt_to_parse_invalid_select_with_no_tokens_after_star() {
         let mut stream = TokenStream::new();
-        stream.add(Token::new("show", TokenType::Keyword));
-        stream.add(Token::new("tables", TokenType::Keyword));
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
 
         let mut parser = Parser::new(stream);
         let result = parser.parse();
@@ -354,33 +510,49 @@ mod show_tables_tests {
     }
 
     #[test]
-    fn attempt_to_parse_with_another_token_instead_of_end_of_stream_token() {
+    fn attempt_to_parse_invalid_select_with_invalid_token_after_from() {
         let mut stream = TokenStream::new();
-        stream.add(Token::new("show", TokenType::Keyword));
-        stream.add(Token::new("tables", TokenType::Keyword));
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "identifier" && found == "*" )
+        );
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_select_with_no_tokens_after_from() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(result, Err(ParseError::UnexpectedEndOfInput)));
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_select_with_invalid_tokens_after_semicolon() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
         stream.add(Token::new("employees", TokenType::Identifier));
-
-        let mut parser = Parser::new(stream);
-        let result = parser.parse();
-
-        assert!(
-            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "end of stream" && found == "employees")
-        );
-    }
-
-    #[test]
-    fn attempt_to_parse_with_another_token_instead_of_end_of_stream_token_with_semicolon() {
-        let mut stream = TokenStream::new();
-        stream.add(Token::new("show", TokenType::Keyword));
-        stream.add(Token::new("tables", TokenType::Keyword));
         stream.add(Token::semicolon());
-        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("invalid", TokenType::Identifier));
 
         let mut parser = Parser::new(stream);
         let result = parser.parse();
 
         assert!(
-            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "end of stream" && found == "employees")
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "end of stream" && found == "invalid")
         );
     }
 }

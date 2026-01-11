@@ -54,6 +54,10 @@ impl Token {
         self.lexeme == ";" && self.token_type == TokenType::Semicolon
     }
 
+    pub(crate) fn is_star(&self) -> bool {
+        self.lexeme == "*" && self.token_type == TokenType::Star
+    }
+
     pub(crate) fn is_end_of_stream(&self) -> bool {
         self.token_type == TokenType::EndOfStream
     }
@@ -205,6 +209,18 @@ mod token_tests {
     fn is_end_of_stream_token() {
         let token = Token::end_of_stream();
         assert!(token.is_end_of_stream());
+    }
+
+    #[test]
+    fn is_star_token() {
+        let token = Token::star();
+        assert!(token.is_star());
+    }
+
+    #[test]
+    fn is_not_star_token() {
+        let token = Token::semicolon();
+        assert!(!token.is_star());
     }
 
     #[test]

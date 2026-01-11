@@ -12,6 +12,7 @@ impl LogicalPlanner {
         match ast {
             Ast::ShowTables => LogicalPlan::ShowTables,
             Ast::DescribeTable { table_name } => LogicalPlan::DescribeTable { table_name },
+            _ => unimplemented!(),
         }
     }
 }
