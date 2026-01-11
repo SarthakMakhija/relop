@@ -24,21 +24,23 @@ impl Parser {
     }
 
     fn parse_statement(&mut self) -> Result<Ast, ParseError> {
-        if let Some(token) = self.cursor.peek() {
-            return if token.matches(TokenType::Keyword, "show") {
-                self.parse_show_tables()
-            } else if token.matches(TokenType::Keyword, "describe") {
-                self.parse_describe_table()
-            } else if token.matches(TokenType::Keyword, "select") {
-                self.parse_select()
-            } else {
-                Err(ParseError::UnsupportedToken {
-                    expected: "show | describe | select".to_string(),
-                    found: token.lexeme().to_string(),
-                })
-            };
+        match self.cursor.peek() {
+            Some(token) => {
+                if token.matches(TokenType::Keyword, "show") {
+                    self.parse_show_tables()
+                } else if token.matches(TokenType::Keyword, "describe") {
+                    self.parse_describe_table()
+                } else if token.matches(TokenType::Keyword, "select") {
+                    self.parse_select()
+                } else {
+                    Err(ParseError::UnsupportedToken {
+                        expected: "show | describe | select".to_string(),
+                        found: token.lexeme().to_string(),
+                    })
+                }
+            }
+            None => Err(ParseError::NoTokens)
         }
-        Err(ParseError::NoTokens)
     }
 
     fn parse_show_tables(&mut self) -> Result<Ast, ParseError> {
