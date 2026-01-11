@@ -1,4 +1,4 @@
-use crate::catalog::table::Table;
+use crate::schema::Schema;
 use crate::storage::row::Row;
 use crate::types::column_value::ColumnValue;
 
@@ -9,7 +9,7 @@ use crate::types::column_value::ColumnValue;
 ///
 /// It pairs:
 /// - a concrete [`Row`] containing the actual values, and
-/// - a reference to the corresponding [`Table`] used to resolve column names.
+/// - a reference to the corresponding [`Schema`] used to resolve column names.
 ///
 /// This abstraction is primarily used by query execution results (e.g. `SELECT *`)
 /// to allow clients to retrieve column values by name instead of index.
@@ -21,7 +21,7 @@ use crate::types::column_value::ColumnValue;
 /// - `RowView` is intentionally read-only.
 pub struct RowView<'a> {
     row: Row,
-    table: &'a Table,
+    schema: &'a Schema,
 }
 
 impl<'a> RowView<'a> {
@@ -30,9 +30,9 @@ impl<'a> RowView<'a> {
     /// # Arguments
     ///
     /// * `row` - The row containing column values.
-    /// * `table` - The table whose schema defines the column layout.
-    pub(crate) fn new(row: Row, table: &'a Table) -> Self {
-        Self { row, table }
+    /// * `schema` - The schema which defines the column layout.
+    pub(crate) fn new(row: Row, schema: &'a Schema) -> Self {
+        Self { row, schema }
     }
 
     /// Retrieves the value of a column by name.
@@ -51,7 +51,7 @@ impl<'a> RowView<'a> {
     /// - Column name resolution is case-sensitive.
     /// - This method performs a schema lookup on each call.
     pub fn column(&self, column_name: &str) -> Option<&ColumnValue> {
-        let column_position = self.table.schema().column_position(column_name)?;
+        let column_position = self.schema.column_position(column_name)?;
         self.row.column_value_at(column_position)
     }
 }
@@ -64,27 +64,19 @@ mod tests {
 
     #[test]
     fn column() {
-        let table = Table::new(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
-
+        let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
         let row = Row::filled(vec![ColumnValue::Int(200)]);
 
-        let view = RowView::new(row, &table);
+        let view = RowView::new(row, &schema);
         assert_eq!(&ColumnValue::Int(200), view.column("id").unwrap());
     }
 
     #[test]
     fn attempt_to_get_non_existing_column() {
-        let table = Table::new(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
-
+        let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
         let row = Row::filled(vec![ColumnValue::Int(200)]);
 
-        let view = RowView::new(row, &table);
+        let view = RowView::new(row, &schema);
         assert!(view.column("name").is_none());
     }
 }

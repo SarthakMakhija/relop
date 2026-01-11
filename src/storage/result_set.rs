@@ -27,7 +27,7 @@ impl ResultSet {
     pub fn iter(&self) -> impl Iterator<Item = RowView> + '_ {
         self.table_scan
             .iter()
-            .map(move |row| RowView::new(row, &self.table))
+            .map(move |row| RowView::new(row, self.table.schema()))
     }
 }
 
