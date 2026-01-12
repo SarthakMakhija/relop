@@ -1,7 +1,7 @@
 pub(crate) mod ast;
 pub mod error;
 
-use crate::query::lexer::token::{TokenStream, TokenType};
+use crate::query::lexer::token::{Token, TokenStream, TokenType};
 use crate::query::lexer::token_cursor::TokenCursor;
 use crate::query::parser::ast::Ast;
 use crate::query::parser::error::ParseError;
@@ -46,7 +46,7 @@ impl Parser {
     fn parse_show_tables(&mut self) -> Result<Ast, ParseError> {
         self.expect_keyword("show")?;
         self.expect_keyword("tables")?;
-        self.maybe_semicolon();
+        self.maybe_matches_predicate(|token| token.is_semicolon());
 
         Ok(Ast::ShowTables)
     }
@@ -55,7 +55,7 @@ impl Parser {
         self.expect_keyword("describe")?;
         self.expect_keyword("table")?;
         let table_name = self.expect_identifier()?;
-        self.maybe_semicolon();
+        self.maybe_matches_predicate(|token| token.is_semicolon());
 
         Ok(Ast::DescribeTable {
             table_name: table_name.to_string(),
@@ -67,7 +67,7 @@ impl Parser {
         self.expect_star()?;
         self.expect_keyword("from")?;
         let table_name = self.expect_identifier()?;
-        self.maybe_semicolon();
+        self.maybe_matches_predicate(|token| token.is_semicolon());
 
         Ok(Ast::Select {
             table_name: table_name.to_string(),
@@ -107,9 +107,9 @@ impl Parser {
         }
     }
 
-    fn maybe_semicolon(&mut self) {
+    fn maybe_matches_predicate<F: Fn(&Token) -> bool>(&mut self, predicate: F) {
         if let Some(token) = self.cursor.peek() {
-            if token.is_semicolon() {
+            if predicate(&token) {
                 self.cursor.next();
             }
         }
