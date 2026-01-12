@@ -21,7 +21,7 @@ The project intentionally focuses on a **small subset of SQL SELECT** and operat
 - [ ] Implement core relational operators and metadata queries
   - [X] Scan
   - [ ] Filter
-  - [ ] Projection
+  - [X] Projection
   - [ ] Join  (incrementally) 
   - [ ] Limit (incrementally)
   - [X] Show tables
