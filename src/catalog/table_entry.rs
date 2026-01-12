@@ -129,6 +129,16 @@ impl TableEntry {
         self.table.clone()
     }
 
+    fn maybe_primary_key_index(table: &Table) -> Option<PrimaryKeyIndex> {
+        if table.has_primary_key() {
+            return Some(PrimaryKeyIndex::new());
+        }
+        None
+    }
+}
+
+#[cfg(test)]
+impl TableEntry {
     /// Returns the name of the table.
     pub(crate) fn table_name(&self) -> &str {
         self.table.name()
@@ -142,13 +152,6 @@ impl TableEntry {
     /// Returns a reference to the `PrimaryKeyIndex`, if one exists.
     pub(crate) fn primary_key_index(&self) -> Option<&PrimaryKeyIndex> {
         self.primary_key_index.as_ref()
-    }
-
-    fn maybe_primary_key_index(table: &Table) -> Option<PrimaryKeyIndex> {
-        if table.has_primary_key() {
-            return Some(PrimaryKeyIndex::new());
-        }
-        None
     }
 }
 

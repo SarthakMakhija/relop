@@ -45,11 +45,6 @@ impl PrimaryKey {
         &self.column_names
     }
 
-    /// Returns the number of columns in the primary key.
-    pub(crate) fn column_count(&self) -> usize {
-        self.column_names.len()
-    }
-
     fn ensure_non_empty_columns(column_names: &[&str]) -> Result<(), SchemaError> {
         if column_names.is_empty() {
             return Err(SchemaError::EmptyPrimaryKeyColumns);
@@ -68,6 +63,14 @@ impl PrimaryKey {
             names.push(name.to_string());
         }
         Ok(names)
+    }
+}
+
+#[cfg(test)]
+impl PrimaryKey {
+    /// Returns the number of columns in the primary key.
+    pub(crate) fn column_count(&self) -> usize {
+        self.column_names.len()
     }
 }
 
