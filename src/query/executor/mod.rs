@@ -259,4 +259,43 @@ mod tests {
 
         assert!(row_view.column("name").is_none());
     }
+
+    #[test]
+    fn attempt_to_execute_select_with_projection_for_non_existent_column() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_column("name", ColumnType::Text)
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = catalog
+            .insert_into(
+                "employees",
+                Row::filled(vec![
+                    ColumnValue::Int(100),
+                    ColumnValue::Text("relop".to_string()),
+                ]),
+            )
+            .unwrap();
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor
+            .execute(LogicalPlan::Projection {
+                base_plan: LogicalPlan::ScanTable {
+                    table_name: "employees".to_string(),
+                }
+                    .boxed(),
+                columns: vec!["unknown".to_string()],
+            });
+
+        assert!(matches!(
+            query_result,
+            Err(ExecutionError::UnknownColumn(column_name)) if column_name == "unknown"
+        ))
+    }
 }
