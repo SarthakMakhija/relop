@@ -13,7 +13,7 @@ impl LogicalPlanner {
         match ast {
             Ast::ShowTables => LogicalPlan::ShowTables,
             Ast::DescribeTable { table_name } => LogicalPlan::DescribeTable { table_name },
-            Ast::Select { table_name } => LogicalPlan::ScanTable { table_name },
+            Ast::Select { table_name, .. } => LogicalPlan::ScanTable { table_name },
         }
     }
 }
@@ -21,6 +21,7 @@ impl LogicalPlanner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::query::parser::projection::Projection;
 
     #[test]
     fn logical_plan_for_show_tables() {
@@ -43,6 +44,7 @@ mod tests {
     fn logical_plan_for_select() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
+            projection: Projection::All,
         });
         assert!(matches!(
             logical_plan,

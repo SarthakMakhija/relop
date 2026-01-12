@@ -59,6 +59,10 @@ impl Token {
         self.lexeme == "*" && self.token_type == TokenType::Star
     }
 
+    pub(crate) fn is_comma(&self) -> bool {
+        self.lexeme == "," && self.token_type == TokenType::Comma
+    }
+
     pub(crate) fn is_end_of_stream(&self) -> bool {
         self.token_type == TokenType::EndOfStream
     }
@@ -242,5 +246,17 @@ mod token_tests {
     fn is_not_end_of_stream_token() {
         let token = Token::new("select", TokenType::Keyword);
         assert!(!token.is_end_of_stream());
+    }
+
+    #[test]
+    fn is_a_comma_token() {
+        let token = Token::new(",", TokenType::Comma);
+        assert!(token.is_comma());
+    }
+
+    #[test]
+    fn is_not_a_comma_token() {
+        let token = Token::new("select", TokenType::Keyword);
+        assert!(!token.is_comma());
     }
 }

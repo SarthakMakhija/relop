@@ -1,10 +1,12 @@
 pub(crate) mod ast;
 pub mod error;
+pub(crate) mod projection;
 
 use crate::query::lexer::token::{Token, TokenStream, TokenType};
 use crate::query::lexer::token_cursor::TokenCursor;
 use crate::query::parser::ast::Ast;
 use crate::query::parser::error::ParseError;
+use crate::query::parser::projection::Projection;
 
 pub(crate) struct Parser {
     cursor: TokenCursor,
@@ -64,13 +66,14 @@ impl Parser {
 
     fn parse_select(&mut self) -> Result<Ast, ParseError> {
         self.expect_keyword("select")?;
-        self.expect_star()?;
+        let projection = self.expect_projection()?;
         self.expect_keyword("from")?;
         let table_name = self.expect_identifier()?;
         let _ = self.maybe_matches_predicate(|token| token.is_semicolon());
 
         Ok(Ast::Select {
             table_name: table_name.to_string(),
+            projection,
         })
     }
 
@@ -96,15 +99,34 @@ impl Parser {
         }
     }
 
-    fn expect_star(&mut self) -> Result<(), ParseError> {
-        match self.cursor.next() {
-            Some(token) if token.is_star() => Ok(()),
-            Some(token) => Err(ParseError::UnexpectedToken {
-                expected: "*".to_string(),
-                found: token.lexeme().to_string(),
-            }),
-            None => Err(ParseError::UnexpectedEndOfInput),
+    fn expect_projection(&mut self) -> Result<Projection, ParseError> {
+        if self.maybe_matches_predicate(|token| token.is_star()) {
+            return Ok(Projection::All);
         }
+        let columns = self.expect_columns()?;
+        Ok(Projection::Columns(columns))
+    }
+
+    fn expect_columns(&mut self) -> Result<Vec<String>, ParseError> {
+        let mut columns = Vec::new();
+
+        let first = match self.cursor.next() {
+            Some(token) if token.is_identifier() => token.lexeme().to_string(),
+            Some(token) => {
+                return Err(ParseError::UnexpectedToken {
+                    expected: "column name".to_string(),
+                    found: token.lexeme().to_string(),
+                });
+            }
+            None => return Err(ParseError::UnexpectedEndOfInput),
+        };
+        columns.push(first);
+
+        while self.maybe_matches_predicate(|token| token.is_comma()) {
+            let column = self.expect_identifier()?;
+            columns.push(column);
+        }
+        Ok(columns)
     }
 
     fn maybe_matches_predicate<F: Fn(&Token) -> bool>(&mut self, predicate: F) -> bool {
@@ -431,7 +453,9 @@ mod select_star_tests {
         let mut parser = Parser::new(stream);
         let ast = parser.parse().unwrap();
 
-        assert!(matches!(ast, Ast::Select { table_name } if table_name == "employees"));
+        assert!(
+            matches!(ast, Ast::Select { table_name, projection } if table_name == "employees" && projection == Projection::All)
+        );
     }
 
     #[test]
@@ -447,7 +471,9 @@ mod select_star_tests {
         let mut parser = Parser::new(stream);
         let ast = parser.parse().unwrap();
 
-        assert!(matches!(ast, Ast::Select { table_name } if table_name == "employees"));
+        assert!(
+            matches!(ast, Ast::Select { table_name, projection } if table_name == "employees" && projection == Projection::All)
+        );
     }
 
     #[test]
@@ -464,14 +490,14 @@ mod select_star_tests {
     fn attempt_to_parse_invalid_select_with_missing_star() {
         let mut stream = TokenStream::new();
         stream.add(Token::new("select", TokenType::Keyword));
-        stream.add(Token::new("from", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
         stream.add(Token::end_of_stream());
 
         let mut parser = Parser::new(stream);
         let result = parser.parse();
 
         assert!(
-            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "*" && found == "from" )
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "column name" && found == "from" )
         );
     }
 
@@ -547,6 +573,193 @@ mod select_star_tests {
         let mut stream = TokenStream::new();
         stream.add(Token::new("select", TokenType::Keyword));
         stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::semicolon());
+        stream.add(Token::new("invalid", TokenType::Identifier));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "end of stream" && found == "invalid")
+        );
+    }
+}
+
+#[cfg(test)]
+mod select_projection_tests {
+    use super::*;
+    use crate::query::lexer::token::Token;
+
+    #[test]
+    fn parse_select_projection() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new(",", TokenType::Comma));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(ast, Ast::Select { table_name, projection }
+                if table_name == "employees" && projection == Projection::Columns(vec!["name".to_string(), "id".to_string()])));
+    }
+
+    #[test]
+    fn parse_select_projection_with_single_column() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(ast, Ast::Select { table_name, projection }
+                if table_name == "employees" && projection == Projection::Columns(vec!["name".to_string()])));
+    }
+
+    #[test]
+    fn parse_select_projection_with_semicolon() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new(",", TokenType::Comma));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(ast, Ast::Select { table_name, projection }
+                if table_name == "employees" && projection == Projection::Columns(vec!["name".to_string(), "id".to_string()])));
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_select_projection_with_missing_comma() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "from" && found == "id" )
+        );
+    }
+
+    #[test]
+    fn attempt_to_parse_with_no_tokens() {
+        let stream = TokenStream::new();
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(result, Err(ParseError::NoTokens)));
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_select_with_missing_projection() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "column name" && found == "from" )
+        );
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_select_with_no_token_after_select() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(result, Err(ParseError::UnexpectedEndOfInput)));
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_select_with_missing_from() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("employees", TokenType::Keyword));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "from" && found == "employees" )
+        );
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_select_with_no_tokens_after_projection() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(result, Err(ParseError::UnexpectedEndOfInput)));
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_select_with_invalid_token_after_from() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "identifier" && found == "*" )
+        );
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_select_with_no_tokens_after_from() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(result, Err(ParseError::UnexpectedEndOfInput)));
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_select_with_invalid_tokens_after_semicolon() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
         stream.add(Token::new("from", TokenType::Keyword));
         stream.add(Token::new("employees", TokenType::Identifier));
         stream.add(Token::semicolon());
