@@ -37,7 +37,7 @@ impl ResultSet {
             .map(move |row| RowView::new(row, self.table.schema(), &self.visible_positions))
     }
 
-    pub(crate) fn project(self, columns: &[&str]) -> Result<ResultSet, ExecutionError> {
+    pub(crate) fn project(self, columns: &[String]) -> Result<ResultSet, ExecutionError> {
         let schema = self.table.schema();
 
         let positions = columns
@@ -131,7 +131,7 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = ResultSet::new(table_scan, Arc::new(table));
 
-        let projected_result_set = result_set.project(&["name"]).unwrap();
+        let projected_result_set = result_set.project(&["name".to_string()]).unwrap();
 
         let rows: Vec<_> = projected_result_set.iter().collect();
         assert_eq!(1, rows.len());
@@ -155,7 +155,7 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = ResultSet::new(table_scan, Arc::new(table));
 
-        let result = result_set.project(&["name"]);
+        let result = result_set.project(&["name".to_string()]);
         assert!(
             matches!(result, Err(ExecutionError::UnknownColumn(column_name)) if column_name == "name"),
         );

@@ -2,10 +2,10 @@ pub mod error;
 pub mod result;
 
 use crate::catalog::Catalog;
+use crate::client::QueryResult::ResultSet;
 use crate::query::executor::error::ExecutionError;
 use crate::query::executor::result::QueryResult;
 use crate::query::plan::LogicalPlan;
-use crate::storage::result_set::ResultSet;
 
 /// Executes logical plans against the catalog.
 pub(crate) struct Executor<'a> {
@@ -32,18 +32,37 @@ impl<'a> Executor<'a> {
 
                 Ok(QueryResult::TableDescription(table_descriptor))
             }
+            _ => {
+                let result_set = self.execute_select(&logical_plan)?;
+                Ok(ResultSet(result_set))
+            }
+        }
+    }
+
+    fn execute_select(
+        &self,
+        logical_plan: &LogicalPlan,
+    ) -> Result<crate::storage::result_set::ResultSet, ExecutionError> {
+        match logical_plan {
             LogicalPlan::ScanTable { table_name } => {
                 let scan_tuple = self
                     .catalog
-                    .scan(&table_name)
+                    .scan(table_name)
                     .map_err(ExecutionError::Catalog)?;
 
-                Ok(QueryResult::ResultSet(ResultSet::new(
+                Ok(crate::storage::result_set::ResultSet::new(
                     scan_tuple.0,
                     scan_tuple.1,
-                )))
+                ))
             }
-            LogicalPlan::Projection { .. } => unimplemented!(),
+            LogicalPlan::Projection {
+                base_plan: base,
+                columns,
+            } => {
+                let result_set = self.execute_select(base)?;
+                result_set.project(&columns[..])
+            }
+            _ => panic!("should not be here"),
         }
     }
 }
@@ -191,5 +210,52 @@ mod tests {
             query_result,
             Err(ExecutionError::Catalog(CatalogError::TableDoesNotExist(table_name))) if table_name == "employees"
         ));
+    }
+
+    #[test]
+    fn execute_select_with_projection() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_column("name", ColumnType::Text)
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = catalog
+            .insert_into(
+                "employees",
+                Row::filled(vec![
+                    ColumnValue::Int(100),
+                    ColumnValue::Text("relop".to_string()),
+                ]),
+            )
+            .unwrap();
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor
+            .execute(LogicalPlan::Projection {
+                base_plan: LogicalPlan::ScanTable {
+                    table_name: "employees".to_string(),
+                }
+                .boxed(),
+                columns: vec!["id".to_string()],
+            })
+            .unwrap();
+
+        assert!(query_result.result_set().is_some());
+
+        let result_set = query_result.result_set().unwrap();
+        let row_views: Vec<_> = result_set.iter().collect();
+        assert_eq!(1, row_views.len());
+
+        let row_view = result_set.iter().next().unwrap();
+        let column_value = row_view.column("id").unwrap();
+        assert_eq!(100, column_value.int_value().unwrap());
+
+        assert!(row_view.column("name").is_none());
     }
 }

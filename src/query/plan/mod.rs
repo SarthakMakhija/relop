@@ -11,9 +11,15 @@ pub(crate) enum LogicalPlan {
         table_name: String,
     },
     Projection {
-        base: Box<LogicalPlan>,
+        base_plan: Box<LogicalPlan>,
         columns: Vec<String>,
     },
+}
+
+impl LogicalPlan {
+    pub(crate) fn boxed(self) -> Box<LogicalPlan> {
+        Box::new(self)
+    }
 }
 
 pub(crate) struct LogicalPlanner;
@@ -29,7 +35,7 @@ impl LogicalPlanner {
             } => match projection {
                 Projection::All => LogicalPlan::ScanTable { table_name },
                 Projection::Columns(columns) => LogicalPlan::Projection {
-                    base: Box::new(LogicalPlan::ScanTable { table_name }),
+                    base_plan: LogicalPlan::ScanTable { table_name }.boxed(),
                     columns,
                 },
             },
@@ -79,7 +85,7 @@ mod tests {
         });
         assert!(matches!(
             logical_plan,
-            LogicalPlan::Projection {base: _, columns } if columns.iter().eq(&["id"])
+            LogicalPlan::Projection {base_plan: _, columns } if columns.iter().eq(&["id"])
         ));
     }
 
@@ -91,7 +97,7 @@ mod tests {
         });
         assert!(matches!(
             logical_plan,
-            LogicalPlan::Projection {base, columns: _ } if matches!(base.as_ref(), LogicalPlan::ScanTable { table_name } if table_name == "employees")
+            LogicalPlan::Projection {base_plan, columns: _ } if matches!(base_plan.as_ref(), LogicalPlan::ScanTable { table_name } if table_name == "employees")
         ));
     }
 }
