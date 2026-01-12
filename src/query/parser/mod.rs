@@ -8,17 +8,27 @@ use crate::query::parser::ast::Ast;
 use crate::query::parser::error::ParseError;
 use crate::query::parser::projection::Projection;
 
+/// `Parser` is responsible for parsing a stream of tokens into an Abstract Syntax Tree (AST).
 pub(crate) struct Parser {
     cursor: TokenCursor,
 }
 
 impl Parser {
+    /// Creates a new `Parser` from a `TokenStream`.
     pub(crate) fn new(stream: TokenStream) -> Parser {
         Self {
             cursor: stream.cursor(),
         }
     }
 
+    /// Parses the token stream into an `Ast`.
+    ///
+    /// The grammar is available in `docs/grammar.ebnf`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Ast)` - The parsed Abstract Syntax Tree.
+    /// * `Err(ParseError)` - If a syntax error is encountered.
     pub(crate) fn parse(&mut self) -> Result<Ast, ParseError> {
         let ast = self.parse_statement()?;
         self.expect_end_of_stream()?;

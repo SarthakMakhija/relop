@@ -7,6 +7,10 @@ use crate::query::lexer::error::LexError;
 use crate::query::lexer::keywords::Keywords;
 use crate::query::lexer::token::{Token, TokenStream, TokenType};
 
+/// `Lexer` is responsible for lexical analysis of the input source string.
+/// It converts a sequence of characters into a sequence of tokens (`TokenStream`).
+///
+/// It holds the input characters, current position, and a set of keywords for identification.
 pub(crate) struct Lexer {
     input: Vec<char>,
     position: usize,
@@ -14,10 +18,21 @@ pub(crate) struct Lexer {
 }
 
 impl Lexer {
+    /// Creates a new `Lexer` with the default set of SQL keywords.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - The input string to be lexed.
     pub(crate) fn new_with_default_keywords(source: &str) -> Self {
         Self::new(source, Keywords::new_with_default_keywords())
     }
 
+    /// Creates a new `Lexer` with a custom set of keywords.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - The input string to be lexed.
+    /// * `keywords` - The `Keywords` instance to use for identifying reserved words.
     pub(crate) fn new(source: &str, keywords: Keywords) -> Self {
         Self {
             input: source.chars().collect(),
@@ -26,6 +41,15 @@ impl Lexer {
         }
     }
 
+    /// Performs lexical analysis on the input and returns a `TokenStream`.
+    ///
+    /// It iterates through the input characters, recognizing tokens such as whitespace,
+    /// punctuation (semicolon, comma, star), identifiers, and keywords.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(TokenStream)` - A stream of tokens representing the input.
+    /// * `Err(LexError)` - If an unexpected character is encountered.
     pub(crate) fn lex(&mut self) -> Result<TokenStream, LexError> {
         let mut stream = TokenStream::new();
         while let Some(char) = self.peek() {

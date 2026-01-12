@@ -37,6 +37,16 @@ impl Batch {
         Self { rows }
     }
 
+    /// Checks if the rows in the batch are compatible with the table schema.
+    ///
+    /// # Arguments
+    ///
+    /// * `schema` - The schema to validate against.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If all rows are compatible.
+    /// * `Err(SchemaError)` - If a row has a column count mismatch or type mismatch.
     pub(crate) fn check_type_compatability(&self, schema: &Schema) -> Result<(), SchemaError> {
         for row in &self.rows {
             schema.check_type_compatability(row.column_values())?
@@ -44,6 +54,16 @@ impl Batch {
         Ok(())
     }
 
+    /// Identifies unique primary key values within the batch.
+    ///
+    /// # Arguments
+    ///
+    /// * `schema` - The schema containing the primary key definition.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<PrimaryKeyColumnValues>)` - A vector of unique primary key values.
+    /// * `Err(BatchError)` - If the batch contains duplicate primary keys.
     pub(crate) fn unique_primary_key_values(
         &self,
         schema: &Schema,
@@ -69,12 +89,18 @@ impl Batch {
         Ok(vec![])
     }
 
+    /// Consumes the `Batch` and returns the contained rows.
     pub(crate) fn into_rows(self) -> Vec<Row> {
         self.rows
     }
 }
 
 impl From<Vec<Row>> for Batch {
+    /// Converts a `Vec<Row>` into a `Batch`.
+    ///
+    /// # Arguments
+    ///
+    /// * `rows` - The vector of rows to be converted.
     fn from(rows: Vec<Row>) -> Self {
         Batch::new(rows)
     }

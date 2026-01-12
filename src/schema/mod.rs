@@ -138,14 +138,17 @@ impl Schema {
         self.primary_key.is_some()
     }
 
+    /// Returns a reference to the primary key, if one is defined.
     pub(crate) fn primary_key(&self) -> Option<&PrimaryKey> {
         self.primary_key.as_ref()
     }
 
+    /// Returns a list of all column names in the schema.
     pub(crate) fn column_names(&self) -> Vec<&str> {
         self.columns.iter().map(|column| column.name()).collect()
     }
 
+    /// Returns a list of column names that make up the primary key, if one exists.
     pub(crate) fn primary_key_column_names(&self) -> Option<&[String]> {
         if self.has_primary_key() {
             return Some(self.primary_key.as_ref().unwrap().column_names());
@@ -153,6 +156,9 @@ impl Schema {
         None
     }
 
+    /// Checks if the provided values are compatible with the schema's column types.
+    ///
+    /// Returns `Ok(())` if the values match the column count and types, otherwise returns a `SchemaError`.
     pub(crate) fn check_type_compatability(
         &self,
         values: &[ColumnValue],

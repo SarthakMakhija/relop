@@ -1,30 +1,42 @@
 use crate::query::parser::ast::Ast;
 use crate::query::parser::projection::Projection;
 
+/// `LogicalPlan` represents the logical steps required to execute a query.
 #[derive(Eq, PartialEq)]
 pub(crate) enum LogicalPlan {
+    /// Plan to show table names.
     ShowTables,
+    /// Plan to describe a table's schema.
     DescribeTable {
+        /// Name of the table.
         table_name: String,
     },
+    /// Plan to scan a table.
     ScanTable {
+        /// Name of the table.
         table_name: String,
     },
+    /// Plan to project specific columns from a base plan.
     Projection {
+        /// The source plan.
         base_plan: Box<LogicalPlan>,
+        /// The columns to project.
         columns: Vec<String>,
     },
 }
 
 impl LogicalPlan {
+    /// Wraps the `LogicalPlan` in a `Box`.
     pub(crate) fn boxed(self) -> Box<LogicalPlan> {
         Box::new(self)
     }
 }
 
+/// `LogicalPlanner` converts an Abstract Syntax Tree (AST) into a `LogicalPlan`.
 pub(crate) struct LogicalPlanner;
 
 impl LogicalPlanner {
+    /// Converts a given `Ast` into a `LogicalPlan`.
     pub(crate) fn plan(ast: Ast) -> LogicalPlan {
         match ast {
             Ast::ShowTables => LogicalPlan::ShowTables,

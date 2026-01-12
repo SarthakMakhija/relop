@@ -1,16 +1,37 @@
+/// `Keywords` holds a list of reserved words for the SQL dialect.
+/// It provides functionality to check if a valid identifier is a keyword.
 pub(crate) struct Keywords {
     words: &'static [&'static str],
 }
 
 impl Keywords {
+    /// Creates a `Keywords` instance with the default set of reserved words.
+    ///
+    /// The default keywords include: "show", "tables", "describe", "table", "select", "from".
     pub(crate) fn new_with_default_keywords() -> Keywords {
         Self::new_with_keywords(&["show", "tables", "describe", "table", "select", "from"])
     }
 
+    /// Creates a `Keywords` instance with a custom set of reserved words.
+    ///
+    /// # Arguments
+    ///
+    /// * `words` - A static slice of static string slices representing the keywords.
     pub(crate) fn new_with_keywords(words: &'static [&'static str]) -> Keywords {
         Self { words }
     }
 
+    /// Checks if the given identifier is a reserved keyword.
+    ///
+    /// The check is case-insensitive.
+    ///
+    /// # Arguments
+    ///
+    /// * `identifier` - The string to check against the keywords.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the identifier matches any of the keywords (case-insensitive), `false` otherwise.
     pub(crate) fn contains(&self, identifier: &str) -> bool {
         self.words
             .iter()

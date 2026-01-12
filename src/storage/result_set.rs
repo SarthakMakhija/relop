@@ -37,6 +37,16 @@ impl ResultSet {
             .map(move |row| RowView::new(row, self.table.schema(), &self.visible_positions))
     }
 
+    /// Projects specific columns from the result set, returning a new `ResultSet`.
+    ///
+    /// # Arguments
+    ///
+    /// * `columns` - A list of column names to include in the projected result set.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(ResultSet)` - A new result set containing only the specified columns.
+    /// * `Err(ExecutionError)` - If any of the specified columns do not exist.
     pub(crate) fn project(self, columns: &[String]) -> Result<ResultSet, ExecutionError> {
         let schema = self.table.schema();
 

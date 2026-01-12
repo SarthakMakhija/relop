@@ -1,15 +1,22 @@
 use crate::query::lexer::token::{Token, TokenStream};
 
+/// `TokenCursor` allows for traversing a `TokenStream` one token at a time.
+/// It maintains an index to the current token position.
 pub(crate) struct TokenCursor {
     stream: TokenStream,
     index: usize,
 }
 
 impl TokenCursor {
+    /// Creates a new `TokenCursor` for the given `TokenStream`.
     pub(crate) fn new(stream: TokenStream) -> TokenCursor {
         TokenCursor { stream, index: 0 }
     }
 
+    /// Returns the current token and advances the cursor to the next position.
+    ///
+    /// Returns `Some(Token)` if a token exists at the current position, or `None` if
+    /// the end of the stream has been reached.
     pub(crate) fn next(&mut self) -> Option<&Token> {
         let token = self.stream.token_at(self.index);
         if token.is_some() {
@@ -18,6 +25,7 @@ impl TokenCursor {
         token
     }
 
+    /// Returns the current token without advancing the cursor.
     pub(crate) fn peek(&self) -> Option<&Token> {
         self.stream.token_at(self.index)
     }

@@ -39,6 +39,7 @@ impl<'a> Executor<'a> {
         }
     }
 
+    /// Executes the logical plan for select queries and returns the result.
     fn execute_select(
         &self,
         logical_plan: &LogicalPlan,

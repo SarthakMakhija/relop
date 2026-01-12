@@ -3,12 +3,14 @@ use crate::schema::Schema;
 use crate::storage::row::Row;
 use crate::types::column_value::ColumnValue;
 
+/// Represents the values of the columns that make up a primary key for a specific row.
 #[derive(Hash, Eq, PartialEq)]
 pub(crate) struct PrimaryKeyColumnValues {
     values: Vec<ColumnValue>,
 }
 
 impl PrimaryKeyColumnValues {
+    /// Extracts the primary key column values from a row as defined by the schema and primary key definition.
     pub(crate) fn new(
         row: &Row,
         primary_key: &PrimaryKey,
@@ -36,6 +38,8 @@ impl PrimaryKeyColumnValues {
         }
     }
 
+    /// Returns the column values.
+    #[allow(dead_code)]
     pub(crate) fn values(&self) -> &[ColumnValue] {
         &self.values
     }

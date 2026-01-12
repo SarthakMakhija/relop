@@ -9,6 +9,12 @@ use crate::storage::row::Row;
 use crate::storage::table_store::{RowId, TableStore};
 use std::sync::{Arc, Mutex};
 
+/// `TableEntry` represents a table in the catalog throughout its lifetime.
+/// It holds a reference to the `Table` definition, the underlying `TableStore` for data storage,
+/// and an optional `PrimaryKeyIndex` for enforcing primary key constraints and fast lookups.
+///
+/// `TableEntry` is responsible for managing concurrent access to the table data, ensuring
+/// thread safety during insertions.
 pub(crate) struct TableEntry {
     table: Arc<Table>,
     store: Arc<TableStore>,
@@ -17,6 +23,10 @@ pub(crate) struct TableEntry {
 }
 
 impl TableEntry {
+    /// Creates a new `TableEntry` for the given `Table`.
+    ///
+    /// This initializes the `TableStore` and, if the table has a primary key,
+    /// the `PrimaryKeyIndex`.
     pub(crate) fn new(table: Table) -> Arc<TableEntry> {
         let primary_key_index = Self::maybe_primary_key_index(&table);
         Arc::new(Self {
@@ -27,6 +37,13 @@ impl TableEntry {
         })
     }
 
+    /// Inserts a single row into the table.
+    ///
+    /// If the table has a primary key, this method checks for duplicate primary keys
+    /// before insertion. If a duplicate is found, `InsertError::DuplicatePrimaryKey` is returned.
+    ///
+    /// This method is thread-safe and uses an internal lock to ensure atomicity of the
+    /// check-and-insert operation when a primary key index is present.
     pub(crate) fn insert(&self, row: Row) -> Result<RowId, InsertError> {
         let _guard = self.insert_lock.lock().unwrap();
 
@@ -49,6 +66,12 @@ impl TableEntry {
         }
     }
 
+    /// Inserts a batch of rows into the table.
+    ///
+    /// Similar to `insert`, this method enforces primary key constraints if applicable.
+    /// It ensures that neither the new batch nor the existing data contains duplicate primary keys.
+    ///
+    /// This operation is atomic with respect to the primary key check and insertion.
     pub(crate) fn insert_all(&self, batch: Batch) -> Result<Vec<RowId>, InsertError> {
         let _guard = self.insert_lock.lock().unwrap();
 
@@ -79,34 +102,44 @@ impl TableEntry {
         }
     }
 
+    /// Retrieves a row by its `RowId`.
+    ///
+    /// Returns `Some(Row)` if the row exists, or `None` otherwise.
     pub(crate) fn get(&self, row_id: RowId) -> Option<Row> {
         self.store.get(row_id)
     }
 
+    /// Creates a `TableScan` for iterating over the rows in the table.
     pub(crate) fn scan(&self) -> TableScan {
         TableScan::new(self.store.clone())
     }
 
+    /// Returns a `TableDescriptor` for the table, which contains metadata about the table.
     pub(crate) fn table_descriptor(&self) -> TableDescriptor {
         TableDescriptor::new(self.table.clone())
     }
 
+    /// Returns a reference to the `Table` definition.
     pub(crate) fn table_ref(&self) -> &Table {
         &self.table
     }
 
+    /// Returns a specific `Arc` reference to the `Table` definition.
     pub(crate) fn table(&self) -> Arc<Table> {
         self.table.clone()
     }
 
+    /// Returns the name of the table.
     pub(crate) fn table_name(&self) -> &str {
         self.table.name()
     }
 
+    /// Checks if the table has an associated primary key index.
     pub(crate) fn has_primary_key_index(&self) -> bool {
         self.primary_key_index.is_some()
     }
 
+    /// Returns a reference to the `PrimaryKeyIndex`, if one exists.
     pub(crate) fn primary_key_index(&self) -> Option<&PrimaryKeyIndex> {
         self.primary_key_index.as_ref()
     }

@@ -1,25 +1,36 @@
 use crate::query::lexer::token_cursor::TokenCursor;
 
+/// `TokenStream` represents a sequence of tokens produced by the lexer.
 pub(crate) struct TokenStream {
     tokens: Vec<Token>,
 }
 
+/// `Token` represents a single unit of meaning in the source code,
+/// such as an identifier, a keyword, or a punctuation mark.
 pub(crate) struct Token {
     lexeme: String,
     token_type: TokenType,
 }
 
+/// `TokenType` defines the various categories of tokens that can be recognized.
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub(crate) enum TokenType {
+    /// An identifier (e.g., table name, column name).
     Identifier,
+    /// A reserved keyword (e.g., SELECT, FROM).
     Keyword,
+    /// A semicolon `;`, used to terminate statements.
     Semicolon,
+    /// An asterisk `*`, used for "select all".
     Star,
+    /// A comma `,`, used for separating items in a list.
     Comma,
+    /// Indicates the end of the token stream.
     EndOfStream,
 }
 
 impl Token {
+    /// Creates a new `Token` with the given lexeme and type.
     pub(crate) fn new<S: Into<String>>(lexeme: S, token_type: TokenType) -> Token {
         Token {
             lexeme: lexeme.into(),
@@ -27,64 +38,79 @@ impl Token {
         }
     }
 
+    /// Creates a token representing the end of the input stream.
     pub(crate) fn end_of_stream() -> Token {
         Token::new("", TokenType::EndOfStream)
     }
 
+    /// Creates a semicolon token `;`.
     pub(crate) fn semicolon() -> Token {
         Token::new(";", TokenType::Semicolon)
     }
 
+    /// Creates an asterisk token `*`.
     pub(crate) fn star() -> Token {
         Token::new("*", TokenType::Star)
     }
 
+    /// Creates a comma token `,`.
     pub(crate) fn comma() -> Token {
         Token::new(",", TokenType::Comma)
     }
 
+    /// Returns the string representation of the token.
     pub(crate) fn lexeme(&self) -> &str {
         &self.lexeme
     }
 
+    /// Checks if the token matches a specific type and case-insensitive text.
     pub(crate) fn matches(&self, token_type: TokenType, text: &str) -> bool {
         self.lexeme.eq_ignore_ascii_case(text) && self.token_type == token_type
     }
 
+    /// Checks if the token is a semicolon `;`.
     pub(crate) fn is_semicolon(&self) -> bool {
         self.lexeme == ";" && self.token_type == TokenType::Semicolon
     }
 
+    /// Checks if the token is an asterisk `*`.
     pub(crate) fn is_star(&self) -> bool {
         self.lexeme == "*" && self.token_type == TokenType::Star
     }
 
+    /// Checks if the token is a comma `,`.
     pub(crate) fn is_comma(&self) -> bool {
         self.lexeme == "," && self.token_type == TokenType::Comma
     }
 
+    /// Checks if the token represents the end of the stream.
     pub(crate) fn is_end_of_stream(&self) -> bool {
         self.token_type == TokenType::EndOfStream
     }
 
+    /// Checks if the token is an identifier.
     pub(crate) fn is_identifier(&self) -> bool {
         !self.lexeme.is_empty() && self.token_type == TokenType::Identifier
     }
 }
 
 impl TokenStream {
+    /// Creates a new, empty `TokenStream`.
     pub(crate) fn new() -> TokenStream {
         Self { tokens: Vec::new() }
     }
 
+    /// Adds a token to the stream.
     pub(crate) fn add(&mut self, token: Token) {
         self.tokens.push(token);
     }
 
+    /// Retrieves the token at the specified index.
     pub(crate) fn token_at(&self, index: usize) -> Option<&Token> {
         self.tokens.get(index)
     }
 
+    /// Creates a cursor for iterating over the tokens in this stream.
     pub(crate) fn cursor(self) -> TokenCursor {
         TokenCursor::new(self)
     }

@@ -4,17 +4,24 @@ use crate::storage::table_store::RowId;
 use std::collections::HashMap;
 use std::sync::RwLock;
 
+/// An in-memory index for enforcing primary key uniqueness.
 pub(crate) struct PrimaryKeyIndex {
     index: RwLock<HashMap<PrimaryKeyColumnValues, RowId>>,
 }
 
 impl PrimaryKeyIndex {
+    /// Creates a new, empty `PrimaryKeyIndex`.
     pub(crate) fn new() -> PrimaryKeyIndex {
         Self {
             index: RwLock::new(HashMap::new()),
         }
     }
 
+    /// Inserts a primary key value and its associated row ID into the index.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the primary key already exists. Uniqueness should be verified before calling this method.
     pub(crate) fn insert(&self, key: PrimaryKeyColumnValues, row_id: RowId) {
         let mut index = self.index.write().unwrap();
         let old = index.insert(key, row_id);
@@ -25,16 +32,29 @@ impl PrimaryKeyIndex {
         );
     }
 
+    /// Checks if a primary key value exists in the index.
     pub(crate) fn contains(&self, key: &PrimaryKeyColumnValues) -> bool {
         let index = self.index.read().unwrap();
         index.contains_key(key)
     }
 
+    /// Retrieves the `RowId` associated with a primary key value.
+    #[allow(dead_code)]
     pub(crate) fn get(&self, key: &PrimaryKeyColumnValues) -> Option<RowId> {
         let index = self.index.read().unwrap();
         index.get(key).cloned()
     }
 
+    /// Checks that none of the provided primary keys already exist in the index.
+    ///
+    /// # Arguments
+    ///
+    /// * `keys` - A slice of primary key values to check.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If no duplicates are found.
+    /// * `Err(InsertError::DuplicatePrimaryKey)` - If any of the keys already exist.
     pub(crate) fn ensure_no_duplicates(
         &self,
         keys: &[PrimaryKeyColumnValues],
