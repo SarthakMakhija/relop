@@ -10,7 +10,7 @@ use crate::types::column_value::ColumnValue;
 /// let int_type = ColumnType::Int;
 /// let text_type = ColumnType::Text;
 /// ```
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ColumnType {
     /// Integer 64-bit signed type.
     Int,

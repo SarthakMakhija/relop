@@ -1,6 +1,7 @@
 use crate::types::column_type::ColumnType;
 
 /// Represents a column in a table schema, including its name and type.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Column {
     name: String,
     column_type: ColumnType,

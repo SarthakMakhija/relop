@@ -22,6 +22,7 @@ use crate::types::column_value::ColumnValue;
 pub struct RowView<'a> {
     row: Row,
     schema: &'a Schema,
+    visible_positions: &'a [usize],
 }
 
 impl<'a> RowView<'a> {
@@ -31,8 +32,12 @@ impl<'a> RowView<'a> {
     ///
     /// * `row` - The row containing column values.
     /// * `schema` - The schema which defines the column layout.
-    pub(crate) fn new(row: Row, schema: &'a Schema) -> Self {
-        Self { row, schema }
+    pub(crate) fn new(row: Row, schema: &'a Schema, visible_positions: &'a [usize]) -> Self {
+        Self {
+            row,
+            schema,
+            visible_positions,
+        }
     }
 
     /// Retrieves the value of a column by name.
@@ -52,7 +57,10 @@ impl<'a> RowView<'a> {
     /// - This method performs a schema lookup on each call.
     pub fn column(&self, column_name: &str) -> Option<&ColumnValue> {
         let column_position = self.schema.column_position(column_name)?;
-        self.row.column_value_at(column_position)
+        if self.visible_positions.contains(&column_position) {
+            return self.row.column_value_at(column_position);
+        }
+        None
     }
 }
 
@@ -67,7 +75,7 @@ mod tests {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
         let row = Row::filled(vec![ColumnValue::Int(200)]);
 
-        let view = RowView::new(row, &schema);
+        let view = RowView::new(row, &schema, &[0]);
         assert_eq!(&ColumnValue::Int(200), view.column("id").unwrap());
     }
 
@@ -76,7 +84,27 @@ mod tests {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
         let row = Row::filled(vec![ColumnValue::Int(200)]);
 
-        let view = RowView::new(row, &schema);
+        let view = RowView::new(row, &schema, &[0]);
         assert!(view.column("name").is_none());
+    }
+
+    #[test]
+    fn attempt_to_get_a_column_not_in_visible_position() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+        let row = Row::filled(vec![
+            ColumnValue::Int(200),
+            ColumnValue::Text("relop".to_string()),
+        ]);
+
+        let view = RowView::new(row, &schema, &[1]);
+        assert!(view.column("id").is_none());
+        assert_eq!(
+            &ColumnValue::Text("relop".to_string()),
+            view.column("name").unwrap()
+        );
     }
 }
