@@ -571,4 +571,70 @@ mod tests {
             Err(ClientError::Execution(ExecutionError::Catalog(CatalogError::TableDoesNotExist(table_name)))) if table_name == "employees"
         ));
     }
+
+    #[test]
+    fn execute_select_with_projection() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_column("rank", ColumnType::Int)
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = relop
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]),
+                    Row::filled(vec![ColumnValue::Int(2), ColumnValue::Int(20)]),
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop.execute("select rank from employees").unwrap();
+        let result_set = query_result.result_set().unwrap();
+
+        let mut iterator = result_set.iter();
+
+        let row_view = iterator.next().unwrap();
+        assert_eq!(&ColumnValue::Int(10), row_view.column("rank").unwrap());
+
+        let row_view = iterator.next().unwrap();
+        assert_eq!(&ColumnValue::Int(20), row_view.column("rank").unwrap());
+    }
+
+    #[test]
+    fn attempt_to_execute_select_with_projection_for_non_existing_column() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_column("rank", ColumnType::Int)
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = relop
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]),
+                    Row::filled(vec![ColumnValue::Int(2), ColumnValue::Int(20)]),
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop.execute("select unknown from employees");
+
+        assert!(matches!(
+            query_result,
+            Err(ClientError::Execution(ExecutionError::UnknownColumn(column_name))) if column_name == "unknown"
+        ));
+    }
 }
