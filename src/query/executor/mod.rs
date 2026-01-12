@@ -43,6 +43,7 @@ impl<'a> Executor<'a> {
                     scan_tuple.1,
                 )))
             }
+            LogicalPlan::Projection { .. } => unimplemented!(),
         }
     }
 }
