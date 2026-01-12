@@ -46,7 +46,7 @@ impl Parser {
     fn parse_show_tables(&mut self) -> Result<Ast, ParseError> {
         self.expect_keyword("show")?;
         self.expect_keyword("tables")?;
-        self.maybe_matches_predicate(|token| token.is_semicolon());
+        let _ = self.maybe_matches_predicate(|token| token.is_semicolon());
 
         Ok(Ast::ShowTables)
     }
@@ -55,7 +55,7 @@ impl Parser {
         self.expect_keyword("describe")?;
         self.expect_keyword("table")?;
         let table_name = self.expect_identifier()?;
-        self.maybe_matches_predicate(|token| token.is_semicolon());
+        let _ = self.maybe_matches_predicate(|token| token.is_semicolon());
 
         Ok(Ast::DescribeTable {
             table_name: table_name.to_string(),
@@ -67,7 +67,7 @@ impl Parser {
         self.expect_star()?;
         self.expect_keyword("from")?;
         let table_name = self.expect_identifier()?;
-        self.maybe_matches_predicate(|token| token.is_semicolon());
+        let _ = self.maybe_matches_predicate(|token| token.is_semicolon());
 
         Ok(Ast::Select {
             table_name: table_name.to_string(),
@@ -107,12 +107,14 @@ impl Parser {
         }
     }
 
-    fn maybe_matches_predicate<F: Fn(&Token) -> bool>(&mut self, predicate: F) {
+    fn maybe_matches_predicate<F: Fn(&Token) -> bool>(&mut self, predicate: F) -> bool {
         if let Some(token) = self.cursor.peek() {
-            if predicate(&token) {
+            if predicate(token) {
                 self.cursor.next();
+                return true;
             }
         }
+        false
     }
 
     fn expect_end_of_stream(&mut self) -> Result<(), ParseError> {
