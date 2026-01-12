@@ -23,7 +23,8 @@ The project intentionally focuses on a **small subset of SQL SELECT** and operat
   - [ ] Filter
   - [X] Projection
   - [ ] Join  (incrementally) 
-  - [ ] Limit (incrementally)
+  - [ ] Limit
+  - [ ] Order by
   - [X] Show tables
   - [X] Describe table
 - [X] Build a minimal in-memory store to mimic relational database storage
