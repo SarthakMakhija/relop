@@ -284,14 +284,13 @@ mod tests {
             .unwrap();
 
         let executor = Executor::new(&catalog);
-        let query_result = executor
-            .execute(LogicalPlan::Projection {
-                base_plan: LogicalPlan::ScanTable {
-                    table_name: "employees".to_string(),
-                }
-                    .boxed(),
-                columns: vec!["unknown".to_string()],
-            });
+        let query_result = executor.execute(LogicalPlan::Projection {
+            base_plan: LogicalPlan::ScanTable {
+                table_name: "employees".to_string(),
+            }
+            .boxed(),
+            columns: vec!["unknown".to_string()],
+        });
 
         assert!(matches!(
             query_result,
