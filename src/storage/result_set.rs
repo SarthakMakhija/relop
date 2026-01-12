@@ -47,15 +47,15 @@ impl ResultSet {
     ///
     /// * `Ok(ResultSet)` - A new result set containing only the specified columns.
     /// * `Err(ExecutionError)` - If any of the specified columns do not exist.
-    pub(crate) fn project(self, columns: &[String]) -> Result<ResultSet, ExecutionError> {
+    pub(crate) fn project<T: AsRef<str>>(self, columns: &[T]) -> Result<ResultSet, ExecutionError> {
         let schema = self.table.schema();
 
         let positions = columns
             .iter()
             .map(|column_name| {
                 schema
-                    .column_position(column_name)
-                    .ok_or_else(|| ExecutionError::UnknownColumn(column_name.to_string()))
+                    .column_position(column_name.as_ref())
+                    .ok_or_else(|| ExecutionError::UnknownColumn(column_name.as_ref().to_string()))
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -141,7 +141,7 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = ResultSet::new(table_scan, Arc::new(table));
 
-        let projected_result_set = result_set.project(&["name".to_string()]).unwrap();
+        let projected_result_set = result_set.project(&["name"]).unwrap();
 
         let rows: Vec<_> = projected_result_set.iter().collect();
         assert_eq!(1, rows.len());
@@ -165,7 +165,7 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = ResultSet::new(table_scan, Arc::new(table));
 
-        let result = result_set.project(&["name".to_string()]);
+        let result = result_set.project(&["name"]);
         assert!(
             matches!(result, Err(ExecutionError::UnknownColumn(column_name)) if column_name == "name"),
         );
