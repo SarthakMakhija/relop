@@ -15,6 +15,7 @@ pub(crate) enum TokenType {
     Keyword,
     Semicolon,
     Star,
+    Comma,
     EndOfStream,
 }
 
@@ -36,6 +37,10 @@ impl Token {
 
     pub(crate) fn star() -> Token {
         Token::new("*", TokenType::Star)
+    }
+
+    pub(crate) fn comma() -> Token {
+        Token::new(",", TokenType::Comma)
     }
 
     pub(crate) fn lexeme(&self) -> &str {
@@ -155,6 +160,13 @@ mod token_tests {
         let token = Token::star();
         assert_eq!("*", token.lexeme());
         assert_eq!(TokenType::Star, token.token_type());
+    }
+
+    #[test]
+    fn comma_token() {
+        let token = Token::comma();
+        assert_eq!(",", token.lexeme());
+        assert_eq!(TokenType::Comma, token.token_type());
     }
 
     #[test]

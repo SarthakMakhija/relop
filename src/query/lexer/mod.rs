@@ -31,16 +31,11 @@ impl Lexer {
         while let Some(char) = self.peek() {
             match char {
                 ch if ch.is_whitespace() => self.eat(),
-                ';' => {
-                    stream.add(Token::semicolon());
-                    self.eat();
-                }
-                '*' => {
-                    stream.add(Token::star());
-                    self.eat();
-                }
+                ';' => self.capture_token(&mut stream, Token::semicolon()),
+                '*' => self.capture_token(&mut stream, Token::star()),
+                ',' => self.capture_token(&mut stream, Token::comma()),
                 ch if Self::looks_like_an_identifier(ch) => {
-                    stream.add(self.identifier_or_keyword());
+                    stream.add(self.identifier_or_keyword())
                 }
                 _ => {
                     return Err(LexError::UnexpectedCharacter(char));
@@ -49,6 +44,11 @@ impl Lexer {
         }
         stream.add(Token::end_of_stream());
         Ok(stream)
+    }
+
+    fn capture_token(&mut self, stream: &mut TokenStream, token: Token) {
+        stream.add(token);
+        self.eat();
     }
 
     fn eat(&mut self) {
@@ -145,6 +145,42 @@ mod tests {
             [
                 (TokenType::Keyword, "SELECT"),
                 (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_with_projection() {
+        assert_lex!(
+            "SELECT id,name FROM employees",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Identifier, "id"),
+                (TokenType::Comma, ","),
+                (TokenType::Identifier, "name"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_with_projection_separated_by_spaces() {
+        assert_lex!(
+            "SELECT id,name, address,pin FROM employees",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Identifier, "id"),
+                (TokenType::Comma, ","),
+                (TokenType::Identifier, "name"),
+                (TokenType::Comma, ","),
+                (TokenType::Identifier, "address"),
+                (TokenType::Comma, ","),
+                (TokenType::Identifier, "pin"),
                 (TokenType::Keyword, "FROM"),
                 (TokenType::Identifier, "employees"),
                 (TokenType::EndOfStream, ""),
