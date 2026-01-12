@@ -13,7 +13,11 @@ describe_table
     = "DESCRIBE" "TABLE" identifier [";"] ;
 
 select
-    = "SELECT" "*" "FROM" identifier [";"] ;
+    = "SELECT" projection "FROM" identifier [";"] ;
+
+projection
+    = "*"
+    | identifier ("," identifier )*
 
 identifier
     = IDENTIFIER ;
