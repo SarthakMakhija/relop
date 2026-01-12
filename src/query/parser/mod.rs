@@ -48,7 +48,7 @@ impl Parser {
     fn parse_show_tables(&mut self) -> Result<Ast, ParseError> {
         self.expect_keyword("show")?;
         self.expect_keyword("tables")?;
-        let _ = self.maybe_matches_predicate(|token| token.is_semicolon());
+        let _ = self.eat_if(|token| token.is_semicolon());
 
         Ok(Ast::ShowTables)
     }
@@ -57,7 +57,7 @@ impl Parser {
         self.expect_keyword("describe")?;
         self.expect_keyword("table")?;
         let table_name = self.expect_identifier()?;
-        let _ = self.maybe_matches_predicate(|token| token.is_semicolon());
+        let _ = self.eat_if(|token| token.is_semicolon());
 
         Ok(Ast::DescribeTable {
             table_name: table_name.to_string(),
@@ -69,7 +69,7 @@ impl Parser {
         let projection = self.expect_projection()?;
         self.expect_keyword("from")?;
         let table_name = self.expect_identifier()?;
-        let _ = self.maybe_matches_predicate(|token| token.is_semicolon());
+        let _ = self.eat_if(|token| token.is_semicolon());
 
         Ok(Ast::Select {
             table_name: table_name.to_string(),
@@ -100,7 +100,7 @@ impl Parser {
     }
 
     fn expect_projection(&mut self) -> Result<Projection, ParseError> {
-        if self.maybe_matches_predicate(|token| token.is_star()) {
+        if self.eat_if(|token| token.is_star()) {
             return Ok(Projection::All);
         }
         let columns = self.expect_columns()?;
@@ -114,7 +114,7 @@ impl Parser {
             Some(token) if token.is_identifier() => token.lexeme().to_string(),
             Some(token) => {
                 return Err(ParseError::UnexpectedToken {
-                    expected: "column name".to_string(),
+                    expected: "identifier".to_string(),
                     found: token.lexeme().to_string(),
                 });
             }
@@ -122,14 +122,14 @@ impl Parser {
         };
         columns.push(first);
 
-        while self.maybe_matches_predicate(|token| token.is_comma()) {
+        while self.eat_if(|token| token.is_comma()) {
             let column = self.expect_identifier()?;
             columns.push(column);
         }
         Ok(columns)
     }
 
-    fn maybe_matches_predicate<F: Fn(&Token) -> bool>(&mut self, predicate: F) -> bool {
+    fn eat_if<F: Fn(&Token) -> bool>(&mut self, predicate: F) -> bool {
         if let Some(token) = self.cursor.peek() {
             if predicate(token) {
                 self.cursor.next();
@@ -497,7 +497,7 @@ mod select_star_tests {
         let result = parser.parse();
 
         assert!(
-            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "column name" && found == "from" )
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "identifier" && found == "from" )
         );
     }
 
@@ -684,7 +684,7 @@ mod select_projection_tests {
         let result = parser.parse();
 
         assert!(
-            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "column name" && found == "from" )
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "identifier" && found == "from" )
         );
     }
 
