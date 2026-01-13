@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::schema::Schema;
 
 /// Represents a table in the database catalog.
@@ -5,7 +6,7 @@ use crate::schema::Schema;
 /// Holds the table's name and schema.
 pub struct Table {
     name: String,
-    schema: Schema,
+    schema: Arc<Schema>,
 }
 
 impl Table {
@@ -13,7 +14,7 @@ impl Table {
     pub fn new<N: Into<String>>(name: N, schema: Schema) -> Table {
         Self {
             name: name.into(),
-            schema,
+            schema: Arc::new(schema),
         }
     }
 
@@ -27,8 +28,13 @@ impl Table {
         self.schema.has_primary_key()
     }
 
-    /// Returns the table schema.
-    pub(crate) fn schema(&self) -> &Schema {
+    /// Returns the table schema reference.
+    pub(crate) fn schema_ref(&self) -> &Schema {
         &self.schema
+    }
+
+    /// Returns the table schema.
+    pub(crate) fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
     }
 }

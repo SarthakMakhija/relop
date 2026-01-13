@@ -48,7 +48,7 @@ impl TableEntry {
         let _guard = self.insert_lock.lock().unwrap();
 
         if let Some(primary_key_index) = &self.primary_key_index {
-            let schema = self.table.schema();
+            let schema = self.table.schema_ref();
             //SAFETY: primary_key_index can only be created if the Table has a primary key.
             //If table has a primary key, we can safely unwrap() primary_key() from schema.
             let primary_key = schema.primary_key().unwrap();
@@ -76,7 +76,7 @@ impl TableEntry {
         let _guard = self.insert_lock.lock().unwrap();
 
         if let Some(primary_key_index) = &self.primary_key_index {
-            let schema = self.table.schema();
+            let schema = self.table.schema_ref();
             let all_primary_key_column_values = batch
                 .unique_primary_key_values(schema)
                 .map_err(|_| InsertError::DuplicatePrimaryKey)?;

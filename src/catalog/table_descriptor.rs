@@ -53,7 +53,7 @@ impl TableDescriptor {
     /// assert_eq!(vec!["id"], descriptor.column_names());
     /// ```
     pub fn column_names(&self) -> Vec<&str> {
-        self.table.schema().column_names()
+        self.table.schema_ref().column_names()
     }
 
     /// Returns the names of the primary key columns, if any.
@@ -81,7 +81,7 @@ impl TableDescriptor {
     /// assert_eq!(vec!["id"], descriptor.primary_key_column_names().unwrap());
     /// ```
     pub fn primary_key_column_names(&self) -> Option<&[String]> {
-        self.table.schema().primary_key_column_names()
+        self.table.schema_ref().primary_key_column_names()
     }
 }
 

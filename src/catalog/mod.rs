@@ -89,7 +89,7 @@ impl Catalog {
 
         table_entry
             .table_ref()
-            .schema()
+            .schema_ref()
             .check_type_compatability(row.column_values())
             .map_err(InsertError::Schema)?;
 
@@ -110,7 +110,7 @@ impl Catalog {
 
         let batch = batch.into();
         batch
-            .check_type_compatability(table_entry.table_ref().schema())
+            .check_type_compatability(table_entry.table_ref().schema_ref())
             .map_err(InsertError::Schema)?;
 
         table_entry.insert_all(batch)

@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::schema::Schema;
 use crate::storage::row::Row;
 use crate::types::column_value::ColumnValue;
@@ -21,7 +22,7 @@ use crate::types::column_value::ColumnValue;
 /// - `RowView` is intentionally read-only.
 pub struct RowView<'a> {
     row: Row,
-    schema: &'a Schema,
+    schema: Arc<Schema>,
     visible_positions: &'a [usize],
 }
 
@@ -32,7 +33,7 @@ impl<'a> RowView<'a> {
     ///
     /// * `row` - The row containing column values.
     /// * `schema` - The schema which defines the column layout.
-    pub(crate) fn new(row: Row, schema: &'a Schema, visible_positions: &'a [usize]) -> Self {
+    pub(crate) fn new(row: Row, schema: Arc<Schema>, visible_positions: &'a [usize]) -> Self {
         Self {
             row,
             schema,
@@ -75,7 +76,7 @@ mod tests {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
         let row = Row::filled(vec![ColumnValue::Int(200)]);
 
-        let view = RowView::new(row, &schema, &[0]);
+        let view = RowView::new(row, Arc::new(schema), &[0]);
         assert_eq!(&ColumnValue::Int(200), view.column("id").unwrap());
     }
 
@@ -84,7 +85,7 @@ mod tests {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
         let row = Row::filled(vec![ColumnValue::Int(200)]);
 
-        let view = RowView::new(row, &schema, &[0]);
+        let view = RowView::new(row, Arc::new(schema), &[0]);
         assert!(view.column("name").is_none());
     }
 
@@ -100,7 +101,7 @@ mod tests {
             ColumnValue::Text("relop".to_string()),
         ]);
 
-        let view = RowView::new(row, &schema, &[1]);
+        let view = RowView::new(row, Arc::new(schema), &[1]);
         assert!(view.column("id").is_none());
         assert_eq!(
             &ColumnValue::Text("relop".to_string()),

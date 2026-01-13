@@ -22,7 +22,7 @@ impl ResultSet {
     /// * `table_scan` - The iterator over the table's rows.
     /// * `table` - The table metadata, used for resolving column names to positions.
     pub(crate) fn new(table_scan: TableScan, table: Arc<Table>) -> Self {
-        let column_positions = (0..table.schema().column_count()).collect();
+        let column_positions = (0..table.schema_ref().column_count()).collect();
         Self {
             table_scan,
             table,
@@ -48,7 +48,7 @@ impl ResultSet {
     /// * `Ok(ResultSet)` - A new result set containing only the specified columns.
     /// * `Err(ExecutionError)` - If any of the specified columns do not exist.
     pub(crate) fn project<T: AsRef<str>>(self, columns: &[T]) -> Result<ResultSet, ExecutionError> {
-        let schema = self.table.schema();
+        let schema = self.table.schema_ref();
 
         let positions = columns
             .iter()
