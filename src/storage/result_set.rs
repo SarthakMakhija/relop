@@ -11,7 +11,7 @@ use std::sync::Arc;
 pub struct ResultSet {
     table_scan: TableScan,
     table: Arc<Table>,
-    visible_positions: Vec<usize>,
+    visible_positions: Arc<Vec<usize>>,
 }
 
 impl ResultSet {
@@ -26,7 +26,7 @@ impl ResultSet {
         Self {
             table_scan,
             table,
-            visible_positions: column_positions,
+            visible_positions: Arc::new(column_positions),
         }
     }
 
@@ -34,7 +34,7 @@ impl ResultSet {
     pub fn iter(&self) -> impl Iterator<Item = RowView> + '_ {
         self.table_scan
             .iter()
-            .map(move |row| RowView::new(row, self.table.schema(), &self.visible_positions))
+            .map(|row| RowView::new(row, self.table.schema(), self.visible_positions.clone()))
     }
 
     /// Projects specific columns from the result set, returning a new `ResultSet`.
@@ -62,7 +62,7 @@ impl ResultSet {
         Ok(ResultSet {
             table_scan: self.table_scan,
             table: self.table,
-            visible_positions: positions,
+            visible_positions: Arc::new(positions),
         })
     }
 }

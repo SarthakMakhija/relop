@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use crate::schema::Schema;
+use std::sync::Arc;
 
 /// Represents a table in the database catalog.
 ///

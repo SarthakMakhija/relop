@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use crate::schema::Schema;
 use crate::storage::row::Row;
 use crate::types::column_value::ColumnValue;
+use std::sync::Arc;
 
 /// A read-only view over a single row, bound to a table's schema.
 ///
@@ -20,20 +20,20 @@ use crate::types::column_value::ColumnValue;
 /// - Column lookups are resolved via the table schema at runtime.
 /// - No cloning of column values occurs; returned values are borrowed.
 /// - `RowView` is intentionally read-only.
-pub struct RowView<'a> {
+pub struct RowView {
     row: Row,
     schema: Arc<Schema>,
-    visible_positions: &'a [usize],
+    visible_positions: Arc<Vec<usize>>,
 }
 
-impl<'a> RowView<'a> {
+impl RowView {
     /// Creates a new `RowView` for the given row and table.
     ///
     /// # Arguments
     ///
     /// * `row` - The row containing column values.
     /// * `schema` - The schema which defines the column layout.
-    pub(crate) fn new(row: Row, schema: Arc<Schema>, visible_positions: &'a [usize]) -> Self {
+    pub(crate) fn new(row: Row, schema: Arc<Schema>, visible_positions: Arc<Vec<usize>>) -> Self {
         Self {
             row,
             schema,
@@ -76,7 +76,7 @@ mod tests {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
         let row = Row::filled(vec![ColumnValue::Int(200)]);
 
-        let view = RowView::new(row, Arc::new(schema), &[0]);
+        let view = RowView::new(row, Arc::new(schema), Arc::new(vec![0]));
         assert_eq!(&ColumnValue::Int(200), view.column("id").unwrap());
     }
 
@@ -85,7 +85,7 @@ mod tests {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
         let row = Row::filled(vec![ColumnValue::Int(200)]);
 
-        let view = RowView::new(row, Arc::new(schema), &[0]);
+        let view = RowView::new(row, Arc::new(schema), Arc::new(vec![0]));
         assert!(view.column("name").is_none());
     }
 
@@ -101,7 +101,7 @@ mod tests {
             ColumnValue::Text("relop".to_string()),
         ]);
 
-        let view = RowView::new(row, Arc::new(schema), &[1]);
+        let view = RowView::new(row, Arc::new(schema), Arc::new(vec![1]));
         assert!(view.column("id").is_none());
         assert_eq!(
             &ColumnValue::Text("relop".to_string()),
