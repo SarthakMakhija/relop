@@ -13,11 +13,18 @@ describe_table
     = "DESCRIBE" "TABLE" identifier [";"] ;
 
 select
-    = "SELECT" projection "FROM" identifier [";"] ;
+    = "SELECT" projection "FROM" identifier [limit] [";"] ;
 
 projection
     = "*"
     | identifier ("," identifier )*
 
+limit
+    = "LIMIT" number;
+
+number
+    = NUMBER ;
+
 identifier
     = IDENTIFIER ;
+
