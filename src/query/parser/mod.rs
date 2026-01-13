@@ -79,11 +79,13 @@ impl Parser {
         let projection = self.expect_projection()?;
         self.expect_keyword("from")?;
         let table_name = self.expect_identifier()?;
+        let limit = self.maybe_limit()?;
         let _ = self.eat_if(|token| token.is_semicolon());
 
         Ok(Ast::Select {
             table_name: table_name.to_string(),
             projection,
+            limit,
         })
     }
 
@@ -137,6 +139,30 @@ impl Parser {
             columns.push(column);
         }
         Ok(columns)
+    }
+
+    fn maybe_limit(&mut self) -> Result<Option<usize>, ParseError> {
+        let is_limit_clause = self.eat_if(|token| token.is_keyword("limit"));
+        if is_limit_clause {
+            let limit_value = self.expect_whole_number()?;
+            let value = limit_value
+                .parse::<usize>()
+                .map_err(|_| ParseError::LimitOutOfRange(limit_value))?;
+
+            if value == 0 {
+                return Err(ParseError::ZeroLimit);
+            }
+            return Ok(Some(value));
+        }
+        Ok(None)
+    }
+
+    fn expect_whole_number(&mut self) -> Result<String, ParseError> {
+        match self.cursor.next() {
+            Some(token) if token.is_a_whole_number() => Ok(token.lexeme().to_string()),
+            Some(_token) => Err(ParseError::NoLimitValue),
+            None => Err(ParseError::UnexpectedEndOfInput),
+        }
     }
 
     fn eat_if<F: Fn(&Token) -> bool>(&mut self, predicate: F) -> bool {
@@ -464,7 +490,7 @@ mod select_star_tests {
         let ast = parser.parse().unwrap();
 
         assert!(
-            matches!(ast, Ast::Select { table_name, projection } if table_name == "employees" && projection == Projection::All)
+            matches!(ast, Ast::Select { table_name, projection, .. } if table_name == "employees" && projection == Projection::All)
         );
     }
 
@@ -482,7 +508,7 @@ mod select_star_tests {
         let ast = parser.parse().unwrap();
 
         assert!(
-            matches!(ast, Ast::Select { table_name, projection } if table_name == "employees" && projection == Projection::All)
+            matches!(ast, Ast::Select { table_name, projection, .. } if table_name == "employees" && projection == Projection::All)
         );
     }
 
@@ -616,7 +642,7 @@ mod select_projection_tests {
         let mut parser = Parser::new(stream);
         let ast = parser.parse().unwrap();
 
-        assert!(matches!(ast, Ast::Select { table_name, projection }
+        assert!(matches!(ast, Ast::Select { table_name, projection, .. }
                 if table_name == "employees" && projection == Projection::Columns(vec!["name".to_string(), "id".to_string()])));
     }
 
@@ -632,7 +658,7 @@ mod select_projection_tests {
         let mut parser = Parser::new(stream);
         let ast = parser.parse().unwrap();
 
-        assert!(matches!(ast, Ast::Select { table_name, projection }
+        assert!(matches!(ast, Ast::Select { table_name, projection, .. }
                 if table_name == "employees" && projection == Projection::Columns(vec!["name".to_string()])));
     }
 
@@ -651,7 +677,7 @@ mod select_projection_tests {
         let mut parser = Parser::new(stream);
         let ast = parser.parse().unwrap();
 
-        assert!(matches!(ast, Ast::Select { table_name, projection }
+        assert!(matches!(ast, Ast::Select { table_name, projection, .. }
                 if table_name == "employees" && projection == Projection::Columns(vec!["name".to_string(), "id".to_string()])));
     }
 
@@ -781,5 +807,140 @@ mod select_projection_tests {
         assert!(
             matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "end of stream" && found == "invalid")
         );
+    }
+}
+
+#[cfg(test)]
+mod select_tests_with_limit {
+    use super::*;
+    use crate::query::lexer::token::Token;
+
+    #[test]
+    fn parse_select_with_limit() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new(",", TokenType::Comma));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("limit", TokenType::Keyword));
+        stream.add(Token::new("10", TokenType::WholeNumber));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(ast,
+            Ast::Select { table_name, projection, limit }
+                if table_name == "employees"
+                    && projection == Projection::Columns(vec!["name".to_string(), "id".to_string()])
+                    && limit == Some(10)
+        ));
+    }
+
+    #[test]
+    fn parse_select_with_limit_and_semicolon() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new(",", TokenType::Comma));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("limit", TokenType::Keyword));
+        stream.add(Token::new("10", TokenType::WholeNumber));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(ast,
+            Ast::Select { table_name, projection, limit }
+                if table_name == "employees"
+                    && projection == Projection::Columns(vec!["name".to_string(), "id".to_string()])
+                    && limit == Some(10)
+        ));
+    }
+
+    #[test]
+    fn attempt_to_parse_with_no_tokens() {
+        let stream = TokenStream::new();
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(result, Err(ParseError::NoTokens)));
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_limit_without_limit_value() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("limit", TokenType::Keyword));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+
+        let result = parser.parse();
+        assert!(matches!(result, Err(ParseError::NoLimitValue)));
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_zero_limit_value() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("limit", TokenType::Keyword));
+        stream.add(Token::new("0", TokenType::WholeNumber));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+
+        let result = parser.parse();
+        assert!(matches!(result, Err(ParseError::ZeroLimit)));
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_limit_value_out_of_range() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("limit", TokenType::Keyword));
+        stream.add(Token::new("99999999999999999999", TokenType::WholeNumber));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+
+        let result = parser.parse();
+        assert!(
+            matches!(result, Err(ParseError::LimitOutOfRange(value)) if value == "99999999999999999999")
+        );
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_no_tokens_after_limit() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("limit", TokenType::Keyword));
+
+        let mut parser = Parser::new(stream);
+
+        let result = parser.parse();
+        assert!(matches!(result, Err(ParseError::UnexpectedEndOfInput)));
     }
 }

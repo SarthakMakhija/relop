@@ -17,6 +17,12 @@ pub enum ParseError {
         /// The actual token found.
         found: String,
     },
+    /// Indicates the limit value was not present.
+    NoLimitValue,
+    /// Indicates the limit value has exceeded the range.
+    LimitOutOfRange(String),
+    /// Indicates the limit value is zero.
+    ZeroLimit,
     /// Indicates that the input ended unexpectedly.
     UnexpectedEndOfInput,
 }

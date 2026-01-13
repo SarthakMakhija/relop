@@ -15,5 +15,7 @@ pub(crate) enum Ast {
         table_name: String,
         /// The projection (columns or all) to select.
         projection: Projection,
+        /// The limit (max records) to return.
+        limit: Option<usize>,
     },
 }

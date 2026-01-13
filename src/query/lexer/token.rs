@@ -95,6 +95,13 @@ impl Token {
         !self.lexeme.is_empty() && self.token_type == TokenType::Identifier
     }
 
+    /// Checks if the token is a keyword.
+    pub(crate) fn is_keyword(&self, keyword: &str) -> bool {
+        !self.lexeme.is_empty()
+            && self.token_type == TokenType::Keyword
+            && self.lexeme.eq_ignore_ascii_case(keyword)
+    }
+
     /// Checks if the token is a whole number.
     pub(crate) fn is_a_whole_number(&self) -> bool {
         !self.lexeme.is_empty() && self.token_type == TokenType::WholeNumber
@@ -303,5 +310,29 @@ mod token_tests {
     fn is_not_a_whole_number_token() {
         let token = Token::new("select", TokenType::Keyword);
         assert!(!token.is_a_whole_number());
+    }
+
+    #[test]
+    fn is_a_keyword() {
+        let token = Token::new("select", TokenType::Keyword);
+        assert!(token.is_keyword("select"));
+    }
+
+    #[test]
+    fn is_not_a_keyword_token() {
+        let token = Token::new("employees", TokenType::Identifier);
+        assert!(!token.is_keyword("select"));
+    }
+
+    #[test]
+    fn is_an_identifier_token() {
+        let token = Token::new("employees", TokenType::Identifier);
+        assert!(token.is_identifier());
+    }
+
+    #[test]
+    fn is_not_an_identifier_token() {
+        let token = Token::new("select", TokenType::Keyword);
+        assert!(!token.is_identifier());
     }
 }

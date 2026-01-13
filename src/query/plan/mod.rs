@@ -44,6 +44,7 @@ impl LogicalPlanner {
             Ast::Select {
                 table_name,
                 projection,
+                ..
             } => match projection {
                 Projection::All => LogicalPlan::ScanTable { table_name },
                 Projection::Columns(columns) => LogicalPlan::Projection {
@@ -82,6 +83,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::All,
+            limit: None,
         });
         assert!(matches!(
             logical_plan,
@@ -94,6 +96,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::Columns(vec![String::from("id")]),
+            limit: None,
         });
         assert!(matches!(
             logical_plan,
@@ -106,6 +109,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::Columns(vec![String::from("id")]),
+            limit: None,
         });
         assert!(matches!(
             logical_plan,
