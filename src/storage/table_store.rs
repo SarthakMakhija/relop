@@ -16,7 +16,7 @@ pub(crate) struct TableStore {
 }
 
 /// Iterator over the rows in a `TableStore`.
-pub struct TableStoreIterator<'a> {
+pub(crate) struct TableStoreIterator<'a> {
     inner: Iter<'a, RowId, Row>,
 }
 
