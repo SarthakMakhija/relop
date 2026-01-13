@@ -20,6 +20,10 @@ pub trait ResultSet {
     fn schema(&self) -> &Schema;
 }
 
+/// A `ResultSet` implementation that scans an entire table.
+///
+/// `ScanResultsSet` holds a reference to the table data via `TableScan` (the owner)
+/// and produces iterators that view all rows in the table.
 pub struct ScanResultsSet {
     table_scan: TableScan,
     table: Arc<Table>,
@@ -27,6 +31,12 @@ pub struct ScanResultsSet {
 }
 
 impl ScanResultsSet {
+    /// Creates a new `ScanResultsSet` for the given table.
+    ///
+    /// # Arguments
+    ///
+    /// * `table_scan` - The owner of the table data.
+    /// * `table` - The metadata of the table (schema, etc.).
     pub(crate) fn new(table_scan: TableScan, table: Arc<Table>) -> Self {
         let column_positions = (0..table.schema_ref().column_count()).collect();
         Self {
@@ -56,12 +66,28 @@ impl ResultSet for ScanResultsSet {
     }
 }
 
+/// A `ResultSet` implementation that applies a projection (column selection)
+/// to an underlying `ResultSet`.
+///
+/// `ProjectResultSet` wraps another `ResultSet` and filters the columns visible
+/// in the produced `RowView`s.
 pub struct ProjectResultSet {
     inner: Box<dyn ResultSet>,
     visible_positions: Arc<Vec<usize>>,
 }
 
 impl ProjectResultSet {
+    /// Creates a new `ProjectResultSet`.
+    ///
+    /// # Arguments
+    ///
+    /// * `inner` - The source `ResultSet` to project from.
+    /// * `columns` - The list of column names to include in the projection.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(ProjectResultSet)` if all specified columns exist in the source schema.
+    /// * `Err(ExecutionError::UnknownColumn)` if any column is not found.
     pub(crate) fn new<T: AsRef<str>>(
         inner: Box<dyn ResultSet>,
         columns: &[T],
