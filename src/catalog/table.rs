@@ -32,9 +32,4 @@ impl Table {
     pub(crate) fn schema_ref(&self) -> &Schema {
         &self.schema
     }
-
-    /// Returns the table schema.
-    pub(crate) fn schema(&self) -> Arc<Schema> {
-        self.schema.clone()
-    }
 }

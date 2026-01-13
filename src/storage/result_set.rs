@@ -65,11 +65,13 @@ impl ResultSet for ScanResultsSet {
 
         // We call .iter() on TableScan, which returns a TableIterator (the iterator).
         // We map that iterator to RowView.
-        Box::new(
-            self.table_scan
-                .iter()
-                .map(move |row| Ok(RowView::new(row, table.schema(), visible_positions.clone()))),
-        )
+        Box::new(self.table_scan.iter().map(move |row| {
+            Ok(RowView::new(
+                row,
+                self.table.schema_ref(),
+                &self.visible_positions,
+            ))
+        }))
     }
 
     fn schema(&self) -> &Schema {
@@ -124,12 +126,12 @@ impl ProjectResultSet {
 impl ResultSet for ProjectResultSet {
     fn iterator(&self) -> Box<dyn Iterator<Item = Result<RowView, ExecutionError>> + '_> {
         let inner_iterator = self.inner.iterator();
-        let visible_positions = self.visible_positions.clone();
 
-        Box::new(
-            inner_iterator
-                .map(move |result| result.map(|row_view| row_view.project(&visible_positions))),
-        )
+        Box::new(inner_iterator.map(move |result| {
+            result.map(|row_view| {
+                row_view.project(&self.visible_positions)
+            })
+        }))
     }
 
     fn schema(&self) -> &Schema {
