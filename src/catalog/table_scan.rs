@@ -43,3 +43,37 @@ impl Iterator for TableIterator<'_> {
         self.iter.next()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::row::Row;
+    use crate::types::column_value::ColumnValue;
+
+    #[test]
+    fn scan_table() {
+        let store = Arc::new(TableStore::new());
+        store.insert(Row::filled(vec![ColumnValue::Int(1)]));
+        store.insert(Row::filled(vec![ColumnValue::Int(2)]));
+
+        let table_scan = TableScan::new(store);
+        let mut iterator = table_scan.iter();
+
+        let row1 = iterator.next().unwrap();
+        assert_eq!(ColumnValue::Int(1), row1.column_values()[0]);
+
+        let row2 = iterator.next().unwrap();
+        assert_eq!(ColumnValue::Int(2), row2.column_values()[0]);
+
+        assert!(iterator.next().is_none());
+    }
+
+    #[test]
+    fn scan_empty_table() {
+        let store = Arc::new(TableStore::new());
+        let table_scan = TableScan::new(store);
+
+        let mut iterator = table_scan.iter();
+        assert!(iterator.next().is_none());
+    }
+}
