@@ -20,7 +20,7 @@ pub struct TableStoreIterator<'a> {
     inner: Iter<'a, RowId, Row>,
 }
 
-impl<'a> Iterator for TableStoreIterator<'a> {
+impl Iterator for TableStoreIterator<'_> {
     type Item = Row;
 
     fn next(&mut self) -> Option<Self::Item> {
