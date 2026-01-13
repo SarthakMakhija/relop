@@ -310,10 +310,11 @@ impl Relop {
     ///     .insert_into("employees", Row::filled(vec![ColumnValue::Int(1)]))
     ///     .unwrap();
     ///
-    ///  let query_result = relop.execute("select * from employees").unwrap();
+    ///  let mut query_result = relop.execute("select * from employees").unwrap();
     ///  let result_set = query_result.result_set().unwrap();
+    ///  let mut iterator = result_set.iterator();
     ///
-    ///  let row_view = result_set.iter().next().unwrap();
+    ///  let row_view = iterator.next().unwrap().unwrap();
     ///  assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
     /// ```
     pub fn execute(&self, query: &str) -> Result<QueryResult, ClientError> {
@@ -550,13 +551,12 @@ mod tests {
 
         let query_result = relop.execute("select * from employees").unwrap();
         let result_set = query_result.result_set().unwrap();
+        let mut row_iter = result_set.iterator();
 
-        let mut iterator = result_set.iter();
-
-        let row_view = iterator.next().unwrap();
+        let row_view = row_iter.next().unwrap().unwrap();
         assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
 
-        let row_view = iterator.next().unwrap();
+        let row_view = row_iter.next().unwrap().unwrap();
         assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
     }
 
@@ -597,13 +597,12 @@ mod tests {
 
         let query_result = relop.execute("select rank from employees").unwrap();
         let result_set = query_result.result_set().unwrap();
+        let mut row_iter = result_set.iterator();
 
-        let mut iterator = result_set.iter();
-
-        let row_view = iterator.next().unwrap();
+        let row_view = row_iter.next().unwrap().unwrap();
         assert_eq!(&ColumnValue::Int(10), row_view.column("rank").unwrap());
 
-        let row_view = iterator.next().unwrap();
+        let row_view = row_iter.next().unwrap().unwrap();
         assert_eq!(&ColumnValue::Int(20), row_view.column("rank").unwrap());
     }
 

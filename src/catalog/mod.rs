@@ -2,7 +2,6 @@ use crate::catalog::error::{CatalogError, InsertError};
 use crate::catalog::table::Table;
 use crate::catalog::table_descriptor::TableDescriptor;
 use crate::catalog::table_entry::TableEntry;
-use crate::catalog::table_scan::TableScan;
 use crate::schema::Schema;
 use crate::storage::batch::Batch;
 use crate::storage::row::Row;
@@ -122,10 +121,15 @@ impl Catalog {
         Ok(table_entry.get(row_id))
     }
 
-    /// Creates a table scan iterator for the specified table.
-    pub(crate) fn scan(&self, table_name: &str) -> Result<(TableScan, Arc<Table>), CatalogError> {
+    /// Returns the table entry and table definition for the specified table.
+    ///
+    /// The caller is responsible for creating the scan iterator from the returned entry.
+    pub(crate) fn scan(
+        &self,
+        table_name: &str,
+    ) -> Result<(Arc<TableEntry>, Arc<Table>), CatalogError> {
         let table_entry = self.table_entry_or_error(table_name)?;
-        Ok((table_entry.scan(), table_entry.table()))
+        Ok((table_entry.clone(), table_entry.table()))
     }
 
     fn table_entry_or_error(&self, table_name: &str) -> Result<Arc<TableEntry>, CatalogError> {
@@ -524,6 +528,7 @@ mod tests {
             .scan("employees")
             .unwrap()
             .0
+            .scan()
             .iter()
             .collect::<Vec<_>>();
         assert_eq!(1, rows.len());

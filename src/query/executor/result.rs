@@ -8,7 +8,7 @@ pub enum QueryResult {
     /// Result of a `DESCRIBE TABLE` query, containing the table's schema information.
     TableDescription(TableDescriptor),
     /// Result of a `SELECT *` query without where clause.
-    ResultSet(ResultSet),
+    ResultSet(Box<dyn ResultSet>),
 }
 
 impl QueryResult {
@@ -44,9 +44,9 @@ impl QueryResult {
     ///
     /// * `Some(&ResultSet)` - If the result is a `ResultSet`.
     /// * `None` - Otherwise.
-    pub fn result_set(&self) -> Option<&ResultSet> {
+    pub fn result_set(&self) -> Option<&dyn ResultSet> {
         match self {
-            QueryResult::ResultSet(result_set) => Some(result_set),
+            QueryResult::ResultSet(result_set) => Some(result_set.as_ref()),
             _ => None,
         }
     }

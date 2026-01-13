@@ -1,53 +1,44 @@
 use crate::storage::row::Row;
-use crate::storage::table_store::TableStore;
+use crate::storage::table_store::{TableStore, TableStoreIterator};
 use std::sync::Arc;
 
-/// Iterator that scans all rows in a table.
-pub struct TableScan {
+/// A handle to a table scan operation that owns the `TableStore`.
+///
+/// This struct holds the `Arc<TableStore>` to ensure the data is kept alive
+/// during the scan, but it does not eagerly collect rows or hold an iterator itself.
+/// The iterator is created on demand via the `.iter()` method, which yields a
+/// `TableIterator` bound to the lifetime of `ScanTable` (and thus the `Arc`).
+pub struct ScanTable {
     store: Arc<TableStore>,
 }
 
-impl TableScan {
-    pub(crate) fn new(table_store: Arc<TableStore>) -> TableScan {
-        Self { store: table_store }
+impl ScanTable {
+    pub(crate) fn new(store: Arc<TableStore>) -> Self {
+        Self { store }
     }
 
     /// Returns an iterator over the rows in the table.
     ///
-    /// The iterator yields `Row` items in an unspecified order.
-    ///
-    pub fn iter(&self) -> impl Iterator<Item = Row> + '_ {
-        self.store
-            .entries()
-            .iter()
-            .map(|entry| entry.value().clone())
+    /// The returned `TableIterator` borrows from this `ScanTable` to ensure validity.
+    pub fn iter(&self) -> TableIterator<'_> {
+        TableIterator {
+            iter: self.store.iter(),
+        }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::types::column_value::ColumnValue;
+/// Iterator that scans all rows in a table.
+///
+/// This iterator borrows from `ScanTable` (via the `TableStore` reference)
+/// and thus cannot outlive the `ScanTable`.
+pub struct TableIterator<'a> {
+    iter: TableStoreIterator<'a>,
+}
 
-    #[test]
-    fn scan() {
-        let store = TableStore::new();
-        store.insert(Row::filled(vec![
-            ColumnValue::Int(10),
-            ColumnValue::Text("relop".to_string()),
-        ]));
+impl<'a> Iterator for TableIterator<'a> {
+    type Item = Row;
 
-        let table_scan = TableScan::new(Arc::new(store));
-        let rows = table_scan.iter().collect::<Vec<_>>();
-
-        assert_eq!(1, rows.len());
-
-        let inserted_row = rows.first().unwrap();
-        let expected_row = Row::filled(vec![
-            ColumnValue::Int(10),
-            ColumnValue::Text("relop".to_string()),
-        ]);
-
-        assert_eq!(&expected_row, inserted_row);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
     }
 }

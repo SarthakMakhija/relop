@@ -1,7 +1,7 @@
 use crate::catalog::error::InsertError;
 use crate::catalog::table::Table;
 use crate::catalog::table_descriptor::TableDescriptor;
-use crate::catalog::table_scan::TableScan;
+use crate::catalog::table_scan::ScanTable;
 use crate::storage::batch::Batch;
 use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
 use crate::storage::primary_key_index::PrimaryKeyIndex;
@@ -109,9 +109,9 @@ impl TableEntry {
         self.store.get(row_id)
     }
 
-    /// Creates a `TableScan` for iterating over the rows in the table.
-    pub(crate) fn scan(&self) -> TableScan {
-        TableScan::new(self.store.clone())
+    /// Creates a `ScanTable` which can be used to iterate over the rows in the table.
+    pub(crate) fn scan(&self) -> ScanTable {
+        ScanTable::new(self.store.clone())
     }
 
     /// Returns a `TableDescriptor` for the table, which contains metadata about the table.

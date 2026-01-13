@@ -2,7 +2,6 @@ pub mod error;
 pub mod result;
 
 use crate::catalog::Catalog;
-use crate::client::QueryResult::ResultSet;
 use crate::query::executor::error::ExecutionError;
 use crate::query::executor::result::QueryResult;
 use crate::query::plan::LogicalPlan;
@@ -34,7 +33,7 @@ impl<'a> Executor<'a> {
             }
             _ => {
                 let result_set = self.execute_select(&logical_plan)?;
-                Ok(ResultSet(result_set))
+                Ok(QueryResult::ResultSet(result_set))
             }
         }
     }
@@ -43,25 +42,28 @@ impl<'a> Executor<'a> {
     fn execute_select(
         &self,
         logical_plan: &LogicalPlan,
-    ) -> Result<crate::storage::result_set::ResultSet, ExecutionError> {
+    ) -> Result<Box<dyn crate::storage::result_set::ResultSet>, ExecutionError> {
         match logical_plan {
             LogicalPlan::ScanTable { table_name } => {
-                let scan_tuple = self
+                let (table_entry, table) = self
                     .catalog
                     .scan(table_name)
                     .map_err(ExecutionError::Catalog)?;
 
-                Ok(crate::storage::result_set::ResultSet::new(
-                    scan_tuple.0,
-                    scan_tuple.1,
-                ))
+                let scan_table = table_entry.scan();
+
+                Ok(Box::new(crate::storage::result_set::ScanResultsSet::new(
+                    scan_table, table,
+                )))
             }
             LogicalPlan::Projection {
                 base_plan: base,
                 columns,
             } => {
                 let result_set = self.execute_select(base)?;
-                result_set.project(&columns[..])
+                let project_result_set =
+                    crate::storage::result_set::ProjectResultSet::new(result_set, &columns[..])?;
+                Ok(Box::new(project_result_set))
             }
             _ => panic!("should not be here"),
         }
@@ -190,12 +192,12 @@ mod tests {
         assert!(query_result.result_set().is_some());
 
         let result_set = query_result.result_set().unwrap();
-        let row_views: Vec<_> = result_set.iter().collect();
-        assert_eq!(1, row_views.len());
+        let mut row_iter = result_set.iterator();
 
-        let row_view = result_set.iter().next().unwrap();
+        let row_view = row_iter.next().unwrap().unwrap();
         let column_value = row_view.column("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
+        assert!(row_iter.next().is_none());
     }
 
     #[test]
@@ -250,14 +252,14 @@ mod tests {
         assert!(query_result.result_set().is_some());
 
         let result_set = query_result.result_set().unwrap();
-        let row_views: Vec<_> = result_set.iter().collect();
-        assert_eq!(1, row_views.len());
+        let mut row_iter = result_set.iterator();
 
-        let row_view = result_set.iter().next().unwrap();
+        let row_view = row_iter.next().unwrap().unwrap();
         let column_value = row_view.column("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
 
         assert!(row_view.column("name").is_none());
+        assert!(row_iter.next().is_none());
     }
 
     #[test]

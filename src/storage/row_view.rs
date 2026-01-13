@@ -63,6 +63,14 @@ impl RowView {
         }
         None
     }
+    /// Projects the row view to a new set of visible positions.
+    pub(crate) fn project(self, visible_positions: &Arc<Vec<usize>>) -> Self {
+        Self {
+            row: self.row,
+            schema: self.schema,
+            visible_positions: visible_positions.clone(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -106,6 +114,33 @@ mod tests {
         assert_eq!(
             &ColumnValue::Text("relop".to_string()),
             view.column("name").unwrap()
+        );
+    }
+    #[test]
+    fn project_row_view() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+
+        let row = Row::filled(vec![
+            ColumnValue::Int(200),
+            ColumnValue::Text("relop".to_string()),
+        ]);
+
+        let view = RowView::new(row, Arc::new(schema), Arc::new(vec![0, 1]));
+        assert_eq!(&ColumnValue::Int(200), view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::Text("relop".to_string()),
+            view.column("name").unwrap()
+        );
+
+        let projected_view = view.project(&Arc::new(vec![1]));
+        assert!(projected_view.column("id").is_none());
+        assert_eq!(
+            &ColumnValue::Text("relop".to_string()),
+            projected_view.column("name").unwrap()
         );
     }
 }

@@ -1,7 +1,7 @@
 use crate::storage::row::Row;
+use crossbeam_skiplist::map::Iter;
 use crossbeam_skiplist::SkipMap;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering::AcqRel;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Unique identifier for a row in a table.
 pub type RowId = u64;
@@ -13,6 +13,19 @@ pub type RowId = u64;
 pub(crate) struct TableStore {
     entries: SkipMap<RowId, Row>,
     current_row_id: AtomicU64,
+}
+
+/// Iterator over the rows in a `TableStore`.
+pub struct TableStoreIterator<'a> {
+    inner: Iter<'a, RowId, Row>,
+}
+
+impl<'a> Iterator for TableStoreIterator<'a> {
+    type Item = Row;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|entry| entry.value().clone())
+    }
 }
 
 impl TableStore {
@@ -41,7 +54,7 @@ impl TableStore {
     ///
     /// Returns the assigned `RowId`.
     pub(crate) fn insert(&self, row: Row) -> RowId {
-        let row_id = self.current_row_id.fetch_add(1, AcqRel);
+        let row_id = self.current_row_id.fetch_add(1, Ordering::AcqRel);
         self.entries.insert(row_id, row);
         row_id
     }
@@ -53,9 +66,11 @@ impl TableStore {
         self.entries.get(&row_id).map(|entry| entry.value().clone())
     }
 
-    /// Returns a reference to the underlying `SkipMap` containing the rows.
-    pub(crate) fn entries(&self) -> &SkipMap<RowId, Row> {
-        &self.entries
+    /// Returns an iterator over all rows in the table.
+    pub(crate) fn iter(&self) -> TableStoreIterator<'_> {
+        TableStoreIterator {
+            inner: self.entries.iter(),
+        }
     }
 }
 
