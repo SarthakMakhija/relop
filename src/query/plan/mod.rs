@@ -23,6 +23,13 @@ pub(crate) enum LogicalPlan {
         /// The columns to project.
         columns: Vec<String>,
     },
+    /// Plan to limit results from a base plan.
+    Limit {
+        /// The source plan.
+        base_plan: Box<LogicalPlan>,
+        /// The limit value.
+        count: usize,
+    },
 }
 
 impl LogicalPlan {
@@ -44,13 +51,26 @@ impl LogicalPlanner {
             Ast::Select {
                 table_name,
                 projection,
-                ..
-            } => match projection {
-                Projection::All => LogicalPlan::ScanTable { table_name },
-                Projection::Columns(columns) => LogicalPlan::Projection {
-                    base_plan: LogicalPlan::ScanTable { table_name }.boxed(),
-                    columns,
-                },
+                limit,
+            } => {
+                let base_plan = Self::plan_for_projection(projection, table_name);
+                if let Some(value) = limit {
+                    return LogicalPlan::Limit {
+                        base_plan: base_plan.boxed(),
+                        count: value,
+                    };
+                }
+                base_plan
+            }
+        }
+    }
+
+    fn plan_for_projection(projection: Projection, table_name: String) -> LogicalPlan {
+        match projection {
+            Projection::All => LogicalPlan::ScanTable { table_name },
+            Projection::Columns(columns) => LogicalPlan::Projection {
+                base_plan: LogicalPlan::ScanTable { table_name }.boxed(),
+                columns,
             },
         }
     }
@@ -114,6 +134,76 @@ mod tests {
         assert!(matches!(
             logical_plan,
             LogicalPlan::Projection {base_plan, columns: _ } if matches!(base_plan.as_ref(), LogicalPlan::ScanTable { table_name } if table_name == "employees")
+        ));
+    }
+
+    #[test]
+    fn logical_plan_for_select_all_with_limit_base_plan() {
+        let logical_plan = LogicalPlanner::plan(Ast::Select {
+            table_name: "employees".to_string(),
+            projection: Projection::All,
+            limit: Some(10),
+        });
+        assert!(matches!(
+            logical_plan,
+            LogicalPlan::Limit { base_plan, count: _ } if matches!(base_plan.as_ref(), LogicalPlan::ScanTable { table_name } if table_name == "employees")
+        ));
+    }
+
+    #[test]
+    fn logical_plan_for_select_all_with_limit_count() {
+        let logical_plan = LogicalPlanner::plan(Ast::Select {
+            table_name: "employees".to_string(),
+            projection: Projection::All,
+            limit: Some(10),
+        });
+        assert!(matches!(
+            logical_plan,
+            LogicalPlan::Limit { base_plan: _, count } if count == 10
+        ));
+    }
+
+    ///////
+
+    #[test]
+    fn logical_plan_for_select_with_projection_and_limit() {
+        let logical_plan = LogicalPlanner::plan(Ast::Select {
+            table_name: "employees".to_string(),
+            projection: Projection::Columns(vec![String::from("id")]),
+            limit: Some(10),
+        });
+        assert!(matches!(
+            logical_plan,
+            LogicalPlan::Limit { base_plan: _, count } if count == 10
+        ));
+    }
+
+    #[test]
+    fn logical_plan_for_select_with_projection_and_limit_validating_the_columns() {
+        let logical_plan = LogicalPlanner::plan(Ast::Select {
+            table_name: "employees".to_string(),
+            projection: Projection::Columns(vec![String::from("id")]),
+            limit: Some(10),
+        });
+        assert!(matches!(
+            logical_plan,
+            LogicalPlan::Limit {base_plan, count: _ }
+                if matches!(base_plan.as_ref(), LogicalPlan::Projection { base_plan: _, columns } if columns.iter().eq(&[String::from("id")]) )
+        ));
+    }
+
+    #[test]
+    fn logical_plan_for_select_with_projection_and_limit_validating_the_base_plan() {
+        let logical_plan = LogicalPlanner::plan(Ast::Select {
+            table_name: "employees".to_string(),
+            projection: Projection::Columns(vec![String::from("id")]),
+            limit: Some(10),
+        });
+        assert!(matches!(
+            logical_plan,
+            LogicalPlan::Limit {base_plan, count: _ }
+                if matches!(base_plan.as_ref(), LogicalPlan::Projection { base_plan, columns: _ }
+                    if matches!(base_plan.as_ref(), LogicalPlan::ScanTable { table_name } if table_name == "employees") )
         ));
     }
 }
