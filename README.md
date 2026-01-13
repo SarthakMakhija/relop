@@ -23,7 +23,7 @@ The project intentionally focuses on a **small subset of SQL SELECT** and operat
   - [ ] Filter
   - [X] Projection
   - [ ] Join  (incrementally) 
-  - [ ] Limit
+  - [X] Limit
   - [ ] Order by
   - [X] Show tables
   - [X] Describe table
