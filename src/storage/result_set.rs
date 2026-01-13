@@ -137,12 +137,22 @@ impl ResultSet for ProjectResultSet {
     }
 }
 
+/// A `ResultSet` implementation that limits the number of rows returned.
+///
+/// `LimitResultSet` wraps another `ResultSet` and ensures that at most `limit` rows
+/// are yielded during iteration.
 pub struct LimitResultSet {
     inner: Box<dyn ResultSet>,
     limit: usize,
 }
 
 impl LimitResultSet {
+    /// Creates a new `LimitResultSet`.
+    ///
+    /// # Arguments
+    ///
+    /// * `inner` - The source `ResultSet` to limit.
+    /// * `limit` - The maximum number of rows to return.
     pub(crate) fn new(inner: Box<dyn ResultSet>, limit: usize) -> Self {
         Self { inner, limit }
     }
@@ -292,6 +302,47 @@ mod tests {
         assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
         assert_eq!(
             &ColumnValue::Text("relop".to_string()),
+            row_view.column("name").unwrap()
+        );
+        assert!(iterator.next().is_none());
+    }
+
+    #[test]
+    fn limit_result_set_given_limit_higher_than_the_available_rows() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+
+        let table = Table::new("employees", schema);
+        let table_store = TableStore::new();
+        table_store.insert(Row::filled(vec![
+            ColumnValue::Int(1),
+            ColumnValue::Text("relop".to_string()),
+        ]));
+        table_store.insert(Row::filled(vec![
+            ColumnValue::Int(2),
+            ColumnValue::Text("query".to_string()),
+        ]));
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+
+        let limit_result_set = LimitResultSet::new(result_set, 4);
+        let mut iterator = limit_result_set.iterator();
+
+        let row_view = iterator.next().unwrap().unwrap();
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::Text("relop".to_string()),
+            row_view.column("name").unwrap()
+        );
+
+        let row_view = iterator.next().unwrap().unwrap();
+        assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::Text("query".to_string()),
             row_view.column("name").unwrap()
         );
         assert!(iterator.next().is_none());
