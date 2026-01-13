@@ -63,8 +63,8 @@ impl ResultSet for ScanResultsSet {
         let table = self.table.clone();
         let visible_positions = self.visible_positions.clone();
 
-        // We call .iter() on TableScan, which returns a TableIterator (the iterator)
-        // We map that iterator to RowView
+        // We call .iter() on TableScan, which returns a TableIterator (the iterator).
+        // We map that iterator to RowView.
         Box::new(
             self.table_scan
                 .iter()
@@ -123,13 +123,35 @@ impl ProjectResultSet {
 
 impl ResultSet for ProjectResultSet {
     fn iterator(&self) -> Box<dyn Iterator<Item = Result<RowView, ExecutionError>> + '_> {
-        let inner_iter = self.inner.iterator();
+        let inner_iterator = self.inner.iterator();
         let visible_positions = self.visible_positions.clone();
 
         Box::new(
-            inner_iter
+            inner_iterator
                 .map(move |result| result.map(|row_view| row_view.project(&visible_positions))),
         )
+    }
+
+    fn schema(&self) -> &Schema {
+        self.inner.schema()
+    }
+}
+
+pub struct LimitResultSet {
+    inner: Box<dyn ResultSet>,
+    limit: usize,
+}
+
+impl LimitResultSet {
+    pub(crate) fn new(inner: Box<dyn ResultSet>, limit: usize) -> Self {
+        Self { inner, limit }
+    }
+}
+
+impl ResultSet for LimitResultSet {
+    fn iterator(&self) -> Box<dyn Iterator<Item = Result<RowView, ExecutionError>> + '_> {
+        let inner_iterator = self.inner.iterator();
+        Box::new(inner_iterator.take(self.limit))
     }
 
     fn schema(&self) -> &Schema {
@@ -239,5 +261,71 @@ mod tests {
         assert!(
             matches!(result, Err(ExecutionError::UnknownColumn(column_name)) if column_name == "name"),
         );
+    }
+
+    #[test]
+    fn limit_result_set() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+
+        let table = Table::new("employees", schema);
+        let table_store = TableStore::new();
+        table_store.insert(Row::filled(vec![
+            ColumnValue::Int(1),
+            ColumnValue::Text("relop".to_string()),
+        ]));
+        table_store.insert(Row::filled(vec![
+            ColumnValue::Int(2),
+            ColumnValue::Text("query".to_string()),
+        ]));
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+
+        let limit_result_set = LimitResultSet::new(result_set, 1);
+        let mut iterator = limit_result_set.iterator();
+
+        let row_view = iterator.next().unwrap().unwrap();
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::Text("relop".to_string()),
+            row_view.column("name").unwrap()
+        );
+        assert!(iterator.next().is_none());
+    }
+
+    #[test]
+    fn limit_result_set_with_projection() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+
+        let table = Table::new("employees", schema);
+        let table_store = TableStore::new();
+        table_store.insert(Row::filled(vec![
+            ColumnValue::Int(1),
+            ColumnValue::Text("relop".to_string()),
+        ]));
+        table_store.insert(Row::filled(vec![
+            ColumnValue::Int(2),
+            ColumnValue::Text("query".to_string()),
+        ]));
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let projected_result_set = ProjectResultSet::new(result_set, &["id"]).unwrap();
+
+        let limit_result_set = LimitResultSet::new(Box::new(projected_result_set), 1);
+        let mut iterator = limit_result_set.iterator();
+
+        let row_view = iterator.next().unwrap().unwrap();
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert!(row_view.column("name").is_none());
+        assert!(iterator.next().is_none());
     }
 }
