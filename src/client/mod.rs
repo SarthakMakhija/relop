@@ -636,4 +636,86 @@ mod tests {
             Err(ClientError::Execution(ExecutionError::UnknownColumn(column_name))) if column_name == "unknown"
         ));
     }
+
+    #[test]
+    fn execute_select_star_with_limit() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = relop
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::filled(vec![ColumnValue::Int(1)]),
+                    Row::filled(vec![ColumnValue::Int(2)]),
+                    Row::filled(vec![ColumnValue::Int(3)]),
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop.execute("select * from employees limit 2").unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator();
+
+        let row_view = row_iterator.next().unwrap().unwrap();
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+
+        let row_view = row_iterator.next().unwrap().unwrap();
+        assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
+
+        assert!(row_iterator.next().is_none());
+    }
+
+    #[test]
+    fn execute_select_with_projection_and_limit() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_column("name", ColumnType::Text)
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = relop
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::filled(vec![
+                        ColumnValue::Int(1),
+                        ColumnValue::Text("relop".to_string()),
+                    ]),
+                    Row::filled(vec![
+                        ColumnValue::Int(2),
+                        ColumnValue::Text("query".to_string()),
+                    ]),
+                    Row::filled(vec![
+                        ColumnValue::Int(3),
+                        ColumnValue::Text("parsing".to_string()),
+                    ]),
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop
+            .execute("select name, id from employees limit 1")
+            .unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator();
+
+        let row_view = row_iterator.next().unwrap().unwrap();
+        assert_eq!(
+            &ColumnValue::Text("relop".to_string()),
+            row_view.column("name").unwrap()
+        );
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+
+        assert!(row_iterator.next().is_none());
+    }
 }
