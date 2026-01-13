@@ -1,5 +1,5 @@
 use crate::catalog::table::Table;
-use crate::catalog::table_scan::ScanTable;
+use crate::catalog::table_scan::TableScan;
 use crate::query::executor::error::ExecutionError;
 use crate::schema::Schema;
 use crate::storage::row_view::RowView;
@@ -11,7 +11,7 @@ use std::sync::Arc;
 /// iteration over rows and safe retrieval of column values by name.
 /// Represents the result of a query, providing access to the rows and column values.
 ///
-/// `ResultSet` acts as a factory for iterators. It owns the underlying data source (like `ScanTable`),
+/// `ResultSet` acts as a factory for iterators. It owns the underlying data source (like `TableScan`),
 /// enabling multiple iterations or consistent views.
 pub trait ResultSet {
     // Return a boxed iterator that yields Result<RowView, ...>
@@ -21,16 +21,16 @@ pub trait ResultSet {
 }
 
 pub struct ScanResultsSet {
-    scan_table: ScanTable,
+    table_scan: TableScan,
     table: Arc<Table>,
     visible_positions: Arc<Vec<usize>>,
 }
 
 impl ScanResultsSet {
-    pub(crate) fn new(scan_table: ScanTable, table: Arc<Table>) -> Self {
+    pub(crate) fn new(table_scan: TableScan, table: Arc<Table>) -> Self {
         let column_positions = (0..table.schema_ref().column_count()).collect();
         Self {
-            scan_table,
+            table_scan,
             table,
             visible_positions: Arc::new(column_positions),
         }
@@ -42,10 +42,10 @@ impl ResultSet for ScanResultsSet {
         let table = self.table.clone();
         let visible_positions = self.visible_positions.clone();
 
-        // We call .iter() on ScanTable, which returns a TableIterator (the iterator)
+        // We call .iter() on TableScan, which returns a TableIterator (the iterator)
         // We map that iterator to RowView
         Box::new(
-            self.scan_table
+            self.table_scan
                 .iter()
                 .map(move |row| Ok(RowView::new(row, table.schema(), visible_positions.clone()))),
         )
@@ -125,8 +125,8 @@ mod tests {
             ColumnValue::Text("relop".to_string()),
         ]));
 
-        let scan_table = ScanTable::new(Arc::new(table_store));
-        let result_set = ScanResultsSet::new(scan_table, Arc::new(table));
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
 
         let mut iterator = result_set.iterator();
 
@@ -147,8 +147,8 @@ mod tests {
         let table_store = TableStore::new();
         table_store.insert(Row::filled(vec![ColumnValue::Int(1)]));
 
-        let scan_table = ScanTable::new(Arc::new(table_store));
-        let result_set = ScanResultsSet::new(scan_table, Arc::new(table));
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
 
         let mut iterator = result_set.iterator();
 
@@ -171,8 +171,8 @@ mod tests {
             ColumnValue::Text("relop".to_string()),
         ]));
 
-        let scan_table = ScanTable::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(scan_table, Arc::new(table)));
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
         let projected_result_set = ProjectResultSet::new(result_set, &["name"]).unwrap();
 
@@ -195,8 +195,8 @@ mod tests {
         let table_store = TableStore::new();
         table_store.insert(Row::filled(vec![ColumnValue::Int(1)]));
 
-        let scan_table = ScanTable::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(scan_table, Arc::new(table)));
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
         let result = ProjectResultSet::new(result_set, &["name"]);
         assert!(

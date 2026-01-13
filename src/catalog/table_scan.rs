@@ -7,19 +7,19 @@ use std::sync::Arc;
 /// This struct holds the `Arc<TableStore>` to ensure the data is kept alive
 /// during the scan, but it does not eagerly collect rows or hold an iterator itself.
 /// The iterator is created on demand via the `.iter()` method, which yields a
-/// `TableIterator` bound to the lifetime of `ScanTable` (and thus the `Arc`).
-pub struct ScanTable {
+/// `TableIterator` bound to the lifetime of `TableScan` (and thus the `Arc`).
+pub struct TableScan {
     store: Arc<TableStore>,
 }
 
-impl ScanTable {
+impl TableScan {
     pub(crate) fn new(store: Arc<TableStore>) -> Self {
         Self { store }
     }
 
     /// Returns an iterator over the rows in the table.
     ///
-    /// The returned `TableIterator` borrows from this `ScanTable` to ensure validity.
+    /// The returned `TableIterator` borrows from this `TableScan` to ensure validity.
     pub fn iter(&self) -> TableIterator<'_> {
         TableIterator {
             iter: self.store.iter(),
@@ -29,8 +29,8 @@ impl ScanTable {
 
 /// Iterator that scans all rows in a table.
 ///
-/// This iterator borrows from `ScanTable` (via the `TableStore` reference)
-/// and thus cannot outlive the `ScanTable`.
+/// This iterator borrows from `TableScan` (via the `TableStore` reference)
+/// and thus cannot outlive the `TableScan`.
 pub struct TableIterator<'a> {
     iter: TableStoreIterator<'a>,
 }

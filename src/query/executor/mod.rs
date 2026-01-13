@@ -50,10 +50,9 @@ impl<'a> Executor<'a> {
                     .scan(table_name)
                     .map_err(ExecutionError::Catalog)?;
 
-                let scan_table = table_entry.scan();
-
+                let table_scan = table_entry.scan();
                 Ok(Box::new(crate::storage::result_set::ScanResultsSet::new(
-                    scan_table, table,
+                    table_scan, table,
                 )))
             }
             LogicalPlan::Projection {
