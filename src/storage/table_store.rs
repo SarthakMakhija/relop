@@ -194,4 +194,31 @@ mod tests {
         let entry = store.get(1000);
         assert!(entry.is_none());
     }
+
+    #[test]
+    fn iterate_over_all_rows() {
+        let store = TableStore::new();
+        store.insert(Row::filled(vec![ColumnValue::Int(10)]));
+        store.insert(Row::filled(vec![ColumnValue::Int(20)]));
+
+        let mut iterator = store.iter();
+
+        assert_eq!(
+            Row::filled(vec![ColumnValue::Int(10)]),
+            iterator.next().unwrap()
+        );
+        assert_eq!(
+            Row::filled(vec![ColumnValue::Int(20)]),
+            iterator.next().unwrap()
+        );
+        assert!(iterator.next().is_none());
+    }
+
+    #[test]
+    fn attempt_to_iterate_over_all_rows_with_empty_table_store() {
+        let store = TableStore::new();
+        let mut iterator = store.iter();
+
+        assert!(iterator.next().is_none());
+    }
 }
