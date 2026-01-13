@@ -5,6 +5,7 @@ use crate::catalog::Catalog;
 use crate::query::executor::error::ExecutionError;
 use crate::query::executor::result::QueryResult;
 use crate::query::plan::LogicalPlan;
+use crate::storage::result_set::LimitResultSet;
 
 /// Executes logical plans against the catalog.
 pub(crate) struct Executor<'a> {
@@ -63,6 +64,13 @@ impl<'a> Executor<'a> {
                 let project_result_set =
                     crate::storage::result_set::ProjectResultSet::new(result_set, &columns[..])?;
                 Ok(Box::new(project_result_set))
+            }
+            LogicalPlan::Limit {
+                base_plan: base,
+                count,
+            } => {
+                let result_set = self.execute_select(base)?;
+                Ok(Box::new(LimitResultSet::new(result_set, *count)))
             }
             _ => panic!("should not be here"),
         }
@@ -297,5 +305,102 @@ mod tests {
             query_result,
             Err(ExecutionError::UnknownColumn(column_name)) if column_name == "unknown"
         ))
+    }
+
+    #[test]
+    fn execute_select_star_with_limit() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = catalog
+            .insert_into("employees", Row::single(ColumnValue::Int(100)))
+            .unwrap();
+        let _ = catalog
+            .insert_into("employees", Row::single(ColumnValue::Int(200)))
+            .unwrap();
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor
+            .execute(LogicalPlan::Limit {
+                base_plan: LogicalPlan::ScanTable {
+                    table_name: "employees".to_string(),
+                }
+                .boxed(),
+                count: 1,
+            })
+            .unwrap();
+
+        assert!(query_result.result_set().is_some());
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iter = result_set.iterator();
+
+        let row_view = row_iter.next().unwrap().unwrap();
+        let column_value = row_view.column("id").unwrap();
+
+        assert_eq!(100, column_value.int_value().unwrap());
+        assert!(row_iter.next().is_none());
+    }
+
+    #[test]
+    fn execute_select_with_projection_with_limit() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_column("name", ColumnType::Text)
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = catalog
+            .insert_into(
+                "employees",
+                Row::filled(vec![
+                    ColumnValue::Int(100),
+                    ColumnValue::Text("relop".to_string()),
+                ]),
+            )
+            .unwrap();
+        let _ = catalog
+            .insert_into(
+                "employees",
+                Row::filled(vec![
+                    ColumnValue::Int(200),
+                    ColumnValue::Text("query".to_string()),
+                ]),
+            )
+            .unwrap();
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor
+            .execute(LogicalPlan::Limit {
+                base_plan: LogicalPlan::ScanTable {
+                    table_name: "employees".to_string(),
+                }
+                .boxed(),
+                count: 1,
+            })
+            .unwrap();
+
+        assert!(query_result.result_set().is_some());
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iter = result_set.iterator();
+
+        let row_view = row_iter.next().unwrap().unwrap();
+        let column_value = row_view.column("id").unwrap();
+        assert_eq!(100, column_value.int_value().unwrap());
+
+        let column_value = row_view.column("name").unwrap();
+        assert_eq!("relop", column_value.text_value().unwrap());
+
+        assert!(row_iter.next().is_none());
     }
 }
