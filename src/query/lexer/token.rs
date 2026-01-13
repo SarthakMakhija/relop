@@ -25,6 +25,8 @@ pub(crate) enum TokenType {
     Star,
     /// A comma `,`, used for separating items in a list.
     Comma,
+    /// A whole number (e.g.; 100, 120)
+    WholeNumber,
     /// Indicates the end of the token stream.
     EndOfStream,
 }
@@ -91,6 +93,11 @@ impl Token {
     /// Checks if the token is an identifier.
     pub(crate) fn is_identifier(&self) -> bool {
         !self.lexeme.is_empty() && self.token_type == TokenType::Identifier
+    }
+
+    /// Checks if the token is a whole number.
+    pub(crate) fn is_a_whole_number(&self) -> bool {
+        !self.lexeme.is_empty() && self.token_type == TokenType::WholeNumber
     }
 }
 
@@ -284,5 +291,17 @@ mod token_tests {
     fn is_not_a_comma_token() {
         let token = Token::new("select", TokenType::Keyword);
         assert!(!token.is_comma());
+    }
+
+    #[test]
+    fn is_a_whole_number_token() {
+        let token = Token::new("10", TokenType::WholeNumber);
+        assert!(token.is_a_whole_number());
+    }
+
+    #[test]
+    fn is_not_a_whole_number_token() {
+        let token = Token::new("select", TokenType::Keyword);
+        assert!(!token.is_a_whole_number());
     }
 }

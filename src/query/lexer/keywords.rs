@@ -7,9 +7,11 @@ pub(crate) struct Keywords {
 impl Keywords {
     /// Creates a `Keywords` instance with the default set of reserved words.
     ///
-    /// The default keywords include: "show", "tables", "describe", "table", "select", "from".
+    /// The default keywords include: "show", "tables", "describe", "table", "select", "from" etc.
     pub(crate) fn new_with_default_keywords() -> Keywords {
-        Self::new_with_keywords(&["show", "tables", "describe", "table", "select", "from"])
+        Self::new_with_keywords(&[
+            "show", "tables", "describe", "table", "select", "from", "limit",
+        ])
     }
 
     /// Creates a `Keywords` instance with a custom set of reserved words.

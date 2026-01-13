@@ -44,7 +44,7 @@ impl Lexer {
     /// Performs lexical analysis on the input and returns a `TokenStream`.
     ///
     /// It iterates through the input characters, recognizing tokens such as whitespace,
-    /// punctuation (semicolon, comma, star), identifiers, and keywords.
+    /// punctuation (semicolon, comma, star), identifiers, numbers, and keywords.
     ///
     /// # Returns
     ///
@@ -58,6 +58,7 @@ impl Lexer {
                 ';' => self.capture_token(&mut stream, Token::semicolon()),
                 '*' => self.capture_token(&mut stream, Token::star()),
                 ',' => self.capture_token(&mut stream, Token::comma()),
+                ch if Self::looks_like_a_whole_number(ch) => stream.add(self.number()),
                 ch if Self::looks_like_an_identifier(ch) => {
                     stream.add(self.identifier_or_keyword())
                 }
@@ -104,7 +105,6 @@ impl Lexer {
         }
 
         let is_keyword = self.keywords.contains(lexeme.as_str());
-
         if is_keyword {
             Token::new(lexeme, TokenType::Keyword)
         } else {
@@ -112,8 +112,26 @@ impl Lexer {
         }
     }
 
+    fn number(&mut self) -> Token {
+        let mut lexeme = String::new();
+
+        while let Some(ch) = self.peek() {
+            if Self::looks_like_a_whole_number(ch) {
+                let _ = self.advance();
+                lexeme.push(ch);
+            } else {
+                break;
+            }
+        }
+        Token::new(lexeme, TokenType::WholeNumber)
+    }
+
     fn looks_like_an_identifier(ch: char) -> bool {
         ch.is_ascii_alphanumeric() || ch == '_'
+    }
+
+    fn looks_like_a_whole_number(ch: char) -> bool {
+        ch.is_ascii_digit()
     }
 }
 
@@ -210,6 +228,31 @@ mod tests {
                 (TokenType::EndOfStream, ""),
             ]
         )
+    }
+
+    #[test]
+    fn lex_select_with_limit() {
+        assert_lex!(
+            "SELECT * FROM employees limit 10",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::Keyword, "limit"),
+                (TokenType::WholeNumber, "10"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_with_limit_with_a_float_value() {
+        let result = Lexer::new_with_default_keywords("select * from employees limit 120.34").lex();
+        assert!(matches!(
+            result,
+            Err(LexError::UnexpectedCharacter(ch)) if ch == '.'
+        ))
     }
 
     #[test]
