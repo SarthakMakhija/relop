@@ -240,10 +240,7 @@ mod row_view_comparator_tests {
     fn compare_row_views_on_single_column_ascending() {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
 
-        let ordering_keys = vec![OrderingKey {
-            column: "id".to_string(),
-            direction: OrderingDirection::Ascending,
-        }];
+        let ordering_keys = vec![OrderingKey::ascending_by("id")];
 
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
 
@@ -266,14 +263,8 @@ mod row_view_comparator_tests {
             .unwrap();
 
         let ordering_keys = vec![
-            OrderingKey {
-                column: "id".to_string(),
-                direction: OrderingDirection::Ascending,
-            },
-            OrderingKey {
-                column: "rank".to_string(),
-                direction: OrderingDirection::Ascending,
-            },
+            OrderingKey::ascending_by("id"),
+            OrderingKey::ascending_by("rank"),
         ];
 
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
@@ -297,14 +288,8 @@ mod row_view_comparator_tests {
             .unwrap();
 
         let ordering_keys = vec![
-            OrderingKey {
-                column: "id".to_string(),
-                direction: OrderingDirection::Ascending,
-            },
-            OrderingKey {
-                column: "rank".to_string(),
-                direction: OrderingDirection::Ascending,
-            },
+            OrderingKey::ascending_by("id"),
+            OrderingKey::ascending_by("rank"),
         ];
 
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
@@ -328,14 +313,8 @@ mod row_view_comparator_tests {
             .unwrap();
 
         let ordering_keys = vec![
-            OrderingKey {
-                column: "id".to_string(),
-                direction: OrderingDirection::Ascending,
-            },
-            OrderingKey {
-                column: "rank".to_string(),
-                direction: OrderingDirection::Descending,
-            },
+            OrderingKey::ascending_by("id"),
+            OrderingKey::descending_by("rank"),
         ];
 
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
@@ -358,14 +337,8 @@ mod row_view_comparator_tests {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
 
         let ordering_keys = vec![
-            OrderingKey {
-                column: "id".to_string(),
-                direction: OrderingDirection::Ascending,
-            },
-            OrderingKey {
-                column: "rank".to_string(),
-                direction: OrderingDirection::Descending,
-            },
+            OrderingKey::ascending_by("id"),
+            OrderingKey::descending_by("rank"),
         ];
 
         let result = RowViewComparator::new(&schema, &ordering_keys);

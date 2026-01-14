@@ -209,7 +209,6 @@ impl ResultSet for OrderingResultSet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::query::parser::ordering_key::OrderingDirection;
 
     use crate::schema::Schema;
     use crate::storage::row::Row;
@@ -430,10 +429,7 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
-        let ordering_keys = vec![OrderingKey {
-            column: "id".to_string(),
-            direction: OrderingDirection::Ascending,
-        }];
+        let ordering_keys = vec![OrderingKey::ascending_by("id")];
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
@@ -458,10 +454,7 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
-        let ordering_keys = vec![OrderingKey {
-            column: "id".to_string(),
-            direction: OrderingDirection::Descending,
-        }];
+        let ordering_keys = vec![OrderingKey::descending_by("id")];
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
@@ -491,14 +484,8 @@ mod tests {
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
         let ordering_keys = vec![
-            OrderingKey {
-                column: "id".to_string(),
-                direction: OrderingDirection::Ascending,
-            },
-            OrderingKey {
-                column: "rank".to_string(),
-                direction: OrderingDirection::Ascending,
-            },
+            OrderingKey::ascending_by("id"),
+            OrderingKey::ascending_by("rank"),
         ];
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
@@ -531,10 +518,7 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
-        let ordering_keys = vec![OrderingKey {
-            column: "id".to_string(),
-            direction: OrderingDirection::Ascending,
-        }];
+        let ordering_keys = vec![OrderingKey::ascending_by("id")];
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
 
         let limit_result_set = LimitResultSet::new(Box::new(ordering_result_set), 2);
