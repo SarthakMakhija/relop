@@ -58,9 +58,26 @@ fn main() {
 
 The query processing pipeline follows a standard database architecture:
 
-1.  **Lexer**: Tokenizes the raw SQL string (e.g., `SELECT`, `FROM`, identifiers, literals).
+```mermaid
+graph TD
+    A[SQL Query] -->|Lexer| B(Tokens)
+    B -->|Parser| C(Abstract Syntax Tree)
+    C -->|Logical Planner| D(Logical Plan)
+    D -->|Executor| E(Physical Execution / ResultSet)
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style E fill:#9f9,stroke:#333,stroke-width:2px
+```
+
+### Pipeline Details
+
+1.  **Lexer**: Tokenizes the raw SQL string.
+    *   *Input*: `SELECT id FROM employees`
+    *   *Output*: `[SELECT, IDENT("id"), FROM, IDENT("employees")]`
 2.  **Parser**: Converts tokens into an **Abstract Syntax Tree (AST)**.
-3.  **Logical Planner**: Transforms the AST into a tree of **Logical Operators** (`LogicalPlan`) like `Project`, `Filter` (planned), `Scan`, `Limit`.
+    *   *Output*: `SelectStatement { projection: ["id"], table: "employees" }`
+3.  **Logical Planner**: Transforms the AST into a tree of **Logical Operators**.
+    *   *Output*: `Project(Scan("employees"), ["id"])`
 4.  **Executor**: Traverses the logical plan and constructs a **physical execution pipeline** using `ResultSet` iterators, which pull data on demand.
 
 ## Goals Status
