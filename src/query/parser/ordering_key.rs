@@ -19,6 +19,7 @@ pub(crate) enum OrderingDirection {
 }
 
 impl OrderingKey {
+    /// Creates an `OrderingKey` for the specified column in ascending order.
     pub(crate) fn ascending_by<C: Into<String>>(column_name: C) -> Self {
         OrderingKey {
             column: column_name.into(),
@@ -26,10 +27,30 @@ impl OrderingKey {
         }
     }
 
+    /// Creates an `OrderingKey` for the specified column in descending order.
     pub(crate) fn descending_by<C: Into<String>>(column_name: C) -> Self {
         OrderingKey {
             column: column_name.into(),
             direction: OrderingDirection::Descending,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ascending_by() {
+        let key = OrderingKey::ascending_by("id");
+        assert_eq!(key.column, "id");
+        assert_eq!(key.direction, OrderingDirection::Ascending);
+    }
+
+    #[test]
+    fn descending_by() {
+        let key = OrderingKey::descending_by("rank");
+        assert_eq!(key.column, "rank");
+        assert_eq!(key.direction, OrderingDirection::Descending);
     }
 }
