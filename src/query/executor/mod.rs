@@ -302,10 +302,13 @@ mod tests {
         assert!(result.is_ok());
 
         let _ = catalog
-            .insert_into("employees", Row::single(ColumnValue::Int(100)))
-            .unwrap();
-        let _ = catalog
-            .insert_into("employees", Row::single(ColumnValue::Int(200)))
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::single(ColumnValue::Int(100)),
+                    Row::single(ColumnValue::Int(200)),
+                ],
+            )
             .unwrap();
 
         let executor = Executor::new(&catalog);
@@ -339,21 +342,18 @@ mod tests {
         assert!(result.is_ok());
 
         let _ = catalog
-            .insert_into(
+            .insert_all_into(
                 "employees",
-                Row::filled(vec![
-                    ColumnValue::Int(100),
-                    ColumnValue::Text("relop".to_string()),
-                ]),
-            )
-            .unwrap();
-        let _ = catalog
-            .insert_into(
-                "employees",
-                Row::filled(vec![
-                    ColumnValue::Int(200),
-                    ColumnValue::Text("query".to_string()),
-                ]),
+                vec![
+                    Row::filled(vec![
+                        ColumnValue::Int(100),
+                        ColumnValue::Text("relop".to_string()),
+                    ]),
+                    Row::filled(vec![
+                        ColumnValue::Int(200),
+                        ColumnValue::Text("query".to_string()),
+                    ]),
+                ],
             )
             .unwrap();
 
@@ -389,10 +389,13 @@ mod tests {
         assert!(result.is_ok());
 
         let _ = catalog
-            .insert_into("employees", Row::single(ColumnValue::Int(200)))
-            .unwrap();
-        let _ = catalog
-            .insert_into("employees", Row::single(ColumnValue::Int(100)))
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::single(ColumnValue::Int(200)),
+                    Row::single(ColumnValue::Int(100)),
+                ],
+            )
             .unwrap();
 
         let executor = Executor::new(&catalog);
@@ -428,10 +431,13 @@ mod tests {
         assert!(result.is_ok());
 
         let _ = catalog
-            .insert_into("employees", Row::single(ColumnValue::Int(100)))
-            .unwrap();
-        let _ = catalog
-            .insert_into("employees", Row::single(ColumnValue::Int(200)))
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::single(ColumnValue::Int(100)),
+                    Row::single(ColumnValue::Int(200)),
+                ],
+            )
             .unwrap();
 
         let executor = Executor::new(&catalog);
@@ -473,15 +479,12 @@ mod tests {
         assert!(result.is_ok());
 
         let _ = catalog
-            .insert_into(
+            .insert_all_into(
                 "employees",
-                Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(30)]),
-            )
-            .unwrap();
-        let _ = catalog
-            .insert_into(
-                "employees",
-                Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(20)]),
+                vec![
+                    Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(30)]),
+                    Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(20)]),
+                ],
             )
             .unwrap();
 
