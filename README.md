@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/SarthakMakhija/relop/actions/workflows/build.yml/badge.svg)](https://github.com/SarthakMakhija/relop/actions/workflows/build.yml)
 [![codecov](https://codecov.io/gh/SarthakMakhija/relop/graph/badge.svg?token=U1AAV7UC4J)](https://codecov.io/gh/SarthakMakhija/relop)
-![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square) 
+![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
 **relop** is a minimal, in-memory implementation of **relational operators** built to explore **query processing** - from lexical analysis and parsing to logical planning and execution.
 
@@ -10,38 +10,100 @@ The project intentionally focuses on a **small subset of SQL SELECT** and operat
 
 **relop** is a learning-focused project inspired by relational algebra and database internals, not a production-ready query engine.
 
-## Goals
+## Usage
 
-- [ ] Understand query processing:
-  - [ ] Grammar  
-  - [ ] Lexer
-  - [ ] Parser
-  - [ ] AST
-  - [ ] Logical plan
-  - [ ] Operator-based execution 
-- [ ] Implement core relational operators and metadata queries
-  - [X] Scan
+`relop` provides a `Relop` client to interact with the system. You can define schemas, create tables, insert data, and run SQL queries.
+
+```rust
+use relop::catalog::Catalog;
+use relop::client::Relop;
+use relop::schema::Schema;
+use relop::types::column_type::ColumnType;
+use relop::storage::row::Row;
+use relop::types::column_value::ColumnValue;
+
+fn main() {
+    // 1. Initialize the system
+    let relop = Relop::new(Catalog::new());
+
+    // 2. Define Schema and Create Table
+    let schema = Schema::new()
+        .add_column("id", ColumnType::Int).unwrap()
+        .add_column("name", ColumnType::Text).unwrap();
+    
+    relop.create_table("employees", schema).unwrap();
+
+    // 3. Insert Data
+    relop.insert_into(
+        "employees", 
+        Row::filled(vec![
+            ColumnValue::Int(1), 
+            ColumnValue::Text("Alice".to_string())
+        ])
+    ).unwrap();
+
+    // 4. Run SQL Query
+    let query_result = relop.execute("SELECT id, name FROM employees").unwrap();
+    let result_set = query_result.result_set().unwrap();
+    
+    // 5. Iterate Results
+    for row_view_result in result_set.iterator() {
+      let row_view = row_view_result.unwrap();
+      println!("Found employee: {:?}", row_view.column("name").unwrap());
+    }
+}
+```
+
+## Architecture
+
+The query processing pipeline follows a standard database architecture:
+
+1.  **Lexer**: Tokenizes the raw SQL string (e.g., `SELECT`, `FROM`, identifiers, literals).
+2.  **Parser**: Converts tokens into an **Abstract Syntax Tree (AST)**.
+3.  **Logical Planner**: Transforms the AST into a tree of **Logical Operators** (`LogicalPlan`) like `Project`, `Filter` (planned), `Scan`, `Limit`.
+4.  **Executor**: Traverses the logical plan and constructs a **physical execution pipeline** using `ResultSet` iterators, which pull data on demand.
+
+## Goals Status
+
+- [x] **Understand query processing**:
+  - [x] Grammar
+  - [x] Lexer
+  - [x] Parser
+  - [x] AST
+  - [x] Logical plan
+  - [x] Operator-based execution
+- [ ] **Implement core relational operators**:
+  - [x] Scan
   - [ ] Filter
-  - [X] Projection
-  - [ ] Join  (incrementally) 
-  - [X] Limit
+  - [x] Projection
+  - [ ] Join (incrementally)
+  - [x] Limit
   - [ ] Order by
-  - [X] Show tables
-  - [X] Describe table
-- [X] Build a minimal in-memory store to mimic relational database storage
-  - [X] Tables with schemas
-  - [X] Rows stored in memory
-  - [X] Simple row identifiers
-  - [X] Insert rows via catalog-managed API
-  - [X] Row lookup via internal row identifiers
-  - [X] Sequential table scan abstraction
-  - [X] Primary key index for enforcing uniqueness and lookup
-  - [X] Thin client to demonstrate end-to-end pipeline
-- [ ] Keep the system small, explicit, and easy to reason about.
+  - [x] Show tables
+  - [x] Describe table
+- [x] **Build a minimal in-memory store**:
+  - [x] Tables with schemas
+  - [x] Rows stored in memory (SkipMap based)
+  - [x] Insert rows via API
+  - [x] Row lookup via IDs
+  - [x] Sequential table scan
+  - [x] Primary key index
+
+## Supported SQL
+
+- `SELECT * FROM <table>`
+- `SELECT col1, col2 FROM <table>`
+- `SELECT col1, col2 FROM <table> LIMIT <n>`
+- `SHOW TABLES`
+- `DESCRIBE TABLE <table>`
+
+## Grammar
+
+The SQL subset supported by `relop` is defined in [docs/grammar.ebnf](docs/grammar.ebnf).
 
 ## Non-goals
 
-- No CREATE / INSERT via SQL
-- No persistence or disk I/O
-- No physical plans or cost-based optimization
-- No full SQL compatibility
+- SQL `INSERT` / `CREATE TABLE` statements (these are handled via the API).
+- Persistence or Disk I/O.
+- Query Optimization (Cost-based or Rule-based).
+- Full SQL Compatibility.
