@@ -198,8 +198,10 @@ mod tests {
     #[test]
     fn iterate_over_all_rows() {
         let store = TableStore::new();
-        store.insert(Row::filled(vec![ColumnValue::Int(10)]));
-        store.insert(Row::filled(vec![ColumnValue::Int(20)]));
+        store.insert_all(vec![
+            Row::filled(vec![ColumnValue::Int(10)]),
+            Row::filled(vec![ColumnValue::Int(20)]),
+        ]);
 
         let mut iterator = store.iter();
 
