@@ -34,7 +34,7 @@ impl<'a> Executor<'a> {
                 Ok(QueryResult::TableDescription(table_descriptor))
             }
             _ => {
-                let result_set = self.execute_select(&logical_plan)?;
+                let result_set = self.execute_select(logical_plan)?;
                 Ok(QueryResult::ResultSet(result_set))
             }
         }
@@ -43,13 +43,13 @@ impl<'a> Executor<'a> {
     /// Executes the logical plan for select queries and returns the result.
     fn execute_select(
         &self,
-        logical_plan: &LogicalPlan,
+        logical_plan: LogicalPlan,
     ) -> Result<Box<dyn result_set::ResultSet>, ExecutionError> {
         match logical_plan {
             LogicalPlan::ScanTable { table_name } => {
                 let (table_entry, table) = self
                     .catalog
-                    .scan(table_name)
+                    .scan(table_name.as_ref())
                     .map_err(ExecutionError::Catalog)?;
 
                 let table_scan = table_entry.scan();
@@ -59,17 +59,26 @@ impl<'a> Executor<'a> {
                 base_plan: base,
                 columns,
             } => {
-                let result_set = self.execute_select(base)?;
+                let result_set = self.execute_select(*base)?;
                 let project_result_set =
                     result_set::ProjectResultSet::new(result_set, &columns[..])?;
                 Ok(Box::new(project_result_set))
+            }
+            LogicalPlan::OrderBy {
+                base_plan: base,
+                ordering_keys,
+            } => {
+                let result_set = self.execute_select(*base)?;
+                let ordering_result_set =
+                    result_set::OrderingResultSet::new(result_set, ordering_keys);
+                Ok(Box::new(ordering_result_set))
             }
             LogicalPlan::Limit {
                 base_plan: base,
                 count,
             } => {
-                let result_set = self.execute_select(base)?;
-                Ok(Box::new(LimitResultSet::new(result_set, *count)))
+                let result_set = self.execute_select(*base)?;
+                Ok(Box::new(LimitResultSet::new(result_set, count)))
             }
             _ => panic!("should not be here"),
         }
@@ -399,6 +408,153 @@ mod tests {
 
         let column_value = row_view.column("name").unwrap();
         assert_eq!("relop", column_value.text_value().unwrap());
+
+        assert!(row_iter.next().is_none());
+    }
+
+    #[test]
+    fn execute_select_with_order_by_single_column_ascending() {
+        use crate::query::parser::ordering_key::OrderingKey;
+
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = catalog
+            .insert_into("employees", Row::single(ColumnValue::Int(200)))
+            .unwrap();
+        let _ = catalog
+            .insert_into("employees", Row::single(ColumnValue::Int(100)))
+            .unwrap();
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor
+            .execute(LogicalPlan::OrderBy {
+                base_plan: LogicalPlan::ScanTable {
+                    table_name: "employees".to_string(),
+                }.boxed(),
+                ordering_keys: vec![OrderingKey::ascending_by("id")],
+            })
+            .unwrap();
+
+        assert!(query_result.result_set().is_some());
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iter = result_set.iterator().unwrap();
+
+        let row_view = row_iter.next().unwrap();
+        let column_value = row_view.column("id").unwrap();
+        assert_eq!(100, column_value.int_value().unwrap());
+
+        let row_view = row_iter.next().unwrap();
+        let column_value = row_view.column("id").unwrap();
+        assert_eq!(200, column_value.int_value().unwrap());
+
+        assert!(row_iter.next().is_none());
+    }
+
+    #[test]
+    fn execute_select_with_order_by_single_column_descending() {
+        use crate::query::parser::ordering_key::OrderingKey;
+
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = catalog
+            .insert_into("employees", Row::single(ColumnValue::Int(100)))
+            .unwrap();
+        let _ = catalog
+            .insert_into("employees", Row::single(ColumnValue::Int(200)))
+            .unwrap();
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor
+            .execute(LogicalPlan::OrderBy {
+                base_plan: LogicalPlan::ScanTable {
+                    table_name: "employees".to_string(),
+                }
+                .boxed(),
+                ordering_keys: vec![OrderingKey::descending_by("id")],
+            })
+            .unwrap();
+
+        assert!(query_result.result_set().is_some());
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iter = result_set.iterator().unwrap();
+
+        let row_view = row_iter.next().unwrap();
+        let column_value = row_view.column("id").unwrap();
+        assert_eq!(200, column_value.int_value().unwrap());
+
+        let row_view = row_iter.next().unwrap();
+        let column_value = row_view.column("id").unwrap();
+        assert_eq!(100, column_value.int_value().unwrap());
+
+        assert!(row_iter.next().is_none());
+    }
+
+    #[test]
+    fn execute_select_with_order_by_multiple_columns() {
+        use crate::query::parser::ordering_key::OrderingKey;
+
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_column("age", ColumnType::Int)
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = catalog
+            .insert_into(
+                "employees",
+                Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(30)]),
+            )
+            .unwrap();
+        let _ = catalog
+            .insert_into(
+                "employees",
+                Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(20)]),
+            )
+            .unwrap();
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor
+            .execute(LogicalPlan::OrderBy {
+                base_plan: LogicalPlan::ScanTable {
+                    table_name: "employees".to_string(),
+                }
+                .boxed(),
+                ordering_keys: vec![
+                    OrderingKey::ascending_by("id"),
+                    OrderingKey::ascending_by("age"),
+                ],
+            })
+            .unwrap();
+
+        assert!(query_result.result_set().is_some());
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iter = result_set.iterator().unwrap();
+
+        let row_view = row_iter.next().unwrap();
+        assert_eq!(1, row_view.column("id").unwrap().int_value().unwrap());
+        assert_eq!(20, row_view.column("age").unwrap().int_value().unwrap());
+
+        let row_view = row_iter.next().unwrap();
+        assert_eq!(1, row_view.column("id").unwrap().int_value().unwrap());
+        assert_eq!(30, row_view.column("age").unwrap().int_value().unwrap());
 
         assert!(row_iter.next().is_none());
     }
