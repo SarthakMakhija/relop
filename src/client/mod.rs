@@ -718,4 +718,74 @@ mod tests {
 
         assert!(row_iterator.next().is_none());
     }
+
+    #[test]
+    fn execute_select_with_order_by_single_column_ascending() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = relop
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::filled(vec![ColumnValue::Int(2)]),
+                    Row::filled(vec![ColumnValue::Int(1)]),
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop
+            .execute("select * from employees order by id ASC")
+            .unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iter = result_set.iterator().unwrap();
+
+        let row_view = row_iter.next().unwrap();
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+
+        let row_view = row_iter.next().unwrap();
+        assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
+    }
+
+    #[test]
+    fn execute_select_with_order_by_multiple_columns_ascending() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_column("rank", ColumnType::Int)
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = relop
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(20)]),
+                    Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]),
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop
+            .execute("select * from employees order by id ASC, rank DESC")
+            .unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iter = result_set.iterator().unwrap();
+
+        let row_view = row_iter.next().unwrap();
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::Int(20), row_view.column("rank").unwrap());
+
+        let row_view = row_iter.next().unwrap();
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::Int(10), row_view.column("rank").unwrap());
+    }
 }
