@@ -23,9 +23,9 @@ order
     = "ORDER" "BY" ordering_key ("," ordering_key)*
 
 ordering_key
-    = identifier [direction]
+    = identifier [ordering_direction]
 
-direction
+ordering_direction
     = "ASC"
     | "DESC";
 

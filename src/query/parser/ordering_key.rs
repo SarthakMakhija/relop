@@ -19,6 +19,17 @@ pub(crate) enum OrderingDirection {
 }
 
 impl OrderingKey {
+    /// Creates an `OrderingKey` for the specified column in the specified direction.
+    pub(crate) fn new<C: Into<String>>(column_name: C, direction: OrderingDirection) -> Self {
+        OrderingKey {
+            column: column_name.into(),
+            direction,
+        }
+    }
+}
+
+#[cfg(test)]
+impl OrderingKey {
     /// Creates an `OrderingKey` for the specified column in ascending order.
     pub(crate) fn ascending_by<C: Into<String>>(column_name: C) -> Self {
         OrderingKey {

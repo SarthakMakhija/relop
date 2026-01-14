@@ -7,6 +7,7 @@ use crate::query::lexer::token::{Token, TokenStream, TokenType};
 use crate::query::lexer::token_cursor::TokenCursor;
 use crate::query::parser::ast::Ast;
 use crate::query::parser::error::ParseError;
+use crate::query::parser::ordering_key::{OrderingDirection, OrderingKey};
 use crate::query::parser::projection::Projection;
 
 /// `Parser` is responsible for parsing a stream of tokens into an Abstract Syntax Tree (AST).
@@ -80,13 +81,14 @@ impl Parser {
         let projection = self.expect_projection()?;
         self.expect_keyword("from")?;
         let table_name = self.expect_identifier()?;
+        let order_by = self.maybe_order_by()?;
         let limit = self.maybe_limit()?;
         let _ = self.eat_if(|token| token.is_semicolon());
 
         Ok(Ast::Select {
             table_name: table_name.to_string(),
             projection,
-            order_by: None,
+            order_by,
             limit,
         })
     }
@@ -141,6 +143,39 @@ impl Parser {
             columns.push(column);
         }
         Ok(columns)
+    }
+
+    fn maybe_order_by(&mut self) -> Result<Option<Vec<OrderingKey>>, ParseError> {
+        let is_order = self.eat_if(|token| token.is_keyword("order"));
+        if is_order {
+            let mut ordering_keys = Vec::new();
+            self.expect_keyword("by")?;
+
+            let ordering_key = self.expect_ordering_key()?;
+            ordering_keys.push(ordering_key);
+
+            while self.eat_if(|token| token.is_comma()) {
+                let ordering_key = self.expect_ordering_key()?;
+                ordering_keys.push(ordering_key);
+            }
+            return Ok(Some(ordering_keys));
+        }
+        Ok(None)
+    }
+
+    fn expect_ordering_key(&mut self) -> Result<OrderingKey, ParseError> {
+        let column_name = self.expect_identifier()?;
+        Ok(OrderingKey::new(column_name, self.ordering_direction()))
+    }
+
+    fn ordering_direction(&mut self) -> OrderingDirection {
+        if self.eat_if(|token| token.is_keyword("asc")) {
+            OrderingDirection::Ascending
+        } else if self.eat_if(|token| token.is_keyword("desc")) {
+            OrderingDirection::Descending
+        } else {
+            OrderingDirection::Ascending
+        }
     }
 
     fn maybe_limit(&mut self) -> Result<Option<usize>, ParseError> {
@@ -808,6 +843,137 @@ mod select_projection_tests {
 
         assert!(
             matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "end of stream" && found == "invalid")
+        );
+    }
+}
+
+#[cfg(test)]
+mod select_order_by_tests {
+    use super::*;
+    use crate::query::lexer::token::Token;
+
+    #[test]
+    fn parse_select_with_order_by_ascending() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("order", TokenType::Keyword));
+        stream.add(Token::new("by", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(
+            matches!(ast, Ast::Select { table_name, projection, order_by, .. }
+                    if table_name == "employees"
+                        && projection == Projection::Columns(vec!["id".to_string()])
+                        && order_by == Some(vec![OrderingKey::ascending_by("id")])
+            )
+        )
+    }
+
+    #[test]
+    fn parse_select_with_order_by_descending() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("order", TokenType::Keyword));
+        stream.add(Token::new("by", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("desc", TokenType::Keyword));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(
+            matches!(ast, Ast::Select { table_name, projection, order_by, .. }
+                    if table_name == "employees"
+                        && projection == Projection::Columns(vec!["id".to_string()])
+                        && order_by == Some(vec![OrderingKey::descending_by("id")])
+            )
+        )
+    }
+
+    #[test]
+    fn parse_select_with_order_by_ascending_with_semicolon() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("order", TokenType::Keyword));
+        stream.add(Token::new("by", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("asc", TokenType::Keyword));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(
+            matches!(ast, Ast::Select { table_name, projection, order_by, .. }
+                    if table_name == "employees"
+                        && projection == Projection::Columns(vec!["id".to_string()])
+                        && order_by == Some(vec![OrderingKey::ascending_by("id")])
+            )
+        )
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_select_with_missing_comma_between_order_by_columns() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("order", TokenType::Keyword));
+        stream.add(Token::new("by", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "end of stream" && found == "name" )
+        );
+    }
+
+    #[test]
+    fn attempt_to_parse_with_no_tokens() {
+        let stream = TokenStream::new();
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(result, Err(ParseError::NoTokens)));
+    }
+
+    #[test]
+    fn attempt_to_parse_invalid_select_with_missing_by_after_order() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("order", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "by" && found == "id" )
         );
     }
 }
