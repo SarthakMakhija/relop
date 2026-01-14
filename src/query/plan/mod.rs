@@ -104,6 +104,52 @@ impl LogicalPlanner {
 }
 
 #[cfg(test)]
+impl LogicalPlan {
+    /// Creates a plan to show tables.
+    pub(crate) fn show_tables() -> Self {
+        LogicalPlan::ShowTables
+    }
+
+    /// Creates a plan to describe a table.
+    pub(crate) fn describe_table<T: Into<String>>(table_name: T) -> Self {
+        LogicalPlan::DescribeTable {
+            table_name: table_name.into(),
+        }
+    }
+
+    /// Creates a plan to scan a table.
+    pub(crate) fn scan<T: Into<String>>(table_name: T) -> Self {
+        LogicalPlan::ScanTable {
+            table_name: table_name.into(),
+        }
+    }
+
+    /// Creates a plan to project columns.
+    pub(crate) fn project<T: Into<String>>(self, columns: Vec<T>) -> Self {
+        LogicalPlan::Projection {
+            base_plan: self.boxed(),
+            columns: columns.into_iter().map(|column| column.into()).collect(),
+        }
+    }
+
+    /// Creates a plan to limit results.
+    pub(crate) fn limit(self, count: usize) -> Self {
+        LogicalPlan::Limit {
+            base_plan: self.boxed(),
+            count,
+        }
+    }
+
+    /// Creates a plan to order results.
+    pub(crate) fn order_by(self, ordering_keys: Vec<OrderingKey>) -> Self {
+        LogicalPlan::OrderBy {
+            base_plan: self.boxed(),
+            ordering_keys,
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::query::parser::projection::Projection;

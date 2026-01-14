@@ -105,7 +105,7 @@ mod tests {
         assert!(result.is_ok());
 
         let executor = Executor::new(&catalog);
-        let query_result = executor.execute(LogicalPlan::ShowTables).unwrap();
+        let query_result = executor.execute(LogicalPlan::show_tables()).unwrap();
 
         assert!(query_result.all_tables().is_some());
         let table_names = query_result.all_tables().unwrap();
@@ -125,9 +125,7 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let query_result = executor
-            .execute(LogicalPlan::DescribeTable {
-                table_name: "employees".to_string(),
-            })
+            .execute(LogicalPlan::describe_table("employees"))
             .unwrap();
 
         assert!(query_result.table_descriptor().is_some());
@@ -153,9 +151,7 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let query_result = executor
-            .execute(LogicalPlan::DescribeTable {
-                table_name: "employees".to_string(),
-            })
+            .execute(LogicalPlan::describe_table("employees"))
             .unwrap();
 
         assert!(query_result.table_descriptor().is_some());
@@ -174,9 +170,7 @@ mod tests {
         let catalog = Catalog::new();
 
         let executor = Executor::new(&catalog);
-        let query_result = executor.execute(LogicalPlan::DescribeTable {
-            table_name: "employees".to_string(),
-        });
+        let query_result = executor.execute(LogicalPlan::describe_table("employees"));
 
         assert!(matches!(
             query_result,
@@ -198,21 +192,17 @@ mod tests {
             .unwrap();
 
         let executor = Executor::new(&catalog);
-        let query_result = executor
-            .execute(LogicalPlan::ScanTable {
-                table_name: "employees".to_string(),
-            })
-            .unwrap();
+        let query_result = executor.execute(LogicalPlan::scan("employees")).unwrap();
 
         assert!(query_result.result_set().is_some());
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iterator.next().unwrap();
         let column_value = row_view.column("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
-        assert!(row_iter.next().is_none());
+        assert!(row_iterator.next().is_none());
     }
 
     #[test]
@@ -220,9 +210,7 @@ mod tests {
         let catalog = Catalog::new();
 
         let executor = Executor::new(&catalog);
-        let query_result = executor.execute(LogicalPlan::ScanTable {
-            table_name: "employees".to_string(),
-        });
+        let query_result = executor.execute(LogicalPlan::scan("employees"));
 
         assert!(matches!(
             query_result,
@@ -255,26 +243,20 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let query_result = executor
-            .execute(LogicalPlan::Projection {
-                base_plan: LogicalPlan::ScanTable {
-                    table_name: "employees".to_string(),
-                }
-                .boxed(),
-                columns: vec!["id".to_string()],
-            })
+            .execute(LogicalPlan::scan("employees").project(vec!["id"]))
             .unwrap();
 
         assert!(query_result.result_set().is_some());
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iterator.next().unwrap();
         let column_value = row_view.column("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
 
         assert!(row_view.column("name").is_none());
-        assert!(row_iter.next().is_none());
+        assert!(row_iterator.next().is_none());
     }
 
     #[test]
@@ -301,13 +283,8 @@ mod tests {
             .unwrap();
 
         let executor = Executor::new(&catalog);
-        let query_result = executor.execute(LogicalPlan::Projection {
-            base_plan: LogicalPlan::ScanTable {
-                table_name: "employees".to_string(),
-            }
-            .boxed(),
-            columns: vec!["unknown".to_string()],
-        });
+        let query_result =
+            executor.execute(LogicalPlan::scan("employees").project(vec!["unknown"]));
 
         assert!(matches!(
             query_result,
@@ -333,25 +310,19 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let query_result = executor
-            .execute(LogicalPlan::Limit {
-                base_plan: LogicalPlan::ScanTable {
-                    table_name: "employees".to_string(),
-                }
-                .boxed(),
-                count: 1,
-            })
+            .execute(LogicalPlan::scan("employees").limit(1))
             .unwrap();
 
         assert!(query_result.result_set().is_some());
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iterator.next().unwrap();
         let column_value = row_view.column("id").unwrap();
 
         assert_eq!(100, column_value.int_value().unwrap());
-        assert!(row_iter.next().is_none());
+        assert!(row_iterator.next().is_none());
     }
 
     #[test]
@@ -388,28 +359,22 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let query_result = executor
-            .execute(LogicalPlan::Limit {
-                base_plan: LogicalPlan::ScanTable {
-                    table_name: "employees".to_string(),
-                }
-                .boxed(),
-                count: 1,
-            })
+            .execute(LogicalPlan::scan("employees").limit(1))
             .unwrap();
 
         assert!(query_result.result_set().is_some());
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iterator.next().unwrap();
         let column_value = row_view.column("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
 
         let column_value = row_view.column("name").unwrap();
         assert_eq!("relop", column_value.text_value().unwrap());
 
-        assert!(row_iter.next().is_none());
+        assert!(row_iterator.next().is_none());
     }
 
     #[test]
@@ -432,28 +397,23 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let query_result = executor
-            .execute(LogicalPlan::OrderBy {
-                base_plan: LogicalPlan::ScanTable {
-                    table_name: "employees".to_string(),
-                }.boxed(),
-                ordering_keys: vec![OrderingKey::ascending_by("id")],
-            })
+            .execute(LogicalPlan::scan("employees").order_by(vec![OrderingKey::ascending_by("id")]))
             .unwrap();
 
         assert!(query_result.result_set().is_some());
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iterator.next().unwrap();
         let column_value = row_view.column("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iterator.next().unwrap();
         let column_value = row_view.column("id").unwrap();
         assert_eq!(200, column_value.int_value().unwrap());
 
-        assert!(row_iter.next().is_none());
+        assert!(row_iterator.next().is_none());
     }
 
     #[test]
@@ -476,29 +436,25 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let query_result = executor
-            .execute(LogicalPlan::OrderBy {
-                base_plan: LogicalPlan::ScanTable {
-                    table_name: "employees".to_string(),
-                }
-                .boxed(),
-                ordering_keys: vec![OrderingKey::descending_by("id")],
-            })
+            .execute(
+                LogicalPlan::scan("employees").order_by(vec![OrderingKey::descending_by("id")]),
+            )
             .unwrap();
 
         assert!(query_result.result_set().is_some());
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iterator.next().unwrap();
         let column_value = row_view.column("id").unwrap();
         assert_eq!(200, column_value.int_value().unwrap());
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iterator.next().unwrap();
         let column_value = row_view.column("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
 
-        assert!(row_iter.next().is_none());
+        assert!(row_iterator.next().is_none());
     }
 
     #[test]
@@ -531,31 +487,25 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let query_result = executor
-            .execute(LogicalPlan::OrderBy {
-                base_plan: LogicalPlan::ScanTable {
-                    table_name: "employees".to_string(),
-                }
-                .boxed(),
-                ordering_keys: vec![
-                    OrderingKey::ascending_by("id"),
-                    OrderingKey::ascending_by("age"),
-                ],
-            })
+            .execute(LogicalPlan::scan("employees").order_by(vec![
+                OrderingKey::ascending_by("id"),
+                OrderingKey::ascending_by("age"),
+            ]))
             .unwrap();
 
         assert!(query_result.result_set().is_some());
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iterator.next().unwrap();
         assert_eq!(1, row_view.column("id").unwrap().int_value().unwrap());
         assert_eq!(20, row_view.column("age").unwrap().int_value().unwrap());
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iterator.next().unwrap();
         assert_eq!(1, row_view.column("id").unwrap().int_value().unwrap());
         assert_eq!(30, row_view.column("age").unwrap().int_value().unwrap());
 
-        assert!(row_iter.next().is_none());
+        assert!(row_iterator.next().is_none());
     }
 }
