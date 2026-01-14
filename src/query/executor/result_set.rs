@@ -1,8 +1,9 @@
 use crate::catalog::table::Table;
 use crate::catalog::table_scan::TableScan;
 use crate::query::executor::error::ExecutionError;
+use crate::query::parser::ordering_key::OrderingKey;
 use crate::schema::Schema;
-use crate::storage::row_view::RowView;
+use crate::storage::row_view::{RowView, RowViewComparator};
 use std::sync::Arc;
 
 /// Represents the result of a query, providing access to the rows and column values.
@@ -162,9 +163,53 @@ impl ResultSet for LimitResultSet {
     }
 }
 
+/// A `ResultSet` implementation that orders rows based on specified criteria.
+///
+/// `OrderingResultSet` wraps another `ResultSet`, consumes all its rows, sorts them
+/// in memory using the provided `ordering_keys`, and yields them in sorted order.
+///
+/// # Note
+///
+/// This implementation performs an **in-memory sort**, meaning it buffers all rows
+/// from the inner result set before yielding the first row.
+pub struct OrderingResultSet {
+    inner: Box<dyn ResultSet>,
+    ordering_keys: Vec<OrderingKey>,
+}
+
+impl OrderingResultSet {
+    /// Creates a new `OrderingResultSet`.
+    ///
+    /// # Arguments
+    ///
+    /// * `inner` - The source `ResultSet` to sort.
+    /// * `ordering_keys` - Examples of keys defining the sort order.
+    pub fn new(inner: Box<dyn ResultSet>, ordering_keys: Vec<OrderingKey>) -> Self {
+        Self {
+            inner,
+            ordering_keys,
+        }
+    }
+}
+
+impl ResultSet for OrderingResultSet {
+    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowView> + '_>, ExecutionError> {
+        let comparator = RowViewComparator::new(self.schema(), &self.ordering_keys)?;
+        let mut rows: Vec<RowView> = self.inner.iterator()?.collect();
+
+        rows.sort_by(|left, right| comparator.compare(left, right));
+        Ok(Box::new(rows.into_iter()))
+    }
+
+    fn schema(&self) -> &Schema {
+        self.inner.schema()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::query::parser::ordering_key::OrderingDirection;
 
     use crate::schema::Schema;
     use crate::storage::row::Row;
@@ -370,6 +415,137 @@ mod tests {
         let row_view = iterator.next().unwrap();
         assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
         assert!(row_view.column("name").is_none());
+        assert!(iterator.next().is_none());
+    }
+
+    #[test]
+    fn ordering_result_set_single_column_ascending() {
+        let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
+
+        let table = Table::new("employees", schema);
+        let table_store = TableStore::new();
+        table_store.insert(Row::filled(vec![ColumnValue::Int(2)]));
+        table_store.insert(Row::filled(vec![ColumnValue::Int(1)]));
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+
+        let ordering_keys = vec![OrderingKey {
+            column: "id".to_string(),
+            direction: OrderingDirection::Ascending,
+        }];
+        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
+        let mut iterator = ordering_result_set.iterator().unwrap();
+
+        let row_view = iterator.next().unwrap();
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+
+        let row_view = iterator.next().unwrap();
+        assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
+
+        assert!(iterator.next().is_none());
+    }
+
+    #[test]
+    fn ordering_result_set_single_column_descending() {
+        let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
+
+        let table = Table::new("employees", schema);
+        let table_store = TableStore::new();
+        table_store.insert(Row::filled(vec![ColumnValue::Int(1)]));
+        table_store.insert(Row::filled(vec![ColumnValue::Int(2)]));
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+
+        let ordering_keys = vec![OrderingKey {
+            column: "id".to_string(),
+            direction: OrderingDirection::Descending,
+        }];
+        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
+        let mut iterator = ordering_result_set.iterator().unwrap();
+
+        let row_view = iterator.next().unwrap();
+        assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
+
+        let row_view = iterator.next().unwrap();
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+
+        assert!(iterator.next().is_none());
+    }
+
+    #[test]
+    fn ordering_result_set_multiple_columns_ascending() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("rank", ColumnType::Int)
+            .unwrap();
+
+        let table = Table::new("employees", schema);
+        let table_store = TableStore::new();
+        table_store.insert(Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(20)]));
+        table_store.insert(Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]));
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+
+        let ordering_keys = vec![
+            OrderingKey {
+                column: "id".to_string(),
+                direction: OrderingDirection::Ascending,
+            },
+            OrderingKey {
+                column: "rank".to_string(),
+                direction: OrderingDirection::Ascending,
+            },
+        ];
+        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
+        let mut iterator = ordering_result_set.iterator().unwrap();
+
+        let row_view = iterator.next().unwrap();
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::Int(10), row_view.column("rank").unwrap());
+
+        let row_view = iterator.next().unwrap();
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::Int(20), row_view.column("rank").unwrap());
+
+        assert!(iterator.next().is_none());
+    }
+
+    #[test]
+    fn ordering_result_set_with_limit() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("rank", ColumnType::Int)
+            .unwrap();
+
+        let table = Table::new("employees", schema);
+        let table_store = TableStore::new();
+        table_store.insert(Row::filled(vec![ColumnValue::Int(3), ColumnValue::Int(30)]));
+        table_store.insert(Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]));
+        table_store.insert(Row::filled(vec![ColumnValue::Int(2), ColumnValue::Int(20)]));
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+
+        let ordering_keys = vec![OrderingKey {
+            column: "id".to_string(),
+            direction: OrderingDirection::Ascending,
+        }];
+        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
+
+        let limit_result_set = LimitResultSet::new(Box::new(ordering_result_set), 2);
+        let mut iterator = limit_result_set.iterator().unwrap();
+
+        let row_view = iterator.next().unwrap();
+        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+
+        let row_view = iterator.next().unwrap();
+        assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
+
         assert!(iterator.next().is_none());
     }
 }
