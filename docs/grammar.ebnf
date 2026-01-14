@@ -20,9 +20,9 @@ projection
     | identifier ("," identifier)*
 
 order
-    = "ORDER" "BY" sort_key ("," sort_key)*
+    = "ORDER" "BY" ordering_key ("," ordering_key)*
 
-sort_key
+ordering_key
     = identifier [direction]
 
 direction
