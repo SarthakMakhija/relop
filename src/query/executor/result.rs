@@ -51,3 +51,73 @@ impl QueryResult {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::catalog::table_descriptor::TableDescriptor;
+    use crate::query::executor::result_set::ResultSet;
+    use crate::schema::error::SchemaError;
+    use crate::schema::Schema;
+
+    use crate::types::column_type::ColumnType;
+
+    struct MockResultSet;
+
+    impl ResultSet for MockResultSet {
+        fn iterator(
+            &self,
+        ) -> Result<
+            Box<dyn Iterator<Item = crate::storage::row_view::RowView> + '_>,
+            crate::query::executor::error::ExecutionError,
+        > {
+            unimplemented!()
+        }
+
+        fn schema(&self) -> &Schema {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn query_result_table_list() {
+        let tables = vec!["table1".to_string(), "table2".to_string()];
+        let result = QueryResult::TableList(tables.clone());
+
+        assert_eq!(result.all_tables(), Some(&tables));
+        assert!(result.table_descriptor().is_none());
+        assert!(result.result_set().is_none());
+    }
+
+    #[test]
+    fn query_result_table_description() -> Result<(), SchemaError> {
+        use crate::catalog::table::Table;
+        use std::sync::Arc;
+
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)?
+            .add_column("name", ColumnType::Text)?;
+
+        let table = Table::new("table1", schema);
+        let descriptor = TableDescriptor::new(Arc::new(table));
+
+        let result = QueryResult::TableDescription(descriptor);
+
+        let retrieved_descriptor = result.table_descriptor().unwrap();
+        assert_eq!(retrieved_descriptor.table_name(), "table1");
+
+        assert!(result.all_tables().is_none());
+        assert!(result.result_set().is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn query_result_set() {
+        let result_set = Box::new(MockResultSet);
+        let result = QueryResult::ResultSet(result_set);
+
+        assert!(result.result_set().is_some());
+        assert!(result.all_tables().is_none());
+        assert!(result.table_descriptor().is_none());
+    }
+}

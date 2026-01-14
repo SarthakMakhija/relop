@@ -532,4 +532,19 @@ mod tests {
 
         assert!(iterator.next().is_none());
     }
+    #[test]
+    fn schema() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+
+        let table = Table::new("employees", schema);
+        let table_store = TableStore::new();
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
+
+        assert_eq!(result_set.schema().column_names(), vec!["id", "name"]);
+    }
 }
