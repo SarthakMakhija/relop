@@ -1,11 +1,12 @@
 pub mod error;
 pub mod result;
+pub mod result_set;
 
 use crate::catalog::Catalog;
 use crate::query::executor::error::ExecutionError;
 use crate::query::executor::result::QueryResult;
 use crate::query::plan::LogicalPlan;
-use crate::storage::result_set::LimitResultSet;
+use result_set::LimitResultSet;
 
 /// Executes logical plans against the catalog.
 pub(crate) struct Executor<'a> {
@@ -43,7 +44,7 @@ impl<'a> Executor<'a> {
     fn execute_select(
         &self,
         logical_plan: &LogicalPlan,
-    ) -> Result<Box<dyn crate::storage::result_set::ResultSet>, ExecutionError> {
+    ) -> Result<Box<dyn result_set::ResultSet>, ExecutionError> {
         match logical_plan {
             LogicalPlan::ScanTable { table_name } => {
                 let (table_entry, table) = self
@@ -52,9 +53,7 @@ impl<'a> Executor<'a> {
                     .map_err(ExecutionError::Catalog)?;
 
                 let table_scan = table_entry.scan();
-                Ok(Box::new(crate::storage::result_set::ScanResultsSet::new(
-                    table_scan, table,
-                )))
+                Ok(Box::new(result_set::ScanResultsSet::new(table_scan, table)))
             }
             LogicalPlan::Projection {
                 base_plan: base,
@@ -62,7 +61,7 @@ impl<'a> Executor<'a> {
             } => {
                 let result_set = self.execute_select(base)?;
                 let project_result_set =
-                    crate::storage::result_set::ProjectResultSet::new(result_set, &columns[..])?;
+                    result_set::ProjectResultSet::new(result_set, &columns[..])?;
                 Ok(Box::new(project_result_set))
             }
             LogicalPlan::Limit {

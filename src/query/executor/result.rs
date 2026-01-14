@@ -1,5 +1,5 @@
 use crate::catalog::table_descriptor::TableDescriptor;
-use crate::storage::result_set::ResultSet;
+use crate::query::executor::result_set::ResultSet;
 
 /// Represents the result of a query execution.
 pub enum QueryResult {

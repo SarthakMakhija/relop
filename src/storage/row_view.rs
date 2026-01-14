@@ -2,6 +2,32 @@ use crate::query::parser::ordering_key::{OrderingDirection, OrderingKey};
 use crate::schema::Schema;
 use crate::storage::error::RowViewComparatorError;
 use crate::storage::row::Row;
+
+use crate::types::column_value::ColumnValue;
+
+/// A read-only view over a single row, bound to a table's schema.
+///
+/// `RowView` provides **name-based access** to column values without exposing
+/// internal storage details such as column positions or row layout.
+///
+/// It pairs:
+/// - a concrete [`Row`] containing the actual values, and
+/// - a reference to the corresponding [`Schema`] used to resolve column names.
+///
+/// This abstraction is primarily used by query execution results (e.g. `SELECT *`)
+/// to allow clients to retrieve column values by name instead of index.
+///
+/// # Notes
+///
+/// - Column lookups are resolved via the table schema at runtime.
+/// - No cloning of column values occurs; returned values are borrowed.
+/// - `RowView` is intentionally read-only.
+pub struct RowView<'a> {
+    row: Row,
+    schema: &'a Schema,
+    visible_positions: &'a [usize],
+}
+
 impl<'a> RowView<'a> {
     /// Creates a new `RowView` for the given row and table.
     ///
@@ -57,31 +83,6 @@ impl<'a> RowView<'a> {
             visible_positions,
         }
     }
-}
-
-use crate::types::column_value::ColumnValue;
-
-/// A read-only view over a single row, bound to a table's schema.
-///
-/// `RowView` provides **name-based access** to column values without exposing
-/// internal storage details such as column positions or row layout.
-///
-/// It pairs:
-/// - a concrete [`Row`] containing the actual values, and
-/// - a reference to the corresponding [`Schema`] used to resolve column names.
-///
-/// This abstraction is primarily used by query execution results (e.g. `SELECT *`)
-/// to allow clients to retrieve column values by name instead of index.
-///
-/// # Notes
-///
-/// - Column lookups are resolved via the table schema at runtime.
-/// - No cloning of column values occurs; returned values are borrowed.
-/// - `RowView` is intentionally read-only.
-pub struct RowView<'a> {
-    row: Row,
-    schema: &'a Schema,
-    visible_positions: &'a [usize],
 }
 
 /// A comparator for [`RowView`]s that implements multi-column sorting logic.
