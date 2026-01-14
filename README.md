@@ -93,6 +93,27 @@ graph LR
     *   *Output*: `Project(Scan("employees"), ["id"])`
 4.  **Executor**: Traverses the logical plan and constructs a **physical execution pipeline** using `ResultSet` iterators, which pull data on demand.
 
+## Project Structure
+
+The codebase is organized into modular components:
+
+*   `src/catalog`: Manages table metadata.
+*   `src/client`: The public API (`Relop`) for interacting with the database.
+*   `src/query`: The query processing engine (`Lexer`, `Parser`, `AST`, `Planner`, `Executor`).
+*   `src/schema`: Logical definitions for schemas, columns, and primary keys.
+*   `src/storage`: Physical storage engine (`Row`, `Batch`, `TableStore`) and execution views (`ResultSet`).
+*   `src/types`: Type system definitions (`ColumnType`, `ColumnValue`).
+
+## Testing
+
+`relop` has a comprehensive test suite covering unit functionality and end-to-end integration.
+
+To run all tests:
+
+```bash
+cargo test
+```
+
 ## Goals Status
 
 - [ ] **Understand query processing**:
