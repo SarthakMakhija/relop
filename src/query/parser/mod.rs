@@ -1,5 +1,6 @@
 pub(crate) mod ast;
 pub mod error;
+pub(crate) mod ordering_key;
 pub(crate) mod projection;
 
 use crate::query::lexer::token::{Token, TokenStream, TokenType};

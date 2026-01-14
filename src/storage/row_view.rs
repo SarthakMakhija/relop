@@ -1,30 +1,7 @@
+use crate::query::parser::ordering_key::{OrderingDirection, OrderingKey};
 use crate::schema::Schema;
+use crate::storage::error::RowViewComparatorError;
 use crate::storage::row::Row;
-use crate::types::column_value::ColumnValue;
-
-/// A read-only view over a single row, bound to a table's schema.
-///
-/// `RowView` provides **name-based access** to column values without exposing
-/// internal storage details such as column positions or row layout.
-///
-/// It pairs:
-/// - a concrete [`Row`] containing the actual values, and
-/// - a reference to the corresponding [`Schema`] used to resolve column names.
-///
-/// This abstraction is primarily used by query execution results (e.g. `SELECT *`)
-/// to allow clients to retrieve column values by name instead of index.
-///
-/// # Notes
-///
-/// - Column lookups are resolved via the table schema at runtime.
-/// - No cloning of column values occurs; returned values are borrowed.
-/// - `RowView` is intentionally read-only.
-pub struct RowView<'a> {
-    row: Row,
-    schema: &'a Schema,
-    visible_positions: &'a [usize],
-}
-
 impl<'a> RowView<'a> {
     /// Creates a new `RowView` for the given row and table.
     ///
@@ -62,6 +39,16 @@ impl<'a> RowView<'a> {
         }
         None
     }
+
+    /// Retrieves the value of a column by its index.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - The index (or position) of column to retrieve.
+    pub(crate) fn column_value_at_unchecked(&self, index: usize) -> &ColumnValue {
+        self.row.column_value_at(index).unwrap()
+    }
+
     /// Projects the row view to a new set of visible positions.
     pub(crate) fn project(self, visible_positions: &'a [usize]) -> Self {
         Self {
@@ -69,6 +56,98 @@ impl<'a> RowView<'a> {
             schema: self.schema,
             visible_positions,
         }
+    }
+}
+
+use crate::types::column_value::ColumnValue;
+
+/// A read-only view over a single row, bound to a table's schema.
+///
+/// `RowView` provides **name-based access** to column values without exposing
+/// internal storage details such as column positions or row layout.
+///
+/// It pairs:
+/// - a concrete [`Row`] containing the actual values, and
+/// - a reference to the corresponding [`Schema`] used to resolve column names.
+///
+/// This abstraction is primarily used by query execution results (e.g. `SELECT *`)
+/// to allow clients to retrieve column values by name instead of index.
+///
+/// # Notes
+///
+/// - Column lookups are resolved via the table schema at runtime.
+/// - No cloning of column values occurs; returned values are borrowed.
+/// - `RowView` is intentionally read-only.
+pub struct RowView<'a> {
+    row: Row,
+    schema: &'a Schema,
+    visible_positions: &'a [usize],
+}
+
+/// A comparator for [`RowView`]s that implements multi-column sorting logic.
+///
+/// `RowViewComparator` is used to order rows based on a sequence of [`OrderingKey`]s.
+/// It pre-calculates the positions of the sort columns in the schema to avoid repeated
+/// lookups during comparison.
+pub(crate) struct RowViewComparator<'a> {
+    positions: Vec<usize>,
+    ordering_keys: &'a [OrderingKey],
+}
+
+impl<'a> RowViewComparator<'a> {
+    /// Creates a new `RowViewComparator`.
+    ///
+    /// # Arguments
+    ///
+    /// * `schema` - The schema of the rows being compared.
+    /// * `ordering_keys` - A list of keys defining the sort order (column name and direction).
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(RowViewComparator)` if all ordering columns exist in the schema.
+    /// * `Err(RowViewComparatorError::UnknownColumn)` if any ordering column is missing.
+    pub fn new(
+        schema: &Schema,
+        ordering_keys: &'a [OrderingKey],
+    ) -> Result<Self, RowViewComparatorError> {
+        let positions = ordering_keys
+            .iter()
+            .map(|key| {
+                schema
+                    .column_position(&key.column)
+                    .ok_or_else(|| RowViewComparatorError::UnknownColumn(key.column.clone()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(Self {
+            positions,
+            ordering_keys,
+        })
+    }
+
+    /// Compares two [`RowView`]s according to the configured ordering keys.
+    ///
+    /// It iterates through the ordering keys in priority order.
+    /// The first non-equal comparison determines the result.
+    /// If all keys are equal, the rows are considered equal.
+    pub fn compare(&self, left: &RowView, right: &RowView) -> std::cmp::Ordering {
+        for (column_position, key) in self.positions.iter().zip(self.ordering_keys.iter()) {
+            //SAFETY: the column positions are already captured and validated in
+            //RowViewComparator's new().
+            //So, unwrap() is safe here.
+            let left_value = left.column_value_at_unchecked(*column_position);
+            let right_value = right.column_value_at_unchecked(*column_position);
+
+            let ordering = left_value.cmp(right_value);
+
+            if ordering != std::cmp::Ordering::Equal {
+                return match key.direction {
+                    OrderingDirection::Ascending => ordering,
+                    OrderingDirection::Descending => ordering.reverse(),
+                };
+            }
+        }
+        std::cmp::Ordering::Equal
     }
 }
 
@@ -145,6 +224,152 @@ mod tests {
         assert_eq!(
             &ColumnValue::Text("relop".to_string()),
             projected_view.column("name").unwrap()
+        );
+    }
+}
+
+#[cfg(test)]
+mod row_view_comparator_tests {
+    use super::*;
+    use crate::schema::Schema;
+    use crate::types::column_type::ColumnType;
+    use std::cmp::Ordering;
+
+    #[test]
+    fn compare_row_views_on_single_column_ascending() {
+        let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
+
+        let ordering_keys = vec![OrderingKey {
+            column: "id".to_string(),
+            direction: OrderingDirection::Ascending,
+        }];
+
+        let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
+
+        let row1 = Row::filled(vec![ColumnValue::Int(1)]);
+        let row2 = Row::filled(vec![ColumnValue::Int(2)]);
+
+        let visible_positions = [0];
+        let row_view1 = RowView::new(row1, &schema, &visible_positions);
+        let row_view2 = RowView::new(row2, &schema, &visible_positions);
+
+        assert_eq!(comparator.compare(&row_view1, &row_view2), Ordering::Less);
+    }
+
+    #[test]
+    fn compare_row_views_on_multiple_columns_ascending() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("rank", ColumnType::Int)
+            .unwrap();
+
+        let ordering_keys = vec![
+            OrderingKey {
+                column: "id".to_string(),
+                direction: OrderingDirection::Ascending,
+            },
+            OrderingKey {
+                column: "rank".to_string(),
+                direction: OrderingDirection::Ascending,
+            },
+        ];
+
+        let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
+
+        let row1 = Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]);
+        let row2 = Row::filled(vec![ColumnValue::Int(2), ColumnValue::Int(10)]);
+
+        let visible_positions = [0, 1];
+        let row_view1 = RowView::new(row1, &schema, &visible_positions);
+        let row_view2 = RowView::new(row2, &schema, &visible_positions);
+
+        assert_eq!(comparator.compare(&row_view1, &row_view2), Ordering::Less);
+    }
+
+    #[test]
+    fn compare_row_views_on_multiple_columns_with_same_value_ascending() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("rank", ColumnType::Int)
+            .unwrap();
+
+        let ordering_keys = vec![
+            OrderingKey {
+                column: "id".to_string(),
+                direction: OrderingDirection::Ascending,
+            },
+            OrderingKey {
+                column: "rank".to_string(),
+                direction: OrderingDirection::Ascending,
+            },
+        ];
+
+        let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
+
+        let row1 = Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]);
+        let row2 = Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(20)]);
+
+        let visible_positions = [0, 1];
+        let row_view1 = RowView::new(row1, &schema, &visible_positions);
+        let row_view2 = RowView::new(row2, &schema, &visible_positions);
+
+        assert_eq!(comparator.compare(&row_view1, &row_view2), Ordering::Less);
+    }
+
+    #[test]
+    fn compare_row_views_on_multiple_columns_with_same_value_and_mixed_directions() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("rank", ColumnType::Int)
+            .unwrap();
+
+        let ordering_keys = vec![
+            OrderingKey {
+                column: "id".to_string(),
+                direction: OrderingDirection::Ascending,
+            },
+            OrderingKey {
+                column: "rank".to_string(),
+                direction: OrderingDirection::Descending,
+            },
+        ];
+
+        let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
+
+        let row1 = Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]);
+        let row2 = Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(20)]);
+
+        let visible_positions = [0, 1];
+        let row_view1 = RowView::new(row1, &schema, &visible_positions);
+        let row_view2 = RowView::new(row2, &schema, &visible_positions);
+
+        assert_eq!(
+            comparator.compare(&row_view1, &row_view2),
+            Ordering::Greater
+        );
+    }
+
+    #[test]
+    fn attempt_compare_row_views_on_with_non_existing_column() {
+        let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
+
+        let ordering_keys = vec![
+            OrderingKey {
+                column: "id".to_string(),
+                direction: OrderingDirection::Ascending,
+            },
+            OrderingKey {
+                column: "rank".to_string(),
+                direction: OrderingDirection::Descending,
+            },
+        ];
+
+        let result = RowViewComparator::new(&schema, &ordering_keys);
+        assert!(
+            matches!(result, Err(RowViewComparatorError::UnknownColumn(column)) if column == "rank")
         );
     }
 }
