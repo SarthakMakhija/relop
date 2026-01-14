@@ -312,9 +312,9 @@ impl Relop {
     ///
     ///  let mut query_result = relop.execute("select * from employees").unwrap();
     ///  let result_set = query_result.result_set().unwrap();
-    ///  let mut iterator = result_set.iterator();
+    ///  let mut iterator = result_set.iterator().unwrap();
     ///
-    ///  let row_view = iterator.next().unwrap().unwrap();
+    ///  let row_view = iterator.next().unwrap();
     ///  assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
     /// ```
     pub fn execute(&self, query: &str) -> Result<QueryResult, ClientError> {
@@ -551,12 +551,12 @@ mod tests {
 
         let query_result = relop.execute("select * from employees").unwrap();
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator();
+        let mut row_iter = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap().unwrap();
+        let row_view = row_iter.next().unwrap();
         assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
 
-        let row_view = row_iter.next().unwrap().unwrap();
+        let row_view = row_iter.next().unwrap();
         assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
     }
 
@@ -597,12 +597,12 @@ mod tests {
 
         let query_result = relop.execute("select rank from employees").unwrap();
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator();
+        let mut row_iter = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap().unwrap();
+        let row_view = row_iter.next().unwrap();
         assert_eq!(&ColumnValue::Int(10), row_view.column("rank").unwrap());
 
-        let row_view = row_iter.next().unwrap().unwrap();
+        let row_view = row_iter.next().unwrap();
         assert_eq!(&ColumnValue::Int(20), row_view.column("rank").unwrap());
     }
 
@@ -659,12 +659,12 @@ mod tests {
 
         let query_result = relop.execute("select * from employees limit 2").unwrap();
         let result_set = query_result.result_set().unwrap();
-        let mut row_iterator = result_set.iterator();
+        let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap().unwrap();
+        let row_view = row_iterator.next().unwrap();
         assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
 
-        let row_view = row_iterator.next().unwrap().unwrap();
+        let row_view = row_iterator.next().unwrap();
         assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
 
         assert!(row_iterator.next().is_none());
@@ -707,9 +707,9 @@ mod tests {
             .execute("select name, id from employees limit 1")
             .unwrap();
         let result_set = query_result.result_set().unwrap();
-        let mut row_iterator = result_set.iterator();
+        let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap().unwrap();
+        let row_view = row_iterator.next().unwrap();
         assert_eq!(
             &ColumnValue::Text("relop".to_string()),
             row_view.column("name").unwrap()

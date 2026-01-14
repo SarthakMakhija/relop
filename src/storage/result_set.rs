@@ -27,7 +27,8 @@ use std::sync::Arc;
 pub trait ResultSet {
     // Return a boxed iterator that yields Result<RowView, ...>
     // The iterator is bound by the lifetime of &self
-    fn iterator(&self) -> Box<dyn Iterator<Item = Result<RowView, ExecutionError>> + '_>;
+    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowView> + '_>, ExecutionError>;
+
     fn schema(&self) -> &Schema;
 }
 
@@ -59,16 +60,12 @@ impl ScanResultsSet {
 }
 
 impl ResultSet for ScanResultsSet {
-    fn iterator(&self) -> Box<dyn Iterator<Item = Result<RowView, ExecutionError>> + '_> {
+    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowView> + '_>, ExecutionError> {
         // We call .iter() on TableScan, which returns a TableIterator (the iterator).
         // We map that iterator to RowView.
-        Box::new(self.table_scan.iter().map(move |row| {
-            Ok(RowView::new(
-                row,
-                self.table.schema_ref(),
-                &self.visible_positions,
-            ))
-        }))
+        Ok(Box::new(self.table_scan.iter().map(move |row| {
+            RowView::new(row, self.table.schema_ref(), &self.visible_positions)
+        })))
     }
 
     fn schema(&self) -> &Schema {
@@ -121,14 +118,11 @@ impl ProjectResultSet {
 }
 
 impl ResultSet for ProjectResultSet {
-    fn iterator(&self) -> Box<dyn Iterator<Item = Result<RowView, ExecutionError>> + '_> {
-        let inner_iterator = self.inner.iterator();
-
-        Box::new(
-            inner_iterator.map(move |result| {
-                result.map(|row_view| row_view.project(&self.visible_positions))
-            }),
-        )
+    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowView> + '_>, ExecutionError> {
+        let inner_iterator = self.inner.iterator()?;
+        Ok(Box::new(
+            inner_iterator.map(|row_view| row_view.project(&self.visible_positions)),
+        ))
     }
 
     fn schema(&self) -> &Schema {
@@ -158,9 +152,9 @@ impl LimitResultSet {
 }
 
 impl ResultSet for LimitResultSet {
-    fn iterator(&self) -> Box<dyn Iterator<Item = Result<RowView, ExecutionError>> + '_> {
-        let inner_iterator = self.inner.iterator();
-        Box::new(inner_iterator.take(self.limit))
+    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowView> + '_>, ExecutionError> {
+        let inner_iterator = self.inner.iterator()?;
+        Ok(Box::new(inner_iterator.take(self.limit)))
     }
 
     fn schema(&self) -> &Schema {
@@ -196,9 +190,9 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
 
-        let mut iterator = result_set.iterator();
+        let mut iterator = result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
+        let row_view = iterator.next().unwrap();
         assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
         assert_eq!(
             &ColumnValue::Text("relop".to_string()),
@@ -218,9 +212,9 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
 
-        let mut iterator = result_set.iterator();
+        let mut iterator = result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
+        let row_view = iterator.next().unwrap();
         assert!(row_view.column("name").is_none());
     }
 
@@ -244,9 +238,9 @@ mod tests {
 
         let projected_result_set = ProjectResultSet::new(result_set, &["name"]).unwrap();
 
-        let mut iterator = projected_result_set.iterator();
+        let mut iterator = projected_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
+        let row_view = iterator.next().unwrap();
         assert_eq!(
             &ColumnValue::Text("relop".to_string()),
             row_view.column("name").unwrap()
@@ -295,9 +289,9 @@ mod tests {
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
         let limit_result_set = LimitResultSet::new(result_set, 1);
-        let mut iterator = limit_result_set.iterator();
+        let mut iterator = limit_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
+        let row_view = iterator.next().unwrap();
         assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
         assert_eq!(
             &ColumnValue::Text("relop".to_string()),
@@ -329,16 +323,16 @@ mod tests {
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
         let limit_result_set = LimitResultSet::new(result_set, 4);
-        let mut iterator = limit_result_set.iterator();
+        let mut iterator = limit_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
+        let row_view = iterator.next().unwrap();
         assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
         assert_eq!(
             &ColumnValue::Text("relop".to_string()),
             row_view.column("name").unwrap()
         );
 
-        let row_view = iterator.next().unwrap().unwrap();
+        let row_view = iterator.next().unwrap();
         assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
         assert_eq!(
             &ColumnValue::Text("query".to_string()),
@@ -371,9 +365,9 @@ mod tests {
         let projected_result_set = ProjectResultSet::new(result_set, &["id"]).unwrap();
 
         let limit_result_set = LimitResultSet::new(Box::new(projected_result_set), 1);
-        let mut iterator = limit_result_set.iterator();
+        let mut iterator = limit_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
+        let row_view = iterator.next().unwrap();
         assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
         assert!(row_view.column("name").is_none());
         assert!(iterator.next().is_none());

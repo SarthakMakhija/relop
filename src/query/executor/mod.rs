@@ -199,9 +199,9 @@ mod tests {
         assert!(query_result.result_set().is_some());
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator();
+        let mut row_iter = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap().unwrap();
+        let row_view = row_iter.next().unwrap();
         let column_value = row_view.column("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
         assert!(row_iter.next().is_none());
@@ -259,9 +259,9 @@ mod tests {
         assert!(query_result.result_set().is_some());
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator();
+        let mut row_iter = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap().unwrap();
+        let row_view = row_iter.next().unwrap();
         let column_value = row_view.column("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
 
@@ -337,9 +337,9 @@ mod tests {
         assert!(query_result.result_set().is_some());
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator();
+        let mut row_iter = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap().unwrap();
+        let row_view = row_iter.next().unwrap();
         let column_value = row_view.column("id").unwrap();
 
         assert_eq!(100, column_value.int_value().unwrap());
@@ -392,9 +392,9 @@ mod tests {
         assert!(query_result.result_set().is_some());
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator();
+        let mut row_iter = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap().unwrap();
+        let row_view = row_iter.next().unwrap();
         let column_value = row_view.column("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
 
