@@ -65,13 +65,13 @@ The query processing pipeline follows a standard database architecture:
 
 ## Goals Status
 
-- [x] **Understand query processing**:
-  - [x] Grammar
-  - [x] Lexer
-  - [x] Parser
-  - [x] AST
-  - [x] Logical plan
-  - [x] Operator-based execution
+- [ ] **Understand query processing**:
+  - [ ] Grammar
+  - [ ] Lexer
+  - [ ] Parser
+  - [ ] AST
+  - [ ] Logical plan
+  - [ ] Operator-based execution
 - [ ] **Implement core relational operators**:
   - [x] Scan
   - [ ] Filter
