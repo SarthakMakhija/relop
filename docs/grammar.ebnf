@@ -13,11 +13,21 @@ describe_table
     = "DESCRIBE" "TABLE" identifier [";"] ;
 
 select
-    = "SELECT" projection "FROM" identifier [limit] [";"] ;
+    = "SELECT" projection "FROM" identifier [order] [limit] [";"] ;
 
 projection
     = "*"
-    | identifier ("," identifier )*
+    | identifier ("," identifier)*
+
+order
+    = "ORDER" "BY" sort_key ("," sort_key)*
+
+sort_key
+    = identifier [direction]
+
+direction
+    = "ASC"
+    | "DESC";
 
 limit
     = "LIMIT" number;
