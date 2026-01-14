@@ -256,6 +256,63 @@ mod tests {
     }
 
     #[test]
+    fn lex_select_with_order_by() {
+        assert_lex!(
+            "SELECT * FROM employees order by id",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::Keyword, "order"),
+                (TokenType::Keyword, "by"),
+                (TokenType::Identifier, "id"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_with_order_by_multiple_columns() {
+        assert_lex!(
+            "SELECT * FROM employees order by id, name",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::Keyword, "order"),
+                (TokenType::Keyword, "by"),
+                (TokenType::Identifier, "id"),
+                (TokenType::Comma, ","),
+                (TokenType::Identifier, "name"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_with_order_by_multiple_columns_with_direction() {
+        assert_lex!(
+            "SELECT * FROM employees order by id asc, name desc",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::Keyword, "order"),
+                (TokenType::Keyword, "by"),
+                (TokenType::Identifier, "id"),
+                (TokenType::Keyword, "asc"),
+                (TokenType::Comma, ","),
+                (TokenType::Identifier, "name"),
+                (TokenType::Keyword, "desc"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
     fn unrecognized_character() {
         let result = Lexer::new_with_default_keywords("select +").lex();
         assert!(matches!(
