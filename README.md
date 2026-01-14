@@ -59,14 +59,27 @@ fn main() {
 The query processing pipeline follows a standard database architecture:
 
 ```mermaid
-graph TD
-    A[SQL Query] -->|Lexer| B(Tokens)
-    B -->|Parser| C(Abstract Syntax Tree)
-    C -->|Logical Planner| D(Logical Plan)
-    D -->|Executor| E(Physical Execution / ResultSet)
-    
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style E fill:#9f9,stroke:#333,stroke-width:2px
+graph LR
+    subgraph Input
+    A[SQL Query]:::data
+    end
+
+    subgraph Processing
+    A --> P1(Lexer):::proc
+    P1 --> B[Tokens]:::data
+    B --> P2(Parser):::proc
+    P2 --> C[AST]:::data
+    C --> P3(Planner):::proc
+    P3 --> D[Plan]:::data
+    D --> P4(Executor):::proc
+    end
+
+    subgraph Output
+    P4 --> E[ResultSet]:::data
+    end
+
+    classDef data fill:#E1F5FE,stroke:#0277BD,stroke-width:2px,rx:5,ry:5;
+    classDef proc fill:#FFF3E0,stroke:#EF6C00,stroke-width:2px,rx:10,ry:10;
 ```
 
 ### Pipeline Details
