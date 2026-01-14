@@ -129,7 +129,7 @@ cargo test
   - [x] Projection
   - [ ] Join (incrementally)
   - [x] Limit
-  - [ ] Order by
+  - [x] Order by
   - [x] Show tables
   - [x] Describe table
 - [x] **Build a minimal in-memory store**:
