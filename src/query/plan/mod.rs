@@ -1,6 +1,9 @@
+mod predicate;
+
 use crate::query::parser::ast::{Ast, WhereClause};
 use crate::query::parser::ordering_key::OrderingKey;
 use crate::query::parser::projection::Projection;
+use crate::query::plan::predicate::Predicate;
 
 /// `LogicalPlan` represents the logical steps required to execute a query.
 #[derive(Eq, PartialEq)]
@@ -27,8 +30,8 @@ pub(crate) enum LogicalPlan {
     Filter {
         /// The source plan.
         base_plan: Box<LogicalPlan>,
-        //// The where clause (filter).
-        clause: WhereClause, //TODO: may be introduce LogicalPredicate later
+        //// The filter predicate.
+        predicate: Predicate,
     },
     /// Plan to limit results from a base plan.
     Limit {
@@ -91,7 +94,7 @@ impl LogicalPlanner {
         if let Some(clause) = where_clause {
             return LogicalPlan::Filter {
                 base_plan: base_plan.boxed(),
-                clause,
+                predicate: Predicate::from(clause),
             };
         }
         base_plan
@@ -169,6 +172,7 @@ mod tests {
     use super::*;
     use crate::query::parser::ast::{Literal, Operator};
     use crate::query::parser::projection::Projection;
+    use crate::query::plan::predicate::LogicalOperator;
 
     #[test]
     fn logical_plan_for_show_tables() {
@@ -249,10 +253,10 @@ mod tests {
 
         assert!(matches!(
             logical_plan,
-            LogicalPlan::Filter { base_plan, clause }
-                if clause == WhereClause::Comparison {
+            LogicalPlan::Filter { base_plan, predicate }
+                if predicate == Predicate::Comparison {
                     column_name: "age".to_string(),
-                    operator: Operator::Greater,
+                    operator: LogicalOperator::Greater,
                     literal: Literal::Int(30),
                 } && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
         ));

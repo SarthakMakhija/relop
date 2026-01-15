@@ -8,6 +8,8 @@ pub enum ExecutionError {
     Catalog(CatalogError),
     /// Error related unknown column during select query execution with projection.
     UnknownColumn(String),
+    /// Error related to mismatch types during execution of comparison operations.
+    TypeMismatchInComparison,
 }
 
 impl From<RowViewComparatorError> for ExecutionError {
