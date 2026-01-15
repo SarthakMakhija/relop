@@ -37,7 +37,7 @@ mod column_type_tests {
     #[test]
     fn column_type_accepts_same_type_text_column_value() {
         let column_type = ColumnType::Text;
-        let column_value = ColumnValue::Text("relop".to_string());
+        let column_value = ColumnValue::text("relop");
 
         assert!(column_type.accepts(&column_value));
     }
@@ -45,7 +45,7 @@ mod column_type_tests {
     #[test]
     fn column_type_accepts_same_type_int_column_value() {
         let column_type = ColumnType::Int;
-        let column_value = ColumnValue::Int(20);
+        let column_value = ColumnValue::int(20);
 
         assert!(column_type.accepts(&column_value));
     }
@@ -53,7 +53,7 @@ mod column_type_tests {
     #[test]
     fn column_type_does_not_accept_different_column_value() {
         let column_type = ColumnType::Int;
-        let column_value = ColumnValue::Text("relop".to_string());
+        let column_value = ColumnValue::text("relop");
 
         assert!(!column_type.accepts(&column_value));
     }

@@ -53,17 +53,17 @@ mod tests {
     #[test]
     fn scan_table() {
         let store = Arc::new(TableStore::new());
-        store.insert(Row::filled(vec![ColumnValue::Int(1)]));
-        store.insert(Row::filled(vec![ColumnValue::Int(2)]));
+        store.insert(Row::filled(vec![ColumnValue::int(1)]));
+        store.insert(Row::filled(vec![ColumnValue::int(2)]));
 
         let table_scan = TableScan::new(store);
         let mut iterator = table_scan.iter();
 
         let row1 = iterator.next().unwrap();
-        assert_eq!(ColumnValue::Int(1), row1.column_values()[0]);
+        assert_eq!(ColumnValue::int(1), row1.column_values()[0]);
 
         let row2 = iterator.next().unwrap();
-        assert_eq!(ColumnValue::Int(2), row2.column_values()[0]);
+        assert_eq!(ColumnValue::int(2), row2.column_values()[0]);
 
         assert!(iterator.next().is_none());
     }

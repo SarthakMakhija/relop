@@ -28,8 +28,8 @@ impl Batch {
     /// use relop::types::column_value::ColumnValue;
     ///
     /// let rows = vec![
-    ///     Row::filled(vec![ColumnValue::Int(1)]),
-    ///     Row::filled(vec![ColumnValue::Int(2)]),
+    ///     Row::filled(vec![ColumnValue::int(1)]),
+    ///     Row::filled(vec![ColumnValue::int(2)]),
     /// ];
     /// let batch = Batch::new(rows);
     /// ```
@@ -124,7 +124,7 @@ mod tests {
             .add_column("name", ColumnType::Text)
             .unwrap();
 
-        let batch = Batch::new(vec![Row::filled(vec![ColumnValue::Int(10)])]);
+        let batch = Batch::new(vec![Row::filled(vec![ColumnValue::int(10)])]);
         let result = batch.check_type_compatability(&schema);
 
         assert!(matches!(
@@ -137,9 +137,7 @@ mod tests {
     fn batch_with_incompatible_column_values() {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
 
-        let batch = Batch::new(vec![Row::filled(vec![ColumnValue::Text(
-            "relop".to_string(),
-        )])]);
+        let batch = Batch::new(vec![Row::filled(vec![ColumnValue::text("relop")])]);
         let result = batch.check_type_compatability(&schema);
 
         assert!(matches!(
@@ -157,18 +155,18 @@ mod tests {
             .unwrap();
 
         let batch = Batch::new(vec![
-            Row::filled(vec![ColumnValue::Int(1)]),
-            Row::filled(vec![ColumnValue::Int(2)]),
+            Row::filled(vec![ColumnValue::int(1)]),
+            Row::filled(vec![ColumnValue::int(2)]),
         ]);
 
         let all_primary_key_column_values = batch.unique_primary_key_values(&schema).unwrap();
         assert_eq!(2, all_primary_key_column_values.len());
 
         let primary_key_column_values = all_primary_key_column_values.first().unwrap();
-        assert_eq!(&[ColumnValue::Int(1)], primary_key_column_values.values());
+        assert_eq!(&[ColumnValue::int(1)], primary_key_column_values.values());
 
         let primary_key_column_values = all_primary_key_column_values.last().unwrap();
-        assert_eq!(&[ColumnValue::Int(2)], primary_key_column_values.values());
+        assert_eq!(&[ColumnValue::int(2)], primary_key_column_values.values());
     }
 
     #[test]
@@ -180,8 +178,8 @@ mod tests {
             .unwrap();
 
         let batch = Batch::new(vec![
-            Row::filled(vec![ColumnValue::Int(1)]),
-            Row::filled(vec![ColumnValue::Int(1)]),
+            Row::filled(vec![ColumnValue::int(1)]),
+            Row::filled(vec![ColumnValue::int(1)]),
         ]);
 
         assert!(batch.unique_primary_key_values(&schema).is_err());

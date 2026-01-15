@@ -314,11 +314,11 @@ mod tests {
         assert!(result.is_ok());
 
         let row_id = catalog
-            .insert_into("employees", Row::filled(vec![ColumnValue::Int(1)]))
+            .insert_into("employees", Row::filled(vec![ColumnValue::int(1)]))
             .unwrap();
 
         let row = catalog.get("employees", row_id).unwrap().unwrap();
-        let expected_row = Row::filled(vec![ColumnValue::Int(1)]);
+        let expected_row = Row::filled(vec![ColumnValue::int(1)]);
         assert_eq!(expected_row, row);
     }
 
@@ -328,10 +328,7 @@ mod tests {
 
         let result = catalog.insert_into(
             "employees",
-            Row::filled(vec![
-                ColumnValue::Int(1),
-                ColumnValue::Text("relop".to_string()),
-            ]),
+            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
         );
 
         assert!(
@@ -352,7 +349,7 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let result = catalog.insert_into("employees", Row::filled(vec![ColumnValue::Int(10)]));
+        let result = catalog.insert_into("employees", Row::filled(vec![ColumnValue::int(10)]));
 
         assert!(matches!(
             result,
@@ -369,10 +366,8 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let result = catalog.insert_into(
-            "employees",
-            Row::filled(vec![ColumnValue::Text("relop".to_string())]),
-        );
+        let result =
+            catalog.insert_into("employees", Row::filled(vec![ColumnValue::text("relop")]));
 
         assert!(matches!(
             result,
@@ -393,8 +388,8 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::filled(vec![ColumnValue::Int(1)]),
-                    Row::filled(vec![ColumnValue::Int(2)]),
+                    Row::filled(vec![ColumnValue::int(1)]),
+                    Row::filled(vec![ColumnValue::int(2)]),
                 ],
             )
             .unwrap();
@@ -406,7 +401,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let expected_row = Row::filled(vec![ColumnValue::Int(1)]);
+        let expected_row = Row::filled(vec![ColumnValue::int(1)]);
         assert_eq!(expected_row, row);
 
         let row = catalog
@@ -414,7 +409,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let expected_row = Row::filled(vec![ColumnValue::Int(2)]);
+        let expected_row = Row::filled(vec![ColumnValue::int(2)]);
         assert_eq!(expected_row, row);
     }
 
@@ -432,7 +427,7 @@ mod tests {
         assert!(result.is_ok());
 
         let result =
-            catalog.insert_all_into("employees", vec![Row::filled(vec![ColumnValue::Int(10)])]);
+            catalog.insert_all_into("employees", vec![Row::filled(vec![ColumnValue::int(10)])]);
 
         assert!(matches!(
             result,
@@ -451,7 +446,7 @@ mod tests {
 
         let result = catalog.insert_all_into(
             "employees",
-            vec![Row::filled(vec![ColumnValue::Text("relop".to_string())])],
+            vec![Row::filled(vec![ColumnValue::text("relop")])],
         );
 
         assert!(matches!(
@@ -466,14 +461,8 @@ mod tests {
         let result = catalog.insert_all_into(
             "employees",
             vec![
-                Row::filled(vec![
-                    ColumnValue::Int(1),
-                    ColumnValue::Text("relop".to_string()),
-                ]),
-                Row::filled(vec![
-                    ColumnValue::Int(2),
-                    ColumnValue::Text("operator".to_string()),
-                ]),
+                Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
+                Row::filled(vec![ColumnValue::int(2), ColumnValue::text("operator")]),
             ],
         );
 
@@ -492,11 +481,11 @@ mod tests {
         assert!(result.is_ok());
 
         let row_id = catalog
-            .insert_into("employees", Row::filled(vec![ColumnValue::Int(1)]))
+            .insert_into("employees", Row::filled(vec![ColumnValue::int(1)]))
             .unwrap();
 
         let row = catalog.get("employees", row_id).unwrap().unwrap();
-        let expected_row = Row::filled(vec![ColumnValue::Int(1)]);
+        let expected_row = Row::filled(vec![ColumnValue::int(1)]);
 
         assert_eq!(expected_row, row);
     }
@@ -521,7 +510,7 @@ mod tests {
         assert!(result.is_ok());
 
         catalog
-            .insert_into("employees", Row::filled(vec![ColumnValue::Int(1)]))
+            .insert_into("employees", Row::filled(vec![ColumnValue::int(1)]))
             .unwrap();
 
         let rows = catalog
@@ -533,7 +522,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(1, rows.len());
 
-        let expected_row = Row::filled(vec![ColumnValue::Int(1)]);
+        let expected_row = Row::filled(vec![ColumnValue::int(1)]);
         assert_eq!(expected_row, rows[0]);
     }
 
@@ -572,10 +561,10 @@ mod table_insert_and_index_tests {
         assert!(result.is_ok());
 
         catalog
-            .insert_into("employees", Row::filled(vec![ColumnValue::Int(1)]))
+            .insert_into("employees", Row::filled(vec![ColumnValue::int(1)]))
             .unwrap();
 
-        let row = Row::filled(vec![ColumnValue::Int(1)]);
+        let row = Row::filled(vec![ColumnValue::int(1)]);
         let schema = Schema::new()
             .add_column("id", ColumnType::Int)
             .unwrap()

@@ -227,8 +227,8 @@ mod tests {
         let table = Table::new("employees", schema);
         let table_store = TableStore::new();
         table_store.insert(Row::filled(vec![
-            ColumnValue::Int(1),
-            ColumnValue::Text("relop".to_string()),
+            ColumnValue::int(1),
+            ColumnValue::text("relop"),
         ]));
 
         let table_scan = TableScan::new(Arc::new(table_store));
@@ -237,9 +237,9 @@ mod tests {
         let mut iterator = result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
         assert_eq!(
-            &ColumnValue::Text("relop".to_string()),
+            &ColumnValue::text("relop"),
             row_view.column("name").unwrap()
         );
         assert!(iterator.next().is_none());
@@ -251,7 +251,7 @@ mod tests {
 
         let table = Table::new("employees", schema);
         let table_store = TableStore::new();
-        table_store.insert(Row::filled(vec![ColumnValue::Int(1)]));
+        table_store.insert(Row::filled(vec![ColumnValue::int(1)]));
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
@@ -273,8 +273,8 @@ mod tests {
         let table = Table::new("employees", schema);
         let table_store = TableStore::new();
         table_store.insert(Row::filled(vec![
-            ColumnValue::Int(1),
-            ColumnValue::Text("relop".to_string()),
+            ColumnValue::int(1),
+            ColumnValue::text("relop"),
         ]));
 
         let table_scan = TableScan::new(Arc::new(table_store));
@@ -286,7 +286,7 @@ mod tests {
 
         let row_view = iterator.next().unwrap();
         assert_eq!(
-            &ColumnValue::Text("relop".to_string()),
+            &ColumnValue::text("relop"),
             row_view.column("name").unwrap()
         );
         assert!(row_view.column("id").is_none());
@@ -299,7 +299,7 @@ mod tests {
 
         let table = Table::new("employees", schema);
         let table_store = TableStore::new();
-        table_store.insert(Row::filled(vec![ColumnValue::Int(1)]));
+        table_store.insert(Row::filled(vec![ColumnValue::int(1)]));
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
@@ -321,14 +321,8 @@ mod tests {
         let table = Table::new("employees", schema);
         let table_store = TableStore::new();
         table_store.insert_all(vec![
-            Row::filled(vec![
-                ColumnValue::Int(1),
-                ColumnValue::Text("relop".to_string()),
-            ]),
-            Row::filled(vec![
-                ColumnValue::Int(2),
-                ColumnValue::Text("query".to_string()),
-            ]),
+            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
+            Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
         ]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
@@ -338,9 +332,9 @@ mod tests {
         let mut iterator = limit_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
         assert_eq!(
-            &ColumnValue::Text("relop".to_string()),
+            &ColumnValue::text("relop"),
             row_view.column("name").unwrap()
         );
         assert!(iterator.next().is_none());
@@ -357,14 +351,8 @@ mod tests {
         let table = Table::new("employees", schema);
         let table_store = TableStore::new();
         table_store.insert_all(vec![
-            Row::filled(vec![
-                ColumnValue::Int(1),
-                ColumnValue::Text("relop".to_string()),
-            ]),
-            Row::filled(vec![
-                ColumnValue::Int(2),
-                ColumnValue::Text("query".to_string()),
-            ]),
+            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
+            Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
         ]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
@@ -374,16 +362,16 @@ mod tests {
         let mut iterator = limit_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
         assert_eq!(
-            &ColumnValue::Text("relop".to_string()),
+            &ColumnValue::text("relop"),
             row_view.column("name").unwrap()
         );
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(2), row_view.column("id").unwrap());
         assert_eq!(
-            &ColumnValue::Text("query".to_string()),
+            &ColumnValue::text("query"),
             row_view.column("name").unwrap()
         );
         assert!(iterator.next().is_none());
@@ -400,14 +388,8 @@ mod tests {
         let table = Table::new("employees", schema);
         let table_store = TableStore::new();
         table_store.insert_all(vec![
-            Row::filled(vec![
-                ColumnValue::Int(1),
-                ColumnValue::Text("relop".to_string()),
-            ]),
-            Row::filled(vec![
-                ColumnValue::Int(2),
-                ColumnValue::Text("query".to_string()),
-            ]),
+            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
+            Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
         ]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
@@ -418,7 +400,7 @@ mod tests {
         let mut iterator = limit_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
         assert!(row_view.column("name").is_none());
         assert!(iterator.next().is_none());
     }
@@ -430,8 +412,8 @@ mod tests {
         let table = Table::new("employees", schema);
         let table_store = TableStore::new();
         table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::Int(2)]),
-            Row::filled(vec![ColumnValue::Int(1)]),
+            Row::filled(vec![ColumnValue::int(2)]),
+            Row::filled(vec![ColumnValue::int(1)]),
         ]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
@@ -442,10 +424,10 @@ mod tests {
         let mut iterator = ordering_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(2), row_view.column("id").unwrap());
 
         assert!(iterator.next().is_none());
     }
@@ -457,8 +439,8 @@ mod tests {
         let table = Table::new("employees", schema);
         let table_store = TableStore::new();
         table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::Int(1)]),
-            Row::filled(vec![ColumnValue::Int(2)]),
+            Row::filled(vec![ColumnValue::int(1)]),
+            Row::filled(vec![ColumnValue::int(2)]),
         ]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
@@ -469,10 +451,10 @@ mod tests {
         let mut iterator = ordering_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(2), row_view.column("id").unwrap());
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
 
         assert!(iterator.next().is_none());
     }
@@ -488,8 +470,8 @@ mod tests {
         let table = Table::new("employees", schema);
         let table_store = TableStore::new();
         table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(20)]),
-            Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]),
+            Row::filled(vec![ColumnValue::int(1), ColumnValue::int(20)]),
+            Row::filled(vec![ColumnValue::int(1), ColumnValue::int(10)]),
         ]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
@@ -503,12 +485,12 @@ mod tests {
         let mut iterator = ordering_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
-        assert_eq!(&ColumnValue::Int(10), row_view.column("rank").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(10), row_view.column("rank").unwrap());
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
-        assert_eq!(&ColumnValue::Int(20), row_view.column("rank").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(20), row_view.column("rank").unwrap());
 
         assert!(iterator.next().is_none());
     }
@@ -524,9 +506,9 @@ mod tests {
         let table = Table::new("employees", schema);
         let table_store = TableStore::new();
         table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::Int(3), ColumnValue::Int(30)]),
-            Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]),
-            Row::filled(vec![ColumnValue::Int(2), ColumnValue::Int(20)]),
+            Row::filled(vec![ColumnValue::int(3), ColumnValue::int(30)]),
+            Row::filled(vec![ColumnValue::int(1), ColumnValue::int(10)]),
+            Row::filled(vec![ColumnValue::int(2), ColumnValue::int(20)]),
         ]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
@@ -539,10 +521,10 @@ mod tests {
         let mut iterator = limit_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(2), row_view.column("id").unwrap());
 
         assert!(iterator.next().is_none());
     }

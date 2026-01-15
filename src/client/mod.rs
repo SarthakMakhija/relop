@@ -148,7 +148,7 @@ impl Relop {
     ///
     /// relop.create_table("employees", schema).unwrap();
     ///
-    /// let row = Row::filled(vec![ColumnValue::Int(1)]);
+    /// let row = Row::filled(vec![ColumnValue::int(1)]);
     /// let row_id = relop.insert_into("employees", row).unwrap();
     /// ```
     pub fn insert_into(&self, table_name: &str, row: Row) -> Result<RowId, ClientError> {
@@ -197,8 +197,8 @@ impl Relop {
     /// relop.create_table("employees", schema).unwrap();
     ///
     /// let rows = vec![
-    ///     Row::filled(vec![ColumnValue::Int(1)]),
-    ///     Row::filled(vec![ColumnValue::Int(2)]),
+    ///     Row::filled(vec![ColumnValue::int(1)]),
+    ///     Row::filled(vec![ColumnValue::int(2)]),
     /// ];
     /// let row_ids = relop.insert_all_into("employees", rows).unwrap();
     /// assert_eq!(2, row_ids.len());
@@ -307,7 +307,7 @@ impl Relop {
     /// relop.create_table("employees", schema).unwrap();
     ///
     /// let _ = relop
-    ///     .insert_into("employees", Row::filled(vec![ColumnValue::Int(1)]))
+    ///     .insert_into("employees", Row::filled(vec![ColumnValue::int(1)]))
     ///     .unwrap();
     ///
     ///  let mut query_result = relop.execute("select * from employees").unwrap();
@@ -315,7 +315,7 @@ impl Relop {
     ///  let mut iterator = result_set.iterator().unwrap();
     ///
     ///  let row_view = iterator.next().unwrap();
-    ///  assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+    ///  assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
     /// ```
     pub fn execute(&self, query: &str) -> Result<QueryResult, ClientError> {
         let mut lexer = Lexer::new_with_default_keywords(query);
@@ -381,11 +381,11 @@ mod tests {
         assert!(result.is_ok());
 
         let row_id = relop
-            .insert_into("employees", Row::filled(vec![ColumnValue::Int(1)]))
+            .insert_into("employees", Row::filled(vec![ColumnValue::int(1)]))
             .unwrap();
 
         let row = relop.catalog.get("employees", row_id).unwrap().unwrap();
-        let expected_row = Row::filled(vec![ColumnValue::Int(1)]);
+        let expected_row = Row::filled(vec![ColumnValue::int(1)]);
 
         assert_eq!(expected_row, row);
     }
@@ -404,14 +404,14 @@ mod tests {
         assert!(result.is_ok());
 
         let row_id = relop
-            .insert_into("employees", Row::filled(vec![ColumnValue::Int(1)]))
+            .insert_into("employees", Row::filled(vec![ColumnValue::int(1)]))
             .unwrap();
 
         let row = relop.catalog.get("employees", row_id).unwrap().unwrap();
-        let expected_row = Row::filled(vec![ColumnValue::Int(1)]);
+        let expected_row = Row::filled(vec![ColumnValue::int(1)]);
         assert_eq!(expected_row, row);
 
-        let result = relop.insert_into("employees", Row::filled(vec![ColumnValue::Int(1)]));
+        let result = relop.insert_into("employees", Row::filled(vec![ColumnValue::int(1)]));
 
         assert!(matches!(
             result,
@@ -432,8 +432,8 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::filled(vec![ColumnValue::Int(1)]),
-                    Row::filled(vec![ColumnValue::Int(2)]),
+                    Row::filled(vec![ColumnValue::int(1)]),
+                    Row::filled(vec![ColumnValue::int(2)]),
                 ],
             )
             .unwrap();
@@ -444,7 +444,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let expected_row = Row::filled(vec![ColumnValue::Int(1)]);
+        let expected_row = Row::filled(vec![ColumnValue::int(1)]);
         assert_eq!(expected_row, row);
 
         let row = relop
@@ -453,7 +453,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let expected_row = Row::filled(vec![ColumnValue::Int(2)]);
+        let expected_row = Row::filled(vec![ColumnValue::int(2)]);
         assert_eq!(expected_row, row);
     }
 
@@ -543,8 +543,8 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::filled(vec![ColumnValue::Int(1)]),
-                    Row::filled(vec![ColumnValue::Int(2)]),
+                    Row::filled(vec![ColumnValue::int(1)]),
+                    Row::filled(vec![ColumnValue::int(2)]),
                 ],
             )
             .unwrap();
@@ -554,10 +554,10 @@ mod tests {
         let mut row_iter = result_set.iterator().unwrap();
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(2), row_view.column("id").unwrap());
     }
 
     #[test]
@@ -589,8 +589,8 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]),
-                    Row::filled(vec![ColumnValue::Int(2), ColumnValue::Int(20)]),
+                    Row::filled(vec![ColumnValue::int(1), ColumnValue::int(10)]),
+                    Row::filled(vec![ColumnValue::int(2), ColumnValue::int(20)]),
                 ],
             )
             .unwrap();
@@ -600,10 +600,10 @@ mod tests {
         let mut row_iter = result_set.iterator().unwrap();
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::Int(10), row_view.column("rank").unwrap());
+        assert_eq!(&ColumnValue::int(10), row_view.column("rank").unwrap());
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::Int(20), row_view.column("rank").unwrap());
+        assert_eq!(&ColumnValue::int(20), row_view.column("rank").unwrap());
     }
 
     #[test]
@@ -623,8 +623,8 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]),
-                    Row::filled(vec![ColumnValue::Int(2), ColumnValue::Int(20)]),
+                    Row::filled(vec![ColumnValue::int(1), ColumnValue::int(10)]),
+                    Row::filled(vec![ColumnValue::int(2), ColumnValue::int(20)]),
                 ],
             )
             .unwrap();
@@ -650,9 +650,9 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::filled(vec![ColumnValue::Int(1)]),
-                    Row::filled(vec![ColumnValue::Int(2)]),
-                    Row::filled(vec![ColumnValue::Int(3)]),
+                    Row::filled(vec![ColumnValue::int(1)]),
+                    Row::filled(vec![ColumnValue::int(2)]),
+                    Row::filled(vec![ColumnValue::int(3)]),
                 ],
             )
             .unwrap();
@@ -662,10 +662,10 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         let row_view = row_iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
 
         let row_view = row_iterator.next().unwrap();
-        assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(2), row_view.column("id").unwrap());
 
         assert!(row_iterator.next().is_none());
     }
@@ -687,18 +687,9 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::filled(vec![
-                        ColumnValue::Int(1),
-                        ColumnValue::Text("relop".to_string()),
-                    ]),
-                    Row::filled(vec![
-                        ColumnValue::Int(2),
-                        ColumnValue::Text("query".to_string()),
-                    ]),
-                    Row::filled(vec![
-                        ColumnValue::Int(3),
-                        ColumnValue::Text("parsing".to_string()),
-                    ]),
+                    Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
+                    Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
+                    Row::filled(vec![ColumnValue::int(3), ColumnValue::text("parsing")]),
                 ],
             )
             .unwrap();
@@ -711,10 +702,10 @@ mod tests {
 
         let row_view = row_iterator.next().unwrap();
         assert_eq!(
-            &ColumnValue::Text("relop".to_string()),
+            &ColumnValue::text("relop"),
             row_view.column("name").unwrap()
         );
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
 
         assert!(row_iterator.next().is_none());
     }
@@ -732,8 +723,8 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::filled(vec![ColumnValue::Int(2)]),
-                    Row::filled(vec![ColumnValue::Int(1)]),
+                    Row::filled(vec![ColumnValue::int(2)]),
+                    Row::filled(vec![ColumnValue::int(1)]),
                 ],
             )
             .unwrap();
@@ -745,10 +736,10 @@ mod tests {
         let mut row_iter = result_set.iterator().unwrap();
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::Int(2), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(2), row_view.column("id").unwrap());
     }
 
     #[test]
@@ -768,8 +759,8 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(20)]),
-                    Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]),
+                    Row::filled(vec![ColumnValue::int(1), ColumnValue::int(20)]),
+                    Row::filled(vec![ColumnValue::int(1), ColumnValue::int(10)]),
                 ],
             )
             .unwrap();
@@ -781,11 +772,11 @@ mod tests {
         let mut row_iter = result_set.iterator().unwrap();
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
-        assert_eq!(&ColumnValue::Int(20), row_view.column("rank").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(20), row_view.column("rank").unwrap());
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::Int(1), row_view.column("id").unwrap());
-        assert_eq!(&ColumnValue::Int(10), row_view.column("rank").unwrap());
+        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(10), row_view.column("rank").unwrap());
     }
 }

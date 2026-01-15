@@ -188,7 +188,7 @@ mod tests {
         assert!(result.is_ok());
 
         let _ = catalog
-            .insert_into("employees", Row::single(ColumnValue::Int(100)))
+            .insert_into("employees", Row::single(ColumnValue::int(100)))
             .unwrap();
 
         let executor = Executor::new(&catalog);
@@ -234,10 +234,7 @@ mod tests {
         let _ = catalog
             .insert_into(
                 "employees",
-                Row::filled(vec![
-                    ColumnValue::Int(100),
-                    ColumnValue::Text("relop".to_string()),
-                ]),
+                Row::filled(vec![ColumnValue::int(100), ColumnValue::text("relop")]),
             )
             .unwrap();
 
@@ -275,10 +272,7 @@ mod tests {
         let _ = catalog
             .insert_into(
                 "employees",
-                Row::filled(vec![
-                    ColumnValue::Int(100),
-                    ColumnValue::Text("relop".to_string()),
-                ]),
+                Row::filled(vec![ColumnValue::int(100), ColumnValue::text("relop")]),
             )
             .unwrap();
 
@@ -305,8 +299,8 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::single(ColumnValue::Int(100)),
-                    Row::single(ColumnValue::Int(200)),
+                    Row::single(ColumnValue::int(100)),
+                    Row::single(ColumnValue::int(200)),
                 ],
             )
             .unwrap();
@@ -345,14 +339,8 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::filled(vec![
-                        ColumnValue::Int(100),
-                        ColumnValue::Text("relop".to_string()),
-                    ]),
-                    Row::filled(vec![
-                        ColumnValue::Int(200),
-                        ColumnValue::Text("query".to_string()),
-                    ]),
+                    Row::filled(vec![ColumnValue::int(100), ColumnValue::text("relop")]),
+                    Row::filled(vec![ColumnValue::int(200), ColumnValue::text("query")]),
                 ],
             )
             .unwrap();
@@ -392,8 +380,8 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::single(ColumnValue::Int(200)),
-                    Row::single(ColumnValue::Int(100)),
+                    Row::single(ColumnValue::int(200)),
+                    Row::single(ColumnValue::int(100)),
                 ],
             )
             .unwrap();
@@ -434,8 +422,8 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::single(ColumnValue::Int(100)),
-                    Row::single(ColumnValue::Int(200)),
+                    Row::single(ColumnValue::int(100)),
+                    Row::single(ColumnValue::int(200)),
                 ],
             )
             .unwrap();
@@ -482,8 +470,8 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(30)]),
-                    Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(20)]),
+                    Row::filled(vec![ColumnValue::int(1), ColumnValue::int(30)]),
+                    Row::filled(vec![ColumnValue::int(1), ColumnValue::int(20)]),
                 ],
             )
             .unwrap();

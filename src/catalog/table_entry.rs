@@ -170,7 +170,7 @@ mod tests {
             Schema::new().add_column("id", ColumnType::Int).unwrap(),
         ));
         table_entry
-            .insert(Row::filled(vec![ColumnValue::Int(100)]))
+            .insert(Row::filled(vec![ColumnValue::int(100)]))
             .unwrap();
 
         let rows = table_entry.scan().iter().collect::<Vec<_>>();
@@ -190,7 +190,7 @@ mod tests {
                 .unwrap(),
         ));
         table_entry
-            .insert(Row::filled(vec![ColumnValue::Int(100)]))
+            .insert(Row::filled(vec![ColumnValue::int(100)]))
             .unwrap();
 
         let rows = table_entry.scan().iter().collect::<Vec<_>>();
@@ -203,7 +203,7 @@ mod tests {
             .add_primary_key(PrimaryKey::single("id"))
             .unwrap();
 
-        let row = Row::filled(vec![ColumnValue::Int(100)]);
+        let row = Row::filled(vec![ColumnValue::int(100)]);
         let primary_key = PrimaryKey::single("id");
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
 
@@ -224,10 +224,10 @@ mod tests {
                 .unwrap(),
         ));
         table_entry
-            .insert(Row::filled(vec![ColumnValue::Int(100)]))
+            .insert(Row::filled(vec![ColumnValue::int(100)]))
             .unwrap();
 
-        let result = table_entry.insert(Row::filled(vec![ColumnValue::Int(100)]));
+        let result = table_entry.insert(Row::filled(vec![ColumnValue::int(100)]));
         assert!(matches!(result, Err(InsertError::DuplicatePrimaryKey)));
     }
 
@@ -238,16 +238,16 @@ mod tests {
             Schema::new().add_column("id", ColumnType::Int).unwrap(),
         ));
         let batch = Batch::new(vec![
-            Row::filled(vec![ColumnValue::Int(10)]),
-            Row::filled(vec![ColumnValue::Int(20)]),
+            Row::filled(vec![ColumnValue::int(10)]),
+            Row::filled(vec![ColumnValue::int(20)]),
         ]);
         table_entry.insert_all(batch).unwrap();
 
         let rows = table_entry.scan().iter().collect::<Vec<_>>();
         assert_eq!(2, rows.len());
 
-        assert!(rows.contains(&Row::filled(vec![ColumnValue::Int(10),])));
-        assert!(rows.contains(&Row::filled(vec![ColumnValue::Int(20),])));
+        assert!(rows.contains(&Row::filled(vec![ColumnValue::int(10),])));
+        assert!(rows.contains(&Row::filled(vec![ColumnValue::int(20),])));
     }
 
     #[test]
@@ -261,8 +261,8 @@ mod tests {
                 .unwrap(),
         ));
         let batch = Batch::new(vec![
-            Row::filled(vec![ColumnValue::Int(10)]),
-            Row::filled(vec![ColumnValue::Int(10)]),
+            Row::filled(vec![ColumnValue::int(10)]),
+            Row::filled(vec![ColumnValue::int(10)]),
         ]);
         let result = table_entry.insert_all(batch);
         assert!(matches!(result, Err(InsertError::DuplicatePrimaryKey)));
@@ -279,13 +279,13 @@ mod tests {
                 .unwrap(),
         ));
         let batch = Batch::new(vec![
-            Row::filled(vec![ColumnValue::Int(10)]),
-            Row::filled(vec![ColumnValue::Int(20)]),
+            Row::filled(vec![ColumnValue::int(10)]),
+            Row::filled(vec![ColumnValue::int(20)]),
         ]);
         let result = table_entry.insert_all(batch);
         assert!(result.is_ok());
 
-        let batch = Batch::new(vec![Row::filled(vec![ColumnValue::Int(10)])]);
+        let batch = Batch::new(vec![Row::filled(vec![ColumnValue::int(10)])]);
         let result = table_entry.insert_all(batch);
         assert!(matches!(result, Err(InsertError::DuplicatePrimaryKey)));
     }
@@ -297,7 +297,7 @@ mod tests {
             Schema::new().add_column("id", ColumnType::Int).unwrap(),
         ));
         let row_id = table_entry
-            .insert(Row::filled(vec![ColumnValue::Int(100)]))
+            .insert(Row::filled(vec![ColumnValue::int(100)]))
             .unwrap();
 
         let row = table_entry.get(row_id).unwrap();
@@ -311,7 +311,7 @@ mod tests {
             Schema::new().add_column("id", ColumnType::Int).unwrap(),
         ));
         table_entry
-            .insert(Row::filled(vec![ColumnValue::Int(100)]))
+            .insert(Row::filled(vec![ColumnValue::int(100)]))
             .unwrap();
 
         let entry = table_entry.get(1000);

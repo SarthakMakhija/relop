@@ -352,7 +352,7 @@ mod tests {
             .add_column("grade", ColumnType::Int)
             .unwrap();
 
-        let result = schema.check_type_compatability(&[ColumnValue::Text("relop".to_string())]);
+        let result = schema.check_type_compatability(&[ColumnValue::text("relop")]);
 
         assert!(matches! (
             result,
@@ -364,7 +364,7 @@ mod tests {
         let mut schema = Schema::new();
         schema = schema.add_column("id", ColumnType::Int).unwrap();
 
-        let result = schema.check_type_compatability(&[ColumnValue::Text("relop".to_string())]);
+        let result = schema.check_type_compatability(&[ColumnValue::text("relop")]);
 
         assert!(matches! (
             result,
@@ -377,7 +377,7 @@ mod tests {
         let mut schema = Schema::new();
         schema = schema.add_column("id", ColumnType::Int).unwrap();
 
-        let result = schema.check_type_compatability(&[ColumnValue::Int(100)]);
+        let result = schema.check_type_compatability(&[ColumnValue::int(100)]);
         assert!(result.is_ok());
     }
 

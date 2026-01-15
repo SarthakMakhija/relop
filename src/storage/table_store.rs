@@ -93,8 +93,8 @@ mod tests {
     fn insert_row_and_get_row_id() {
         let store = TableStore::new();
         let row_id = store.insert(Row::filled(vec![
-            ColumnValue::Int(10),
-            ColumnValue::Text("relop".to_string()),
+            ColumnValue::int(10),
+            ColumnValue::text("relop"),
         ]));
 
         assert_eq!(1, row_id);
@@ -104,18 +104,15 @@ mod tests {
     fn insert_row_and_scan() {
         let store = TableStore::new();
         store.insert(Row::filled(vec![
-            ColumnValue::Int(10),
-            ColumnValue::Text("relop".to_string()),
+            ColumnValue::int(10),
+            ColumnValue::text("relop"),
         ]));
 
         let rows: Vec<Row> = store.scan();
         assert_eq!(1, rows.len());
 
         let inserted_row = rows.first().unwrap();
-        let expected_row = Row::filled(vec![
-            ColumnValue::Int(10),
-            ColumnValue::Text("relop".to_string()),
-        ]);
+        let expected_row = Row::filled(vec![ColumnValue::int(10), ColumnValue::text("relop")]);
 
         assert_eq!(&expected_row, inserted_row);
     }
@@ -124,14 +121,8 @@ mod tests {
     fn insert_rows() {
         let store = TableStore::new();
         let row_ids = store.insert_all(vec![
-            Row::filled(vec![
-                ColumnValue::Int(10),
-                ColumnValue::Text("relop".to_string()),
-            ]),
-            Row::filled(vec![
-                ColumnValue::Int(20),
-                ColumnValue::Text("query".to_string()),
-            ]),
+            Row::filled(vec![ColumnValue::int(10), ColumnValue::text("relop")]),
+            Row::filled(vec![ColumnValue::int(20), ColumnValue::text("query")]),
         ]);
 
         assert_eq!(2, row_ids.len());
@@ -143,26 +134,20 @@ mod tests {
     fn insert_rows_and_scan() {
         let store = TableStore::new();
         store.insert_all(vec![
-            Row::filled(vec![
-                ColumnValue::Int(10),
-                ColumnValue::Text("relop".to_string()),
-            ]),
-            Row::filled(vec![
-                ColumnValue::Int(20),
-                ColumnValue::Text("query".to_string()),
-            ]),
+            Row::filled(vec![ColumnValue::int(10), ColumnValue::text("relop")]),
+            Row::filled(vec![ColumnValue::int(20), ColumnValue::text("query")]),
         ]);
 
         let rows = store.scan();
         assert_eq!(2, rows.len());
 
         assert!(rows.contains(&Row::filled(vec![
-            ColumnValue::Int(10),
-            ColumnValue::Text("relop".to_string())
+            ColumnValue::int(10),
+            ColumnValue::text("relop")
         ])));
         assert!(rows.contains(&Row::filled(vec![
-            ColumnValue::Int(20),
-            ColumnValue::Text("query".to_string())
+            ColumnValue::int(20),
+            ColumnValue::text("query")
         ])));
     }
 
@@ -170,15 +155,12 @@ mod tests {
     fn insert_row_and_get_by_row_id() {
         let store = TableStore::new();
         let row_id = store.insert(Row::filled(vec![
-            ColumnValue::Int(10),
-            ColumnValue::Text("relop".to_string()),
+            ColumnValue::int(10),
+            ColumnValue::text("relop"),
         ]));
 
         let row = store.get(row_id).unwrap();
-        let expected_row = Row::filled(vec![
-            ColumnValue::Int(10),
-            ColumnValue::Text("relop".to_string()),
-        ]);
+        let expected_row = Row::filled(vec![ColumnValue::int(10), ColumnValue::text("relop")]);
 
         assert_eq!(expected_row, row);
     }
@@ -187,8 +169,8 @@ mod tests {
     fn insert_row_and_attempt_to_get_by_non_existent_row_id() {
         let store = TableStore::new();
         store.insert(Row::filled(vec![
-            ColumnValue::Int(10),
-            ColumnValue::Text("relop".to_string()),
+            ColumnValue::int(10),
+            ColumnValue::text("relop"),
         ]));
 
         let entry = store.get(1000);
@@ -199,18 +181,18 @@ mod tests {
     fn iterate_over_all_rows() {
         let store = TableStore::new();
         store.insert_all(vec![
-            Row::filled(vec![ColumnValue::Int(10)]),
-            Row::filled(vec![ColumnValue::Int(20)]),
+            Row::filled(vec![ColumnValue::int(10)]),
+            Row::filled(vec![ColumnValue::int(20)]),
         ]);
 
         let mut iterator = store.iter();
 
         assert_eq!(
-            Row::filled(vec![ColumnValue::Int(10)]),
+            Row::filled(vec![ColumnValue::int(10)]),
             iterator.next().unwrap()
         );
         assert_eq!(
-            Row::filled(vec![ColumnValue::Int(20)]),
+            Row::filled(vec![ColumnValue::int(20)]),
             iterator.next().unwrap()
         );
         assert!(iterator.next().is_none());

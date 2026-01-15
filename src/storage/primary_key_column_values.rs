@@ -63,10 +63,7 @@ mod tests {
             .add_column("id", ColumnType::Int)
             .unwrap();
 
-        let row = Row::filled(vec![
-            ColumnValue::Text("relop".to_string()),
-            ColumnValue::Int(200),
-        ]);
+        let row = Row::filled(vec![ColumnValue::text("relop"), ColumnValue::int(200)]);
         let primary_key = PrimaryKey::composite(vec!["first_name", "id"]).unwrap();
 
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);

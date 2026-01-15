@@ -161,17 +161,17 @@ mod tests {
     #[test]
     fn column() {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
-        let row = Row::filled(vec![ColumnValue::Int(200)]);
+        let row = Row::filled(vec![ColumnValue::int(200)]);
 
         let visible_positions = vec![0];
         let view = RowView::new(row, &schema, &visible_positions);
-        assert_eq!(&ColumnValue::Int(200), view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(200), view.column("id").unwrap());
     }
 
     #[test]
     fn attempt_to_get_non_existing_column() {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
-        let row = Row::filled(vec![ColumnValue::Int(200)]);
+        let row = Row::filled(vec![ColumnValue::int(200)]);
 
         let visible_positions = vec![0];
         let view = RowView::new(row, &schema, &visible_positions);
@@ -185,18 +185,12 @@ mod tests {
             .unwrap()
             .add_column("name", ColumnType::Text)
             .unwrap();
-        let row = Row::filled(vec![
-            ColumnValue::Int(200),
-            ColumnValue::Text("relop".to_string()),
-        ]);
+        let row = Row::filled(vec![ColumnValue::int(200), ColumnValue::text("relop")]);
 
         let visible_positions = vec![1];
         let view = RowView::new(row, &schema, &visible_positions);
         assert!(view.column("id").is_none());
-        assert_eq!(
-            &ColumnValue::Text("relop".to_string()),
-            view.column("name").unwrap()
-        );
+        assert_eq!(&ColumnValue::text("relop"), view.column("name").unwrap());
     }
     #[test]
     fn project_row_view() {
@@ -206,24 +200,18 @@ mod tests {
             .add_column("name", ColumnType::Text)
             .unwrap();
 
-        let row = Row::filled(vec![
-            ColumnValue::Int(200),
-            ColumnValue::Text("relop".to_string()),
-        ]);
+        let row = Row::filled(vec![ColumnValue::int(200), ColumnValue::text("relop")]);
 
         let visible_positions = vec![0, 1];
         let view = RowView::new(row, &schema, &visible_positions);
-        assert_eq!(&ColumnValue::Int(200), view.column("id").unwrap());
-        assert_eq!(
-            &ColumnValue::Text("relop".to_string()),
-            view.column("name").unwrap()
-        );
+        assert_eq!(&ColumnValue::int(200), view.column("id").unwrap());
+        assert_eq!(&ColumnValue::text("relop"), view.column("name").unwrap());
 
         let projection = vec![1];
         let projected_view = view.project(&projection);
         assert!(projected_view.column("id").is_none());
         assert_eq!(
-            &ColumnValue::Text("relop".to_string()),
+            &ColumnValue::text("relop"),
             projected_view.column("name").unwrap()
         );
     }
@@ -244,8 +232,8 @@ mod row_view_comparator_tests {
 
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
 
-        let row1 = Row::filled(vec![ColumnValue::Int(1)]);
-        let row2 = Row::filled(vec![ColumnValue::Int(2)]);
+        let row1 = Row::filled(vec![ColumnValue::int(1)]);
+        let row2 = Row::filled(vec![ColumnValue::int(2)]);
 
         let visible_positions = [0];
         let row_view1 = RowView::new(row1, &schema, &visible_positions);
@@ -269,8 +257,8 @@ mod row_view_comparator_tests {
 
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
 
-        let row1 = Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]);
-        let row2 = Row::filled(vec![ColumnValue::Int(2), ColumnValue::Int(10)]);
+        let row1 = Row::filled(vec![ColumnValue::int(1), ColumnValue::int(10)]);
+        let row2 = Row::filled(vec![ColumnValue::int(2), ColumnValue::int(10)]);
 
         let visible_positions = [0, 1];
         let row_view1 = RowView::new(row1, &schema, &visible_positions);
@@ -294,8 +282,8 @@ mod row_view_comparator_tests {
 
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
 
-        let row1 = Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]);
-        let row2 = Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(20)]);
+        let row1 = Row::filled(vec![ColumnValue::int(1), ColumnValue::int(10)]);
+        let row2 = Row::filled(vec![ColumnValue::int(1), ColumnValue::int(20)]);
 
         let visible_positions = [0, 1];
         let row_view1 = RowView::new(row1, &schema, &visible_positions);
@@ -319,8 +307,8 @@ mod row_view_comparator_tests {
 
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
 
-        let row1 = Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(10)]);
-        let row2 = Row::filled(vec![ColumnValue::Int(1), ColumnValue::Int(20)]);
+        let row1 = Row::filled(vec![ColumnValue::int(1), ColumnValue::int(10)]);
+        let row2 = Row::filled(vec![ColumnValue::int(1), ColumnValue::int(20)]);
 
         let visible_positions = [0, 1];
         let row_view1 = RowView::new(row1, &schema, &visible_positions);
