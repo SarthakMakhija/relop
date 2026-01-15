@@ -88,6 +88,7 @@ impl Parser {
         Ok(Ast::Select {
             table_name: table_name.to_string(),
             projection,
+            where_clause: None,
             order_by,
             limit,
         })
@@ -1000,7 +1001,7 @@ mod select_tests_with_limit {
         let ast = parser.parse().unwrap();
 
         assert!(matches!(ast,
-            Ast::Select { table_name, projection, order_by: _, limit }
+            Ast::Select { table_name, projection, where_clause: _, order_by: _, limit }
                 if table_name == "employees"
                     && projection == Projection::Columns(vec!["name".to_string(), "id".to_string()])
                     && limit == Some(10)
@@ -1025,7 +1026,7 @@ mod select_tests_with_limit {
         let ast = parser.parse().unwrap();
 
         assert!(matches!(ast,
-            Ast::Select { table_name, projection, order_by: _, limit }
+            Ast::Select { table_name, projection, where_clause: _, order_by: _, limit }
                 if table_name == "employees"
                     && projection == Projection::Columns(vec!["name".to_string(), "id".to_string()])
                     && limit == Some(10)

@@ -59,6 +59,7 @@ impl LogicalPlanner {
             Ast::Select {
                 table_name,
                 projection,
+                where_clause: _,
                 limit,
                 order_by,
             } => {
@@ -176,6 +177,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::All,
+            where_clause: None,
             order_by: None,
             limit: None,
         });
@@ -190,6 +192,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::Columns(vec![String::from("id")]),
+            where_clause: None,
             order_by: None,
             limit: None,
         });
@@ -204,6 +207,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::Columns(vec![String::from("id")]),
+            where_clause: None,
             order_by: None,
             limit: None,
         });
@@ -218,6 +222,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::All,
+            where_clause: None,
             order_by: None,
             limit: Some(10),
         });
@@ -232,6 +237,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::All,
+            where_clause: None,
             order_by: None,
             limit: Some(10),
         });
@@ -246,6 +252,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::Columns(vec![String::from("id")]),
+            where_clause: None,
             order_by: None,
             limit: Some(10),
         });
@@ -260,6 +267,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::Columns(vec![String::from("id")]),
+            where_clause: None,
             order_by: None,
             limit: Some(10),
         });
@@ -276,6 +284,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::Columns(vec![String::from("id")]),
+            where_clause: None,
             order_by: None,
             limit: Some(10),
         });
@@ -292,6 +301,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::All,
+            where_clause: None,
             order_by: Some(vec![OrderingKey::ascending_by("id")]),
             limit: None,
         });
@@ -307,6 +317,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::All,
+            where_clause: None,
             order_by: Some(vec![OrderingKey::descending_by("id")]),
             limit: None,
         });
@@ -322,6 +333,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::All,
+            where_clause: None,
             order_by: Some(vec![
                 OrderingKey::ascending_by("id"),
                 OrderingKey::descending_by("name"),
@@ -340,6 +352,7 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::All,
+            where_clause: None,
             order_by: Some(vec![
                 OrderingKey::ascending_by("id"),
                 OrderingKey::descending_by("name"),

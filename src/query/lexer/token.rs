@@ -150,6 +150,16 @@ impl Token {
     pub(crate) fn is_a_whole_number(&self) -> bool {
         !self.lexeme.is_empty() && self.token_type == TokenType::WholeNumber
     }
+
+    /// Checks if the token is a whole number.
+    pub(crate) fn is_string_literal(&self) -> bool {
+        !self.lexeme.is_empty() && self.token_type == TokenType::StringLiteral
+    }
+
+    /// Returns the type of the token.
+    pub(crate) fn token_type(&self) -> TokenType {
+        self.token_type
+    }
 }
 
 impl TokenStream {
@@ -178,13 +188,6 @@ impl TokenStream {
 impl TokenStream {
     pub(crate) fn len(&self) -> usize {
         self.tokens.len()
-    }
-}
-
-#[cfg(test)]
-impl Token {
-    pub(crate) fn token_type(&self) -> TokenType {
-        self.token_type
     }
 }
 
@@ -396,6 +399,18 @@ mod token_tests {
     fn is_not_a_whole_number_token() {
         let token = Token::new("select", TokenType::Keyword);
         assert!(!token.is_a_whole_number());
+    }
+
+    #[test]
+    fn is_a_string_literal_token() {
+        let token = Token::new("relop", TokenType::StringLiteral);
+        assert!(token.is_string_literal());
+    }
+
+    #[test]
+    fn is_not_a_string_literal_token() {
+        let token = Token::new("select", TokenType::Keyword);
+        assert!(!token.is_string_literal());
     }
 
     #[test]
