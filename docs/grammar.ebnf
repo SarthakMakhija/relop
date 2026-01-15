@@ -13,11 +13,20 @@ describe_table
     = "DESCRIBE" "TABLE" identifier [";"] ;
 
 select
-    = "SELECT" projection "FROM" identifier [order] [limit] [";"] ;
+    = "SELECT" projection "FROM" identifier [where] [order] [limit] [";"] ;
 
 projection
     = "*"
     | identifier ("," identifier)*
+
+where
+    = "WHERE" clause
+
+clause
+    = identifier operator literal
+
+operator
+    = "=" | ">" | "<" | ">=" | "<=" | "!="
 
 order
     = "ORDER" "BY" ordering_key ("," ordering_key)*
@@ -38,3 +47,5 @@ number
 identifier
     = IDENTIFIER ;
 
+literal
+    = LITERAL ;

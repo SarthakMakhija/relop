@@ -104,7 +104,7 @@ cargo test
   - [ ] Operator-based execution
 - [ ] **Implement core relational operators**:
   - [x] Scan
-  - [ ] Filter
+  - [ ] Filter (__WIP__)
   - [x] Projection
   - [ ] Join (incrementally)
   - [x] Limit
