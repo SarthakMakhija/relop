@@ -2,6 +2,7 @@ use crate::catalog::table::Table;
 use crate::catalog::table_scan::TableScan;
 use crate::query::executor::error::ExecutionError;
 use crate::query::parser::ordering_key::OrderingKey;
+use crate::query::plan::predicate::Predicate;
 use crate::schema::Schema;
 use crate::storage::row_view::{RowView, RowViewComparator};
 use std::sync::Arc;
@@ -33,6 +34,7 @@ pub trait ResultSet {
     fn schema(&self) -> &Schema;
 }
 
+/// Represents the result for an individual RowView.
 pub type RowViewResult<'a> = Result<RowView<'a>, ExecutionError>;
 
 /// A `ResultSet` implementation that scans an entire table.
@@ -121,6 +123,46 @@ impl ProjectResultSet {
             inner,
             visible_positions: positions,
         })
+    }
+}
+
+/// A `ResultSet` implementation that filters rows based on a predicate.
+///
+/// `FilterResultSet` wraps another `ResultSet` and only yields rows that satisfy
+/// the given `Predicate`.
+pub struct FilterResultSet {
+    inner: Box<dyn ResultSet>,
+    predicate: Predicate,
+}
+
+impl FilterResultSet {
+    /// Creates a new `FilterResultSet`.
+    ///
+    /// # Arguments
+    ///
+    /// * `inner` - The source `ResultSet` to filter.
+    /// * `predicate` - The predicate to apply to each row.
+    pub(crate) fn new(inner: Box<dyn ResultSet>, predicate: Predicate) -> Self {
+        Self { inner, predicate }
+    }
+}
+
+impl ResultSet for FilterResultSet {
+    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowViewResult> + '_>, ExecutionError> {
+        let inner_iterator = self.inner.iterator()?;
+        let result = inner_iterator.filter_map(move |row_view_result| match row_view_result {
+            Ok(row_view) => match self.predicate.matches(&row_view) {
+                Ok(true) => Some(Ok(row_view)),
+                Ok(false) => None,
+                Err(err) => Some(Err(err)),
+            },
+            Err(error) => Some(Err(error)),
+        });
+        Ok(Box::new(result))
+    }
+
+    fn schema(&self) -> &Schema {
+        self.inner.schema()
     }
 }
 
@@ -222,6 +264,8 @@ impl ResultSet for OrderingResultSet {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::query::parser::ast::Literal;
+    use crate::query::plan::predicate::LogicalOperator;
 
     use crate::schema::Schema;
     use crate::storage::row::Row;
@@ -230,7 +274,7 @@ mod tests {
     use crate::types::column_value::ColumnValue;
 
     #[test]
-    fn result_set() {
+    fn scan_result_set() {
         let schema = Schema::new()
             .add_column("id", ColumnType::Int)
             .unwrap()
@@ -248,8 +292,8 @@ mod tests {
         let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
 
         let mut iterator = result_set.iterator().unwrap();
-
         let row_view = iterator.next().unwrap().unwrap();
+
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
@@ -262,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn attempt_to_get_non_existent_column() {
+    fn attempt_to_get_result_set_with_non_existent_column() {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
 
         let table = Table::new("employees", schema);
@@ -299,8 +343,46 @@ mod tests {
         let projected_result_set = ProjectResultSet::new(result_set, &["name"]).unwrap();
 
         let mut iterator = projected_result_set.iterator().unwrap();
-
         let row_view = iterator.next().unwrap().unwrap();
+
+        assert_eq!(
+            &ColumnValue::text("relop"),
+            row_view.column_value_by("name").unwrap()
+        );
+        assert!(row_view.column_value_by("id").is_none());
+        assert!(iterator.next().is_none());
+    }
+
+    #[test]
+    fn projected_result_set_with_filter() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+
+        let table = Table::new("employees", schema);
+        let table_store = TableStore::new();
+        table_store.insert(Row::filled(vec![
+            ColumnValue::int(1),
+            ColumnValue::text("relop"),
+        ]));
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let scan_result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let filter_result_set = Box::new(FilterResultSet::new(
+            scan_result_set,
+            Predicate::Comparison {
+                column_name: "id".to_string(),
+                operator: LogicalOperator::Eq,
+                literal: Literal::Int(1),
+            },
+        ));
+        let projected_result_set = ProjectResultSet::new(filter_result_set, &["name"]).unwrap();
+
+        let mut iterator = projected_result_set.iterator().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
+
         assert_eq!(
             &ColumnValue::text("relop"),
             row_view.column_value_by("name").unwrap()
@@ -327,7 +409,7 @@ mod tests {
     }
 
     #[test]
-    fn limit_result_set() {
+    fn filter_result_set() {
         let schema = Schema::new()
             .add_column("id", ColumnType::Int)
             .unwrap()
@@ -344,23 +426,26 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
-        let limit_result_set = LimitResultSet::new(result_set, 1);
-        let mut iterator = limit_result_set.iterator().unwrap();
+        let predicate = Predicate::Comparison {
+            column_name: "id".to_string(),
+            operator: LogicalOperator::Eq,
+            literal: Literal::Int(1),
+        };
+
+        let filter_result_set = FilterResultSet::new(result_set, predicate);
+        let mut iterator = filter_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
         );
-        assert_eq!(
-            &ColumnValue::text("relop"),
-            row_view.column_value_by("name").unwrap()
-        );
+
         assert!(iterator.next().is_none());
     }
 
     #[test]
-    fn limit_result_set_given_limit_higher_than_the_available_rows() {
+    fn filter_result_set_with_no_matching_rows() {
         let schema = Schema::new()
             .add_column("id", ColumnType::Int)
             .unwrap()
@@ -377,59 +462,51 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
-        let limit_result_set = LimitResultSet::new(result_set, 4);
-        let mut iterator = limit_result_set.iterator().unwrap();
+        let predicate = Predicate::Comparison {
+            column_name: "id".to_string(),
+            operator: LogicalOperator::Eq,
+            literal: Literal::Int(3),
+        };
+
+        let filter_result_set = FilterResultSet::new(result_set, predicate);
+        let mut iterator = filter_result_set.iterator().unwrap();
+
+        assert!(iterator.next().is_none());
+    }
+
+    #[test]
+    fn filter_result_set_with_string_comparison() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+
+        let table = Table::new("employees", schema);
+        let table_store = TableStore::new();
+        table_store.insert_all(vec![
+            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
+            Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
+        ]);
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+
+        let predicate = Predicate::Comparison {
+            column_name: "name".to_string(),
+            operator: LogicalOperator::Eq,
+            literal: Literal::Text("relop".to_string()),
+        };
+
+        let filter_result_set = FilterResultSet::new(result_set, predicate);
+        let mut iterator = filter_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
         assert_eq!(
             &ColumnValue::text("relop"),
             row_view.column_value_by("name").unwrap()
         );
 
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(2),
-            row_view.column_value_by("id").unwrap()
-        );
-        assert_eq!(
-            &ColumnValue::text("query"),
-            row_view.column_value_by("name").unwrap()
-        );
-        assert!(iterator.next().is_none());
-    }
-
-    #[test]
-    fn limit_result_set_with_projection() {
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_column("name", ColumnType::Text)
-            .unwrap();
-
-        let table = Table::new("employees", schema);
-        let table_store = TableStore::new();
-        table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
-            Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
-        ]);
-
-        let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
-        let projected_result_set = ProjectResultSet::new(result_set, &["id"]).unwrap();
-
-        let limit_result_set = LimitResultSet::new(Box::new(projected_result_set), 1);
-        let mut iterator = limit_result_set.iterator().unwrap();
-
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-        assert!(row_view.column_value_by("name").is_none());
         assert!(iterator.next().is_none());
     }
 
@@ -586,6 +663,113 @@ mod tests {
 
         assert!(iterator.next().is_none());
     }
+    #[test]
+    fn limit_result_set() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+
+        let table = Table::new("employees", schema);
+        let table_store = TableStore::new();
+        table_store.insert_all(vec![
+            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
+            Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
+        ]);
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+
+        let limit_result_set = LimitResultSet::new(result_set, 1);
+        let mut iterator = limit_result_set.iterator().unwrap();
+
+        let row_view = iterator.next().unwrap().unwrap();
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
+        assert_eq!(
+            &ColumnValue::text("relop"),
+            row_view.column_value_by("name").unwrap()
+        );
+        assert!(iterator.next().is_none());
+    }
+
+    #[test]
+    fn limit_result_set_given_limit_higher_than_the_available_rows() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+
+        let table = Table::new("employees", schema);
+        let table_store = TableStore::new();
+        table_store.insert_all(vec![
+            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
+            Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
+        ]);
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+
+        let limit_result_set = LimitResultSet::new(result_set, 4);
+        let mut iterator = limit_result_set.iterator().unwrap();
+
+        let row_view = iterator.next().unwrap().unwrap();
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
+        assert_eq!(
+            &ColumnValue::text("relop"),
+            row_view.column_value_by("name").unwrap()
+        );
+
+        let row_view = iterator.next().unwrap().unwrap();
+        assert_eq!(
+            &ColumnValue::int(2),
+            row_view.column_value_by("id").unwrap()
+        );
+        assert_eq!(
+            &ColumnValue::text("query"),
+            row_view.column_value_by("name").unwrap()
+        );
+        assert!(iterator.next().is_none());
+    }
+
+    #[test]
+    fn limit_result_set_with_projection() {
+        let schema = Schema::new()
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+
+        let table = Table::new("employees", schema);
+        let table_store = TableStore::new();
+        table_store.insert_all(vec![
+            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
+            Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
+        ]);
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let projected_result_set = ProjectResultSet::new(result_set, &["id"]).unwrap();
+
+        let limit_result_set = LimitResultSet::new(Box::new(projected_result_set), 1);
+        let mut iterator = limit_result_set.iterator().unwrap();
+
+        let row_view = iterator.next().unwrap().unwrap();
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
+        assert!(row_view.column_value_by("name").is_none());
+        assert!(iterator.next().is_none());
+    }
+
     #[test]
     fn schema() {
         let schema = Schema::new()

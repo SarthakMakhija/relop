@@ -1,4 +1,4 @@
-mod predicate;
+pub(crate) mod predicate;
 
 use crate::query::parser::ast::{Ast, WhereClause};
 use crate::query::parser::ordering_key::OrderingKey;
@@ -61,6 +61,8 @@ pub(crate) struct LogicalPlanner;
 
 impl LogicalPlanner {
     /// Converts a given `Ast` into a `LogicalPlan`.
+    /// The plan hierarchy is:
+    /// Scan → Filter → Projection → Sort → Limit
     pub(crate) fn plan(ast: Ast) -> LogicalPlan {
         match ast {
             Ast::ShowTables => LogicalPlan::ShowTables,

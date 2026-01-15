@@ -39,7 +39,7 @@ impl Predicate {
     ///
     /// Returns `Ok(true)` if the row satisfies the predicate, `Ok(false)` otherwise.
     /// Returns an `ExecutionError` if the column cannot be found.
-    pub(crate) fn matches(&self, row_view: RowView) -> Result<bool, ExecutionError> {
+    pub(crate) fn matches(&self, row_view: &RowView) -> Result<bool, ExecutionError> {
         match self {
             Predicate::Comparison {
                 column_name,
@@ -437,7 +437,7 @@ mod predicate_tests {
             literal: Literal::Int(30),
         };
 
-        assert!(predicate.matches(row_view).unwrap());
+        assert!(predicate.matches(&row_view).unwrap());
     }
 
     #[test]
@@ -453,7 +453,7 @@ mod predicate_tests {
             literal: Literal::Int(30),
         };
 
-        assert!(!predicate.matches(row_view).unwrap());
+        assert!(!predicate.matches(&row_view).unwrap());
     }
 
     #[test]
@@ -469,7 +469,7 @@ mod predicate_tests {
             literal: Literal::Int(170),
         };
 
-        let result = predicate.matches(row_view);
+        let result = predicate.matches(&row_view);
         assert!(matches!(
             result,
             Err(ExecutionError::UnknownColumn(name)) if name == "height"
@@ -490,7 +490,7 @@ mod predicate_tests {
         };
 
         assert!(matches!(
-            predicate.matches(row_view),
+            predicate.matches(&row_view),
             Err(ExecutionError::TypeMismatchInComparison)
         ));
     }
