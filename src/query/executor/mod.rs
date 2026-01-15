@@ -5,7 +5,7 @@ pub mod result_set;
 use crate::catalog::Catalog;
 use crate::query::executor::error::ExecutionError;
 use crate::query::executor::result::QueryResult;
-use crate::query::plan::LogicalPlan;
+use crate::query::plan::{predicate, LogicalPlan};
 use result_set::LimitResultSet;
 
 /// Executes logical plans against the catalog.
@@ -55,6 +55,15 @@ impl<'a> Executor<'a> {
                 let table_scan = table_entry.scan();
                 Ok(Box::new(result_set::ScanResultsSet::new(table_scan, table)))
             }
+            LogicalPlan::Filter {
+                base_plan: base,
+                predicate,
+            } => {
+                let result_set = self.execute_select(*base)?;
+                Ok(Box::new(result_set::FilterResultSet::new(
+                    result_set, predicate,
+                )))
+            }
             LogicalPlan::Projection {
                 base_plan: base,
                 columns,
@@ -79,15 +88,6 @@ impl<'a> Executor<'a> {
             } => {
                 let result_set = self.execute_select(*base)?;
                 Ok(Box::new(LimitResultSet::new(result_set, count)))
-            }
-            LogicalPlan::Filter {
-                base_plan: base,
-                predicate,
-            } => {
-                let result_set = self.execute_select(*base)?;
-                Ok(Box::new(result_set::FilterResultSet::new(
-                    result_set, predicate,
-                )))
             }
             _ => panic!("should not be here"),
         }
@@ -334,8 +334,8 @@ mod tests {
 
         let row_view = row_iterator.next().unwrap().unwrap();
         let column_value = row_view.column_value_by("id").unwrap();
-        assert_eq!(1, column_value.int_value().unwrap());
 
+        assert_eq!(1, column_value.int_value().unwrap());
         assert!(row_iterator.next().is_none());
     }
 
@@ -376,8 +376,8 @@ mod tests {
 
         let row_view = row_iterator.next().unwrap().unwrap();
         let column_value = row_view.column_value_by("id").unwrap();
-        assert_eq!(200, column_value.int_value().unwrap());
 
+        assert_eq!(200, column_value.int_value().unwrap());
         assert!(row_iterator.next().is_none());
     }
 
@@ -420,8 +420,8 @@ mod tests {
 
         let row_view = row_iterator.next().unwrap().unwrap();
         let column_value = row_view.column_value_by("id").unwrap();
-        assert_eq!(100, column_value.int_value().unwrap());
 
+        assert_eq!(100, column_value.int_value().unwrap());
         assert!(row_iterator.next().is_none());
     }
 
@@ -567,8 +567,8 @@ mod tests {
         assert_eq!(100, column_value.int_value().unwrap());
 
         let column_value = row_view.column_value_by("name").unwrap();
-        assert_eq!("relop", column_value.text_value().unwrap());
 
+        assert_eq!("relop", column_value.text_value().unwrap());
         assert!(row_iterator.next().is_none());
     }
 }
