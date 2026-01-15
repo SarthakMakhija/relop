@@ -72,19 +72,20 @@ impl LogicalPlanner {
                 limit,
                 order_by,
             } => {
-                let base_plan = Self::plan_for_projection(projection, table_name);
+                let base_plan = LogicalPlan::Scan { table_name };
                 let base_plan = Self::plan_for_filter(where_clause, base_plan);
+                let base_plan = Self::plan_for_projection(projection, base_plan);
                 let base_plan = Self::plan_for_sort(order_by, base_plan);
                 Self::plan_for_limit(limit, base_plan)
             }
         }
     }
 
-    fn plan_for_projection(projection: Projection, table_name: String) -> LogicalPlan {
+    fn plan_for_projection(projection: Projection, base_plan: LogicalPlan) -> LogicalPlan {
         match projection {
-            Projection::All => LogicalPlan::Scan { table_name },
+            Projection::All => base_plan,
             Projection::Columns(columns) => LogicalPlan::Projection {
-                base_plan: LogicalPlan::Scan { table_name }.boxed(),
+                base_plan: base_plan.boxed(),
                 columns,
             },
         }
@@ -259,6 +260,35 @@ mod tests {
                     operator: LogicalOperator::Greater,
                     literal: Literal::Int(30),
                 } && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+        ));
+    }
+
+    #[test]
+    fn logical_plan_for_select_with_projection_and_where_clause() {
+        let logical_plan = LogicalPlanner::plan(Ast::Select {
+            table_name: "employees".to_string(),
+            projection: Projection::Columns(vec![String::from("id")]),
+            where_clause: Some(WhereClause::Comparison {
+                column_name: "age".to_string(),
+                operator: Operator::Greater,
+                literal: Literal::Int(30),
+            }),
+            order_by: None,
+            limit: None,
+        });
+
+        assert!(matches!(
+            logical_plan,
+            LogicalPlan::Projection {base_plan, columns} if columns == vec!["id"]
+                && matches!(
+                base_plan.as_ref(),
+                LogicalPlan::Filter { base_plan, predicate }
+                if *predicate == Predicate::Comparison {
+                    column_name: "age".to_string(),
+                    operator: LogicalOperator::Greater,
+                    literal: Literal::Int(30),
+                } && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+            )
         ));
     }
 
