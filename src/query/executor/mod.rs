@@ -101,7 +101,7 @@ mod tests {
     use crate::query::parser::ast::Literal;
     use crate::query::plan::predicate::{LogicalOperator, Predicate};
     use crate::storage::row::Row;
-    use crate::test_utils::{create_schema, create_schema_with_primary_key};
+    use crate::test_utils::{assert_row, create_schema, create_schema_with_primary_key};
     use crate::types::column_type::ColumnType;
     use crate::types::column_value::ColumnValue;
 
@@ -196,9 +196,7 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap().unwrap();
-        let column_value = row_view.column_value_by("id").unwrap();
-        assert_eq!(100, column_value.int_value().unwrap());
+        assert_row(row_iterator.as_mut()).match_column("id", 100);
         assert!(row_iterator.next().is_none());
     }
 
@@ -241,11 +239,10 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap().unwrap();
-        let column_value = row_view.column_value_by("id").unwrap();
-        assert_eq!(100, column_value.int_value().unwrap());
+        assert_row(row_iterator.as_mut())
+            .match_column("id", 100)
+            .does_not_have_column("name");
 
-        assert!(row_view.column_value_by("name").is_none());
         assert!(row_iterator.next().is_none());
     }
 
@@ -307,10 +304,7 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap().unwrap();
-        let column_value = row_view.column_value_by("id").unwrap();
-
-        assert_eq!(1, column_value.int_value().unwrap());
+        assert_row(row_iterator.as_mut()).match_column("id", 1);
         assert!(row_iterator.next().is_none());
     }
 
@@ -342,14 +336,8 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap().unwrap();
-        let column_value = row_view.column_value_by("id").unwrap();
-        assert_eq!(100, column_value.int_value().unwrap());
-
-        let row_view = row_iterator.next().unwrap().unwrap();
-        let column_value = row_view.column_value_by("id").unwrap();
-
-        assert_eq!(200, column_value.int_value().unwrap());
+        assert_row(row_iterator.as_mut()).match_column("id", 100);
+        assert_row(row_iterator.as_mut()).match_column("id", 200);
         assert!(row_iterator.next().is_none());
     }
 
@@ -383,14 +371,8 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap().unwrap();
-        let column_value = row_view.column_value_by("id").unwrap();
-        assert_eq!(200, column_value.int_value().unwrap());
-
-        let row_view = row_iterator.next().unwrap().unwrap();
-        let column_value = row_view.column_value_by("id").unwrap();
-
-        assert_eq!(100, column_value.int_value().unwrap());
+        assert_row(row_iterator.as_mut()).match_column("id", 200);
+        assert_row(row_iterator.as_mut()).match_column("id", 100);
         assert!(row_iterator.next().is_none());
     }
 
@@ -428,33 +410,14 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap().unwrap();
-        assert_eq!(
-            1,
-            row_view.column_value_by("id").unwrap().int_value().unwrap()
-        );
-        assert_eq!(
-            20,
-            row_view
-                .column_value_by("age")
-                .unwrap()
-                .int_value()
-                .unwrap()
-        );
+        assert_row(row_iterator.as_mut())
+            .match_column("id", 1)
+            .match_column("age", 20);
 
-        let row_view = row_iterator.next().unwrap().unwrap();
-        assert_eq!(
-            1,
-            row_view.column_value_by("id").unwrap().int_value().unwrap()
-        );
-        assert_eq!(
-            30,
-            row_view
-                .column_value_by("age")
-                .unwrap()
-                .int_value()
-                .unwrap()
-        );
+        assert_row(row_iterator.as_mut())
+            .match_column("id", 1)
+            .match_column("age", 30);
+
         assert!(row_iterator.next().is_none());
     }
 
@@ -484,10 +447,7 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap().unwrap();
-        let column_value = row_view.column_value_by("id").unwrap();
-
-        assert_eq!(100, column_value.int_value().unwrap());
+        assert_row(row_iterator.as_mut()).match_column("id", 100);
         assert!(row_iterator.next().is_none());
     }
 
@@ -520,13 +480,10 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap().unwrap();
-        let column_value = row_view.column_value_by("id").unwrap();
-        assert_eq!(100, column_value.int_value().unwrap());
+        assert_row(row_iterator.as_mut())
+            .match_column("id", 100)
+            .match_column("name", "relop");
 
-        let column_value = row_view.column_value_by("name").unwrap();
-
-        assert_eq!("relop", column_value.text_value().unwrap());
         assert!(row_iterator.next().is_none());
     }
 }

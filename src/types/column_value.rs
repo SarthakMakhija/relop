@@ -107,6 +107,34 @@ impl ColumnValue {
 }
 
 #[cfg(test)]
+impl From<i64> for ColumnValue {
+    fn from(value: i64) -> Self {
+        ColumnValue::int(value)
+    }
+}
+
+#[cfg(test)]
+impl From<i32> for ColumnValue {
+    fn from(value: i32) -> Self {
+        ColumnValue::int(value as i64)
+    }
+}
+
+#[cfg(test)]
+impl From<&str> for ColumnValue {
+    fn from(value: &str) -> Self {
+        ColumnValue::text(value)
+    }
+}
+
+#[cfg(test)]
+impl From<String> for ColumnValue {
+    fn from(value: String) -> Self {
+        ColumnValue::text(value)
+    }
+}
+
+#[cfg(test)]
 mod test {
     use super::*;
 

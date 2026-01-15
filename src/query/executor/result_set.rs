@@ -269,7 +269,7 @@ mod tests {
 
     use crate::storage::row::Row;
     use crate::storage::table_store::TableStore;
-    use crate::test_utils::create_schema;
+    use crate::test_utils::{assert_row, create_schema};
     use crate::types::column_type::ColumnType;
     use crate::types::column_value::ColumnValue;
 
@@ -289,16 +289,10 @@ mod tests {
         let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
 
         let mut iterator = result_set.iterator().unwrap();
-        let row_view = iterator.next().unwrap().unwrap();
 
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-        assert_eq!(
-            &ColumnValue::text("relop"),
-            row_view.column_value_by("name").unwrap()
-        );
+        assert_row(iterator.as_mut())
+            .match_column("id", 1)
+            .match_column("name", "relop");
         assert!(iterator.next().is_none());
     }
 
@@ -312,9 +306,7 @@ mod tests {
         let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
 
         let mut iterator = result_set.iterator().unwrap();
-
-        let row_view = iterator.next().unwrap().unwrap();
-        assert!(row_view.column_value_by("name").is_none());
+        assert_row(iterator.as_mut()).does_not_have_column("name");
     }
 
     #[test]
@@ -333,15 +325,11 @@ mod tests {
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
         let projected_result_set = ProjectResultSet::new(result_set, &["name"]).unwrap();
-
         let mut iterator = projected_result_set.iterator().unwrap();
-        let row_view = iterator.next().unwrap().unwrap();
 
-        assert_eq!(
-            &ColumnValue::text("relop"),
-            row_view.column_value_by("name").unwrap()
-        );
-        assert!(row_view.column_value_by("id").is_none());
+        assert_row(iterator.as_mut())
+            .match_column("name", "relop")
+            .does_not_have_column("id");
         assert!(iterator.next().is_none());
     }
 
@@ -370,13 +358,10 @@ mod tests {
         let projected_result_set = ProjectResultSet::new(filter_result_set, &["name"]).unwrap();
 
         let mut iterator = projected_result_set.iterator().unwrap();
-        let row_view = iterator.next().unwrap().unwrap();
 
-        assert_eq!(
-            &ColumnValue::text("relop"),
-            row_view.column_value_by("name").unwrap()
-        );
-        assert!(row_view.column_value_by("id").is_none());
+        assert_row(iterator.as_mut())
+            .match_column("name", "relop")
+            .does_not_have_column("id");
         assert!(iterator.next().is_none());
     }
 
@@ -419,12 +404,7 @@ mod tests {
         let filter_result_set = FilterResultSet::new(result_set, predicate);
         let mut iterator = filter_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-
+        assert_row(iterator.as_mut()).match_column("id", 1);
         assert!(iterator.next().is_none());
     }
 
@@ -451,7 +431,6 @@ mod tests {
 
         let filter_result_set = FilterResultSet::new(result_set, predicate);
         let mut iterator = filter_result_set.iterator().unwrap();
-
         assert!(iterator.next().is_none());
     }
 
@@ -479,12 +458,7 @@ mod tests {
         let filter_result_set = FilterResultSet::new(result_set, predicate);
         let mut iterator = filter_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::text("relop"),
-            row_view.column_value_by("name").unwrap()
-        );
-
+        assert_row(iterator.as_mut()).match_column("name", "relop");
         assert!(iterator.next().is_none());
     }
 
@@ -504,18 +478,8 @@ mod tests {
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(2),
-            row_view.column_value_by("id").unwrap()
-        );
-
+        assert_row(iterator.as_mut()).match_column("id", 1);
+        assert_row(iterator.as_mut()).match_column("id", 2);
         assert!(iterator.next().is_none());
     }
 
@@ -535,18 +499,8 @@ mod tests {
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(2),
-            row_view.column_value_by("id").unwrap()
-        );
-
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-
+        assert_row(iterator.as_mut()).match_column("id", 2);
+        assert_row(iterator.as_mut()).match_column("id", 1);
         assert!(iterator.next().is_none());
     }
 
@@ -572,25 +526,13 @@ mod tests {
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-        assert_eq!(
-            &ColumnValue::int(10),
-            row_view.column_value_by("rank").unwrap()
-        );
+        assert_row(iterator.as_mut())
+            .match_column("id", 1)
+            .match_column("rank", 10);
 
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-        assert_eq!(
-            &ColumnValue::int(20),
-            row_view.column_value_by("rank").unwrap()
-        );
+        assert_row(iterator.as_mut())
+            .match_column("id", 1)
+            .match_column("rank", 20);
 
         assert!(iterator.next().is_none());
     }
@@ -617,18 +559,8 @@ mod tests {
         let limit_result_set = LimitResultSet::new(Box::new(ordering_result_set), 2);
         let mut iterator = limit_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(2),
-            row_view.column_value_by("id").unwrap()
-        );
-
+        assert_row(iterator.as_mut()).match_column("id", 1);
+        assert_row(iterator.as_mut()).match_column("id", 2);
         assert!(iterator.next().is_none());
     }
     #[test]
@@ -649,15 +581,9 @@ mod tests {
         let limit_result_set = LimitResultSet::new(result_set, 1);
         let mut iterator = limit_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-        assert_eq!(
-            &ColumnValue::text("relop"),
-            row_view.column_value_by("name").unwrap()
-        );
+        assert_row(iterator.as_mut())
+            .match_column("id", 1)
+            .match_column("name", "relop");
         assert!(iterator.next().is_none());
     }
 
@@ -679,25 +605,13 @@ mod tests {
         let limit_result_set = LimitResultSet::new(result_set, 4);
         let mut iterator = limit_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-        assert_eq!(
-            &ColumnValue::text("relop"),
-            row_view.column_value_by("name").unwrap()
-        );
+        assert_row(iterator.as_mut())
+            .match_column("id", 1)
+            .match_column("name", "relop");
 
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(2),
-            row_view.column_value_by("id").unwrap()
-        );
-        assert_eq!(
-            &ColumnValue::text("query"),
-            row_view.column_value_by("name").unwrap()
-        );
+        assert_row(iterator.as_mut())
+            .match_column("id", 2)
+            .match_column("name", "query");
         assert!(iterator.next().is_none());
     }
 
@@ -720,12 +634,9 @@ mod tests {
         let limit_result_set = LimitResultSet::new(Box::new(projected_result_set), 1);
         let mut iterator = limit_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-        assert!(row_view.column_value_by("name").is_none());
+        assert_row(iterator.as_mut())
+            .match_column("id", 1)
+            .does_not_have_column("name");
         assert!(iterator.next().is_none());
     }
 

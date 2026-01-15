@@ -338,7 +338,7 @@ mod tests {
     use crate::query::executor::error::ExecutionError;
     use crate::query::lexer::error::LexError;
     use crate::query::parser::error::ParseError;
-    use crate::test_utils::{create_schema, create_schema_with_primary_key};
+    use crate::test_utils::{assert_row, create_schema, create_schema_with_primary_key};
     use crate::types::column_type::ColumnType;
     use crate::types::column_value::ColumnValue;
 
@@ -475,7 +475,6 @@ mod tests {
         let relop = Relop::new(Catalog::new());
 
         let query_result = relop.execute("show");
-
         assert!(matches!(
             query_result,
             Err(ClientError::Parse(ParseError::UnexpectedToken{expected, found})) if expected == "tables" && found.is_empty()
@@ -499,7 +498,6 @@ mod tests {
         let relop = Relop::new(Catalog::new());
 
         let query_result = relop.execute("describe table employees");
-
         assert!(matches!(
             query_result,
             Err(ClientError::Execution(ExecutionError::Catalog(CatalogError::TableDoesNotExist(table_name)))) if table_name == "employees"
@@ -524,19 +522,10 @@ mod tests {
 
         let query_result = relop.execute("select * from employees").unwrap();
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-
-        let row_view = row_iter.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(2),
-            row_view.column_value_by("id").unwrap()
-        );
+        let mut row_iterator = result_set.iterator().unwrap();
+        assert_row(row_iterator.as_mut()).match_column("id", 1);
+        assert_row(row_iterator.as_mut()).match_column("id", 2);
     }
 
     #[test]
@@ -544,7 +533,6 @@ mod tests {
         let relop = Relop::new(Catalog::new());
 
         let query_result = relop.execute("select * from employees");
-
         assert!(matches!(
             query_result,
             Err(ClientError::Execution(ExecutionError::Catalog(CatalogError::TableDoesNotExist(table_name)))) if table_name == "employees"
@@ -572,19 +560,10 @@ mod tests {
 
         let query_result = relop.execute("select rank from employees").unwrap();
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(10),
-            row_view.column_value_by("rank").unwrap()
-        );
-
-        let row_view = row_iter.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(20),
-            row_view.column_value_by("rank").unwrap()
-        );
+        let mut row_iterator = result_set.iterator().unwrap();
+        assert_row(row_iterator.as_mut()).match_column("rank", 10);
+        assert_row(row_iterator.as_mut()).match_column("rank", 20);
     }
 
     #[test]
@@ -607,7 +586,6 @@ mod tests {
             .unwrap();
 
         let query_result = relop.execute("select unknown from employees");
-
         assert!(matches!(
             query_result,
             Err(ClientError::Execution(ExecutionError::UnknownColumn(column_name))) if column_name == "unknown"
@@ -633,20 +611,12 @@ mod tests {
         let query_result = relop
             .execute("select * from employees order by id ASC")
             .unwrap();
+
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-
-        let row_view = row_iter.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(2),
-            row_view.column_value_by("id").unwrap()
-        );
+        let mut row_iterator = result_set.iterator().unwrap();
+        assert_row(row_iterator.as_mut()).match_column("id", 1);
+        assert_row(row_iterator.as_mut()).match_column("id", 2);
     }
 
     #[test]
@@ -672,27 +642,16 @@ mod tests {
             .execute("select * from employees order by id ASC, rank DESC")
             .unwrap();
         let result_set = query_result.result_set().unwrap();
-        let mut row_iter = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-        assert_eq!(
-            &ColumnValue::int(20),
-            row_view.column_value_by("rank").unwrap()
-        );
+        let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-        assert_eq!(
-            &ColumnValue::int(10),
-            row_view.column_value_by("rank").unwrap()
-        );
+        assert_row(row_iterator.as_mut())
+            .match_column("id", 1)
+            .match_column("rank", 20);
+
+        assert_row(row_iterator.as_mut())
+            .match_column("id", 1)
+            .match_column("rank", 10);
     }
 
     #[test]
@@ -714,20 +673,10 @@ mod tests {
 
         let query_result = relop.execute("select * from employees limit 2").unwrap();
         let result_set = query_result.result_set().unwrap();
+
         let mut row_iterator = result_set.iterator().unwrap();
-
-        let row_view = row_iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-
-        let row_view = row_iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(2),
-            row_view.column_value_by("id").unwrap()
-        );
-
+        assert_row(row_iterator.as_mut()).match_column("id", 1);
+        assert_row(row_iterator.as_mut()).match_column("id", 2);
         assert!(row_iterator.next().is_none());
     }
 
@@ -756,17 +705,11 @@ mod tests {
             .unwrap();
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::text("relop"),
-            row_view.column_value_by("name").unwrap()
-        );
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
+        let mut row_iterator = result_set.iterator().unwrap();
+        assert_row(row_iterator.as_mut())
+            .match_column("name", "relop")
+            .match_column("id", 1);
 
         assert!(row_iterator.next().is_none());
     }
@@ -795,17 +738,11 @@ mod tests {
             .unwrap();
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-        assert_eq!(
-            &ColumnValue::text("relop"),
-            row_view.column_value_by("name").unwrap()
-        );
+        let mut row_iterator = result_set.iterator().unwrap();
+        assert_row(row_iterator.as_mut())
+            .match_column("id", 1)
+            .match_column("name", "relop");
         assert!(row_iterator.next().is_none());
     }
 
@@ -833,17 +770,11 @@ mod tests {
             .unwrap();
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(2),
-            row_view.column_value_by("id").unwrap()
-        );
-        assert_eq!(
-            &ColumnValue::text("query"),
-            row_view.column_value_by("name").unwrap()
-        );
+        let mut row_iterator = result_set.iterator().unwrap();
+        assert_row(row_iterator.as_mut())
+            .match_column("id", 2)
+            .match_column("name", "query");
         assert!(row_iterator.next().is_none());
     }
 
@@ -871,14 +802,11 @@ mod tests {
             .unwrap();
 
         let result_set = query_result.result_set().unwrap();
-        let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::text("relop"),
-            row_view.column_value_by("name").unwrap()
-        );
-        assert!(row_view.column_value_by("id").is_none());
+        let mut row_iterator = result_set.iterator().unwrap();
+        assert_row(row_iterator.as_mut())
+            .match_column("name", "relop")
+            .does_not_have_column("id");
         assert!(row_iterator.next().is_none());
     }
 }
