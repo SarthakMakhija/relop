@@ -314,7 +314,7 @@ impl Relop {
     ///  let result_set = query_result.result_set().unwrap();
     ///  let mut iterator = result_set.iterator().unwrap();
     ///
-    ///  let row_view = iterator.next().unwrap();
+    ///  let row_view = iterator.next().unwrap().unwrap();
     ///  assert_eq!(&ColumnValue::int(1), row_view.column_value_by("id").unwrap());
     /// ```
     pub fn execute(&self, query: &str) -> Result<QueryResult, ClientError> {
@@ -553,13 +553,13 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iter = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iter.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
         );
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iter.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(2),
             row_view.column_value_by("id").unwrap()
@@ -605,13 +605,13 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iter = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iter.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(10),
             row_view.column_value_by("rank").unwrap()
         );
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iter.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(20),
             row_view.column_value_by("rank").unwrap()
@@ -673,13 +673,13 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap();
+        let row_view = row_iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
         );
 
-        let row_view = row_iterator.next().unwrap();
+        let row_view = row_iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(2),
             row_view.column_value_by("id").unwrap()
@@ -715,10 +715,11 @@ mod tests {
         let query_result = relop
             .execute("select name, id from employees limit 1")
             .unwrap();
+
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
 
-        let row_view = row_iterator.next().unwrap();
+        let row_view = row_iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::text("relop"),
             row_view.column_value_by("name").unwrap()
@@ -756,13 +757,13 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iter = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iter.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
         );
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iter.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(2),
             row_view.column_value_by("id").unwrap()
@@ -798,7 +799,7 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iter = result_set.iterator().unwrap();
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iter.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
@@ -808,7 +809,7 @@ mod tests {
             row_view.column_value_by("rank").unwrap()
         );
 
-        let row_view = row_iter.next().unwrap();
+        let row_view = row_iter.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()

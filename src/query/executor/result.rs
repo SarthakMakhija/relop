@@ -56,7 +56,7 @@ impl QueryResult {
 mod tests {
     use super::*;
     use crate::catalog::table_descriptor::TableDescriptor;
-    use crate::query::executor::result_set::ResultSet;
+    use crate::query::executor::result_set::{ResultSet, RowViewResult};
     use crate::schema::error::SchemaError;
     use crate::schema::Schema;
 
@@ -68,7 +68,7 @@ mod tests {
         fn iterator(
             &self,
         ) -> Result<
-            Box<dyn Iterator<Item = crate::storage::row_view::RowView> + '_>,
+            Box<dyn Iterator<Item = RowViewResult> + '_>,
             crate::query::executor::error::ExecutionError,
         > {
             unimplemented!()

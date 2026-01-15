@@ -28,10 +28,12 @@ use std::sync::Arc;
 pub trait ResultSet {
     // Return a boxed iterator that yields Result<RowView, ...>
     // The iterator is bound by the lifetime of &self
-    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowView> + '_>, ExecutionError>;
+    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowViewResult> + '_>, ExecutionError>;
 
     fn schema(&self) -> &Schema;
 }
+
+pub type RowViewResult<'a> = Result<RowView<'a>, ExecutionError>;
 
 /// A `ResultSet` implementation that scans an entire table.
 ///
@@ -61,11 +63,15 @@ impl ScanResultsSet {
 }
 
 impl ResultSet for ScanResultsSet {
-    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowView> + '_>, ExecutionError> {
+    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowViewResult> + '_>, ExecutionError> {
         // We call .iter() on TableScan, which returns a TableIterator (the iterator).
         // We map that iterator to RowView.
         Ok(Box::new(self.table_scan.iter().map(move |row| {
-            RowView::new(row, self.table.schema_ref(), &self.visible_positions)
+            Ok(RowView::new(
+                row,
+                self.table.schema_ref(),
+                &self.visible_positions,
+            ))
         })))
     }
 
@@ -119,11 +125,11 @@ impl ProjectResultSet {
 }
 
 impl ResultSet for ProjectResultSet {
-    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowView> + '_>, ExecutionError> {
+    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowViewResult> + '_>, ExecutionError> {
         let inner_iterator = self.inner.iterator()?;
-        Ok(Box::new(
-            inner_iterator.map(|row_view| row_view.project(&self.visible_positions)),
-        ))
+        Ok(Box::new(inner_iterator.map(move |row_view_result| {
+            row_view_result.map(|row_view| row_view.project(&self.visible_positions))
+        })))
     }
 
     fn schema(&self) -> &Schema {
@@ -153,7 +159,7 @@ impl LimitResultSet {
 }
 
 impl ResultSet for LimitResultSet {
-    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowView> + '_>, ExecutionError> {
+    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowViewResult> + '_>, ExecutionError> {
         let inner_iterator = self.inner.iterator()?;
         Ok(Box::new(inner_iterator.take(self.limit)))
     }
@@ -193,12 +199,19 @@ impl OrderingResultSet {
 }
 
 impl ResultSet for OrderingResultSet {
-    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowView> + '_>, ExecutionError> {
+    fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowViewResult> + '_>, ExecutionError> {
         let comparator = RowViewComparator::new(self.schema(), &self.ordering_keys)?;
-        let mut rows: Vec<RowView> = self.inner.iterator()?.collect();
+        let iterator = self.inner.iterator()?;
 
+        let mut rows: Vec<RowView> = Vec::new();
+        for result in iterator {
+            match result {
+                Ok(row_view) => rows.push(row_view),
+                Err(err) => return Err(err),
+            }
+        }
         rows.sort_by(|left, right| comparator.compare(left, right));
-        Ok(Box::new(rows.into_iter()))
+        Ok(Box::new(rows.into_iter().map(Ok)))
     }
 
     fn schema(&self) -> &Schema {
@@ -236,7 +249,7 @@ mod tests {
 
         let mut iterator = result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
@@ -261,7 +274,7 @@ mod tests {
 
         let mut iterator = result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert!(row_view.column_value_by("name").is_none());
     }
 
@@ -287,7 +300,7 @@ mod tests {
 
         let mut iterator = projected_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::text("relop"),
             row_view.column_value_by("name").unwrap()
@@ -334,7 +347,7 @@ mod tests {
         let limit_result_set = LimitResultSet::new(result_set, 1);
         let mut iterator = limit_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
@@ -367,7 +380,7 @@ mod tests {
         let limit_result_set = LimitResultSet::new(result_set, 4);
         let mut iterator = limit_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
@@ -377,7 +390,7 @@ mod tests {
             row_view.column_value_by("name").unwrap()
         );
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(2),
             row_view.column_value_by("id").unwrap()
@@ -411,7 +424,7 @@ mod tests {
         let limit_result_set = LimitResultSet::new(Box::new(projected_result_set), 1);
         let mut iterator = limit_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
@@ -438,13 +451,13 @@ mod tests {
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
         );
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(2),
             row_view.column_value_by("id").unwrap()
@@ -471,13 +484,13 @@ mod tests {
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(2),
             row_view.column_value_by("id").unwrap()
         );
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
@@ -511,7 +524,7 @@ mod tests {
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
@@ -521,7 +534,7 @@ mod tests {
             row_view.column_value_by("rank").unwrap()
         );
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
@@ -559,13 +572,13 @@ mod tests {
         let limit_result_set = LimitResultSet::new(Box::new(ordering_result_set), 2);
         let mut iterator = limit_result_set.iterator().unwrap();
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(1),
             row_view.column_value_by("id").unwrap()
         );
 
-        let row_view = iterator.next().unwrap();
+        let row_view = iterator.next().unwrap().unwrap();
         assert_eq!(
             &ColumnValue::int(2),
             row_view.column_value_by("id").unwrap()
