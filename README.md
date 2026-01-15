@@ -38,8 +38,8 @@ fn main() {
     relop.insert_into(
         "employees", 
         Row::filled(vec![
-            ColumnValue::Int(1), 
-            ColumnValue::Text("Alice".to_string())
+            ColumnValue::int(1), 
+            ColumnValue::text("Alice")
         ])
     ).unwrap();
 
