@@ -28,6 +28,7 @@ pub(crate) enum Ast {
 }
 
 /// `Where` represents the filtering criteria in a SELECT statement.
+#[derive(Debug, Eq, PartialEq)]
 pub(crate) enum WhereClause {
     /// A comparison expression (e.g., `id = 1`, `age > 25`).
     Comparison {
@@ -41,7 +42,7 @@ pub(crate) enum WhereClause {
 }
 
 /// `Operator` defines the comparison operators supported in a WHERE clause.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Operator {
     /// Equal to `=`.
     Eq,
@@ -79,6 +80,7 @@ impl Operator {
 }
 
 /// `Literal` represents a concrete value used in expressions.
+#[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Literal {
     /// An integer literal.
     Int(i64),

@@ -5,7 +5,7 @@ pub(crate) mod projection;
 
 use crate::query::lexer::token::{Token, TokenStream, TokenType};
 use crate::query::lexer::token_cursor::TokenCursor;
-use crate::query::parser::ast::Ast;
+use crate::query::parser::ast::{Ast, Literal, Operator, WhereClause};
 use crate::query::parser::error::ParseError;
 use crate::query::parser::ordering_key::{OrderingDirection, OrderingKey};
 use crate::query::parser::projection::Projection;
@@ -81,6 +81,7 @@ impl Parser {
         let projection = self.expect_projection()?;
         self.expect_keyword("from")?;
         let table_name = self.expect_identifier()?;
+        let where_clause = self.maybe_where_clause()?;
         let order_by = self.maybe_order_by()?;
         let limit = self.maybe_limit()?;
         let _ = self.eat_if(|token| token.is_semicolon());
@@ -88,7 +89,7 @@ impl Parser {
         Ok(Ast::Select {
             table_name: table_name.to_string(),
             projection,
-            where_clause: None,
+            where_clause,
             order_by,
             limit,
         })
@@ -144,6 +145,41 @@ impl Parser {
             columns.push(column);
         }
         Ok(columns)
+    }
+
+    fn maybe_where_clause(&mut self) -> Result<Option<WhereClause>, ParseError> {
+        let is_where_clause = self.eat_if(|token| token.is_keyword("where"));
+        if is_where_clause {
+            let where_clause = self.expect_clause()?;
+            return Ok(Some(where_clause));
+        }
+        Ok(None)
+    }
+
+    fn expect_clause(&mut self) -> Result<WhereClause, ParseError> {
+        let column_name = self.expect_identifier()?;
+        let operator = self.expect_operator()?;
+        let literal = self.expect_literal()?;
+
+        Ok(WhereClause::Comparison {
+            column_name,
+            operator,
+            literal,
+        })
+    }
+
+    fn expect_operator(&mut self) -> Result<Operator, ParseError> {
+        match self.cursor.next() {
+            Some(token) => Operator::from_token(token),
+            None => Err(ParseError::UnexpectedEndOfInput),
+        }
+    }
+
+    fn expect_literal(&mut self) -> Result<Literal, ParseError> {
+        match self.cursor.next() {
+            Some(token) => Literal::from_token(token),
+            None => Err(ParseError::UnexpectedEndOfInput),
+        }
     }
 
     fn maybe_order_by(&mut self) -> Result<Option<Vec<OrderingKey>>, ParseError> {
@@ -845,6 +881,224 @@ mod select_projection_tests {
         assert!(
             matches!(result, Err(ParseError::UnexpectedToken{expected, found}) if expected == "end of stream" && found == "invalid")
         );
+    }
+}
+
+#[cfg(test)]
+mod select_where_with_single_comparison_tests {
+    use super::*;
+    use crate::query::lexer::token::Token;
+
+    #[test]
+    fn parse_select_with_where_single_comparison() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("relop", TokenType::StringLiteral));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(
+            matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
+                if table_name == "employees" &&
+                    projection == Projection::All &&
+                    matches!(&where_clause, Some(WhereClause::Comparison { column_name, operator, literal })
+                        if column_name == "name" &&
+                            *operator == Operator::Eq &&
+                                *literal == Literal::Text("relop".to_string())
+                    )
+            )
+        );
+    }
+
+    #[test]
+    fn parse_select_with_where_single_comparison_and_semicolon() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("relop", TokenType::StringLiteral));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(
+            matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
+                if table_name == "employees" &&
+                    projection == Projection::All &&
+                    matches!(&where_clause, Some(WhereClause::Comparison { column_name, operator, literal })
+                        if column_name == "name" &&
+                            *operator == Operator::Eq &&
+                                *literal == Literal::Text("relop".to_string())
+                    )
+            )
+        );
+    }
+
+    #[test]
+    fn attempt_to_parse_with_no_tokens() {
+        let stream = TokenStream::new();
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(result, Err(ParseError::NoTokens)));
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_where_but_missing_identifier_after_where() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("relop", TokenType::StringLiteral));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(
+            result,
+            Err(ParseError::UnexpectedToken {
+                expected,
+                found,
+            }) if expected == "identifier" && found == "=" ));
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_where_but_no_tokens_after_where() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(result, Err(ParseError::UnexpectedEndOfInput)));
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_where_but_missing_operator() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("relop", TokenType::StringLiteral));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(
+            result,
+            Err(ParseError::UnexpectedToken {
+                expected,
+                found,
+            }) if expected == "operator" && found == "relop" ));
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_where_but_no_tokens_after_where_column_name() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(result, Err(ParseError::UnexpectedEndOfInput)));
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_where_but_missing_literal() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new(">", TokenType::Greater));
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(
+            result,
+            Err(ParseError::UnexpectedToken {
+                expected,
+                found,
+            }) if expected == "literal" && found == "select" ));
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_where_but_literal_out_of_range() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new(">", TokenType::Greater));
+        stream.add(Token::new("999999999999999999999", TokenType::WholeNumber));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(
+            result,
+            Err(ParseError::NumericLiteralOutOfRange(value)) if value == "999999999999999999999" ));
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_where_but_no_tokens_after_operator() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new(">", TokenType::Greater));
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(result, Err(ParseError::UnexpectedEndOfInput)));
     }
 }
 
