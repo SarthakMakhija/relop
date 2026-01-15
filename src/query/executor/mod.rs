@@ -80,6 +80,15 @@ impl<'a> Executor<'a> {
                 let result_set = self.execute_select(*base)?;
                 Ok(Box::new(LimitResultSet::new(result_set, count)))
             }
+            LogicalPlan::Filter {
+                base_plan: base,
+                predicate,
+            } => {
+                let result_set = self.execute_select(*base)?;
+                Ok(Box::new(result_set::FilterResultSet::new(
+                    result_set, predicate,
+                )))
+            }
             _ => panic!("should not be here"),
         }
     }
@@ -89,6 +98,8 @@ impl<'a> Executor<'a> {
 mod tests {
     use super::*;
     use crate::catalog::error::CatalogError;
+    use crate::query::parser::ast::Literal;
+    use crate::query::plan::predicate::{LogicalOperator, Predicate};
     use crate::schema::primary_key::PrimaryKey;
     use crate::schema::Schema;
     use crate::storage::row::Row;
@@ -287,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn execute_select_star_with_limit() {
+    fn execute_select_with_where_clause() {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
@@ -299,15 +310,21 @@ mod tests {
             .insert_all_into(
                 "employees",
                 vec![
-                    Row::single(ColumnValue::int(100)),
-                    Row::single(ColumnValue::int(200)),
+                    Row::single(ColumnValue::int(1)),
+                    Row::single(ColumnValue::int(2)),
                 ],
             )
             .unwrap();
 
         let executor = Executor::new(&catalog);
         let query_result = executor
-            .execute(LogicalPlan::scan("employees").limit(1))
+            .execute(
+                LogicalPlan::scan("employees").filter(Predicate::Comparison {
+                    column_name: "id".to_string(),
+                    operator: LogicalOperator::Eq,
+                    literal: Literal::Int(1),
+                }),
+            )
             .unwrap();
 
         assert!(query_result.result_set().is_some());
@@ -317,50 +334,7 @@ mod tests {
 
         let row_view = row_iterator.next().unwrap().unwrap();
         let column_value = row_view.column_value_by("id").unwrap();
-
-        assert_eq!(100, column_value.int_value().unwrap());
-        assert!(row_iterator.next().is_none());
-    }
-
-    #[test]
-    fn execute_select_with_projection_with_limit() {
-        let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_column("name", ColumnType::Text)
-                .unwrap(),
-        );
-        assert!(result.is_ok());
-
-        let _ = catalog
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(100), ColumnValue::text("relop")]),
-                    Row::filled(vec![ColumnValue::int(200), ColumnValue::text("query")]),
-                ],
-            )
-            .unwrap();
-
-        let executor = Executor::new(&catalog);
-        let query_result = executor
-            .execute(LogicalPlan::scan("employees").limit(1))
-            .unwrap();
-
-        assert!(query_result.result_set().is_some());
-
-        let result_set = query_result.result_set().unwrap();
-        let mut row_iterator = result_set.iterator().unwrap();
-
-        let row_view = row_iterator.next().unwrap().unwrap();
-        let column_value = row_view.column_value_by("id").unwrap();
-        assert_eq!(100, column_value.int_value().unwrap());
-
-        let column_value = row_view.column_value_by("name").unwrap();
-        assert_eq!("relop", column_value.text_value().unwrap());
+        assert_eq!(1, column_value.int_value().unwrap());
 
         assert!(row_iterator.next().is_none());
     }
@@ -516,6 +490,84 @@ mod tests {
                 .int_value()
                 .unwrap()
         );
+        assert!(row_iterator.next().is_none());
+    }
+
+    #[test]
+    fn execute_select_star_with_limit() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = catalog
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::single(ColumnValue::int(100)),
+                    Row::single(ColumnValue::int(200)),
+                ],
+            )
+            .unwrap();
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor
+            .execute(LogicalPlan::scan("employees").limit(1))
+            .unwrap();
+
+        assert!(query_result.result_set().is_some());
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        let row_view = row_iterator.next().unwrap().unwrap();
+        let column_value = row_view.column_value_by("id").unwrap();
+
+        assert_eq!(100, column_value.int_value().unwrap());
+        assert!(row_iterator.next().is_none());
+    }
+
+    #[test]
+    fn execute_select_with_projection_with_limit() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_column("name", ColumnType::Text)
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = catalog
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::filled(vec![ColumnValue::int(100), ColumnValue::text("relop")]),
+                    Row::filled(vec![ColumnValue::int(200), ColumnValue::text("query")]),
+                ],
+            )
+            .unwrap();
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor
+            .execute(LogicalPlan::scan("employees").limit(1))
+            .unwrap();
+
+        assert!(query_result.result_set().is_some());
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        let row_view = row_iterator.next().unwrap().unwrap();
+        let column_value = row_view.column_value_by("id").unwrap();
+        assert_eq!(100, column_value.int_value().unwrap());
+
+        let column_value = row_view.column_value_by("name").unwrap();
+        assert_eq!("relop", column_value.text_value().unwrap());
 
         assert!(row_iterator.next().is_none());
     }

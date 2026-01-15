@@ -168,6 +168,14 @@ impl LogicalPlan {
             ordering_keys,
         }
     }
+
+    /// Creates a plan to filter results.
+    pub(crate) fn filter(self, predicate: Predicate) -> Self {
+        LogicalPlan::Filter {
+            base_plan: self.boxed(),
+            predicate,
+        }
+    }
 }
 
 #[cfg(test)]

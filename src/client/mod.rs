@@ -650,89 +650,6 @@ mod tests {
     }
 
     #[test]
-    fn execute_select_star_with_limit() {
-        let relop = Relop::new(Catalog::new());
-        let result = relop.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
-        assert!(result.is_ok());
-
-        let _ = relop
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(1)]),
-                    Row::filled(vec![ColumnValue::int(2)]),
-                    Row::filled(vec![ColumnValue::int(3)]),
-                ],
-            )
-            .unwrap();
-
-        let query_result = relop.execute("select * from employees limit 2").unwrap();
-        let result_set = query_result.result_set().unwrap();
-        let mut row_iterator = result_set.iterator().unwrap();
-
-        let row_view = row_iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-
-        let row_view = row_iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::int(2),
-            row_view.column_value_by("id").unwrap()
-        );
-
-        assert!(row_iterator.next().is_none());
-    }
-
-    #[test]
-    fn execute_select_with_projection_and_limit() {
-        let relop = Relop::new(Catalog::new());
-        let result = relop.create_table(
-            "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_column("name", ColumnType::Text)
-                .unwrap(),
-        );
-        assert!(result.is_ok());
-
-        let _ = relop
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
-                    Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
-                    Row::filled(vec![ColumnValue::int(3), ColumnValue::text("parsing")]),
-                ],
-            )
-            .unwrap();
-
-        let query_result = relop
-            .execute("select name, id from employees limit 1")
-            .unwrap();
-
-        let result_set = query_result.result_set().unwrap();
-        let mut row_iterator = result_set.iterator().unwrap();
-
-        let row_view = row_iterator.next().unwrap().unwrap();
-        assert_eq!(
-            &ColumnValue::text("relop"),
-            row_view.column_value_by("name").unwrap()
-        );
-        assert_eq!(
-            &ColumnValue::int(1),
-            row_view.column_value_by("id").unwrap()
-        );
-
-        assert!(row_iterator.next().is_none());
-    }
-
-    #[test]
     fn execute_select_with_order_by_single_column_ascending() {
         let relop = Relop::new(Catalog::new());
         let result = relop.create_table(
@@ -818,5 +735,211 @@ mod tests {
             &ColumnValue::int(10),
             row_view.column_value_by("rank").unwrap()
         );
+    }
+
+    #[test]
+    fn execute_select_star_with_limit() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = relop
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::filled(vec![ColumnValue::int(1)]),
+                    Row::filled(vec![ColumnValue::int(2)]),
+                    Row::filled(vec![ColumnValue::int(3)]),
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop.execute("select * from employees limit 2").unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        let row_view = row_iterator.next().unwrap().unwrap();
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
+
+        let row_view = row_iterator.next().unwrap().unwrap();
+        assert_eq!(
+            &ColumnValue::int(2),
+            row_view.column_value_by("id").unwrap()
+        );
+
+        assert!(row_iterator.next().is_none());
+    }
+
+    #[test]
+    fn execute_select_with_projection_and_limit() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_column("name", ColumnType::Text)
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = relop
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
+                    Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
+                    Row::filled(vec![ColumnValue::int(3), ColumnValue::text("parsing")]),
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop
+            .execute("select name, id from employees limit 1")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        let row_view = row_iterator.next().unwrap().unwrap();
+        assert_eq!(
+            &ColumnValue::text("relop"),
+            row_view.column_value_by("name").unwrap()
+        );
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
+
+        assert!(row_iterator.next().is_none());
+    }
+
+    #[test]
+    fn execute_select_star_with_where_clause() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_column("name", ColumnType::Text)
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = relop
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
+                    Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop
+            .execute("select * from employees where id = 1")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        let row_view = row_iterator.next().unwrap().unwrap();
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
+        assert_eq!(
+            &ColumnValue::text("relop"),
+            row_view.column_value_by("name").unwrap()
+        );
+        assert!(row_iterator.next().is_none());
+    }
+
+    #[test]
+    fn execute_select_star_with_where_clause_greater_than() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_column("name", ColumnType::Text)
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = relop
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
+                    Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop
+            .execute("select * from employees where id > 1")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        let row_view = row_iterator.next().unwrap().unwrap();
+        assert_eq!(
+            &ColumnValue::int(2),
+            row_view.column_value_by("id").unwrap()
+        );
+        assert_eq!(
+            &ColumnValue::text("query"),
+            row_view.column_value_by("name").unwrap()
+        );
+        assert!(row_iterator.next().is_none());
+    }
+
+    #[test]
+    fn execute_select_with_projection_and_where_clause() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            Schema::new()
+                .add_column("id", ColumnType::Int)
+                .unwrap()
+                .add_column("name", ColumnType::Text)
+                .unwrap(),
+        );
+        assert!(result.is_ok());
+
+        let _ = relop
+            .insert_all_into(
+                "employees",
+                vec![
+                    Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
+                    Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop
+            .execute("select name from employees where id = 1")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        let row_view = row_iterator.next().unwrap().unwrap();
+        assert_eq!(
+            &ColumnValue::text("relop"),
+            row_view.column_value_by("name").unwrap()
+        );
+        assert!(row_view.column_value_by("id").is_none());
+        assert!(row_iterator.next().is_none());
     }
 }
