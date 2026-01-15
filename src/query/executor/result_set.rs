@@ -267,21 +267,18 @@ mod tests {
     use crate::query::parser::ast::Literal;
     use crate::query::plan::predicate::LogicalOperator;
 
-    use crate::schema::Schema;
     use crate::storage::row::Row;
     use crate::storage::table_store::TableStore;
+    use crate::test_utils::create_schema;
     use crate::types::column_type::ColumnType;
     use crate::types::column_value::ColumnValue;
 
     #[test]
     fn scan_result_set() {
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_column("name", ColumnType::Text)
-            .unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new(
+            "employees",
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+        );
         let table_store = TableStore::new();
         table_store.insert(Row::filled(vec![
             ColumnValue::int(1),
@@ -307,9 +304,7 @@ mod tests {
 
     #[test]
     fn attempt_to_get_result_set_with_non_existent_column() {
-        let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
         let table_store = TableStore::new();
         table_store.insert(Row::filled(vec![ColumnValue::int(1)]));
 
@@ -324,13 +319,10 @@ mod tests {
 
     #[test]
     fn projected_result_set() {
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_column("name", ColumnType::Text)
-            .unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new(
+            "employees",
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+        );
         let table_store = TableStore::new();
         table_store.insert(Row::filled(vec![
             ColumnValue::int(1),
@@ -355,13 +347,10 @@ mod tests {
 
     #[test]
     fn projected_result_set_with_filter() {
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_column("name", ColumnType::Text)
-            .unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new(
+            "employees",
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+        );
         let table_store = TableStore::new();
         table_store.insert(Row::filled(vec![
             ColumnValue::int(1),
@@ -393,9 +382,7 @@ mod tests {
 
     #[test]
     fn attempt_to_get_projected_result_set_with_non_existent_column() {
-        let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
         let table_store = TableStore::new();
         table_store.insert(Row::filled(vec![ColumnValue::int(1)]));
 
@@ -410,13 +397,10 @@ mod tests {
 
     #[test]
     fn filter_result_set() {
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_column("name", ColumnType::Text)
-            .unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new(
+            "employees",
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+        );
         let table_store = TableStore::new();
         table_store.insert_all(vec![
             Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
@@ -446,13 +430,10 @@ mod tests {
 
     #[test]
     fn filter_result_set_with_no_matching_rows() {
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_column("name", ColumnType::Text)
-            .unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new(
+            "employees",
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+        );
         let table_store = TableStore::new();
         table_store.insert_all(vec![
             Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
@@ -476,13 +457,10 @@ mod tests {
 
     #[test]
     fn filter_result_set_with_string_comparison() {
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_column("name", ColumnType::Text)
-            .unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new(
+            "employees",
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+        );
         let table_store = TableStore::new();
         table_store.insert_all(vec![
             Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
@@ -512,9 +490,7 @@ mod tests {
 
     #[test]
     fn ordering_result_set_single_column_ascending() {
-        let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
         let table_store = TableStore::new();
         table_store.insert_all(vec![
             Row::filled(vec![ColumnValue::int(2)]),
@@ -545,9 +521,7 @@ mod tests {
 
     #[test]
     fn ordering_result_set_single_column_descending() {
-        let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
         let table_store = TableStore::new();
         table_store.insert_all(vec![
             Row::filled(vec![ColumnValue::int(1)]),
@@ -578,13 +552,10 @@ mod tests {
 
     #[test]
     fn ordering_result_set_multiple_columns_ascending() {
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_column("rank", ColumnType::Int)
-            .unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new(
+            "employees",
+            create_schema(&[("id", ColumnType::Int), ("rank", ColumnType::Int)]),
+        );
         let table_store = TableStore::new();
         table_store.insert_all(vec![
             Row::filled(vec![ColumnValue::int(1), ColumnValue::int(20)]),
@@ -626,13 +597,10 @@ mod tests {
 
     #[test]
     fn ordering_result_set_with_limit() {
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_column("rank", ColumnType::Int)
-            .unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new(
+            "employees",
+            create_schema(&[("id", ColumnType::Int), ("rank", ColumnType::Int)]),
+        );
         let table_store = TableStore::new();
         table_store.insert_all(vec![
             Row::filled(vec![ColumnValue::int(3), ColumnValue::int(30)]),
@@ -665,13 +633,10 @@ mod tests {
     }
     #[test]
     fn limit_result_set() {
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_column("name", ColumnType::Text)
-            .unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new(
+            "employees",
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+        );
         let table_store = TableStore::new();
         table_store.insert_all(vec![
             Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
@@ -698,13 +663,10 @@ mod tests {
 
     #[test]
     fn limit_result_set_given_limit_higher_than_the_available_rows() {
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_column("name", ColumnType::Text)
-            .unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new(
+            "employees",
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+        );
         let table_store = TableStore::new();
         table_store.insert_all(vec![
             Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
@@ -741,13 +703,10 @@ mod tests {
 
     #[test]
     fn limit_result_set_with_projection() {
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_column("name", ColumnType::Text)
-            .unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new(
+            "employees",
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+        );
         let table_store = TableStore::new();
         table_store.insert_all(vec![
             Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
@@ -772,13 +731,10 @@ mod tests {
 
     #[test]
     fn schema() {
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_column("name", ColumnType::Text)
-            .unwrap();
-
-        let table = Table::new("employees", schema);
+        let table = Table::new(
+            "employees",
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+        );
         let table_store = TableStore::new();
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = ScanResultsSet::new(table_scan, Arc::new(table));

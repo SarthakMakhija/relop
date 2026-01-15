@@ -5,7 +5,7 @@ pub mod result_set;
 use crate::catalog::Catalog;
 use crate::query::executor::error::ExecutionError;
 use crate::query::executor::result::QueryResult;
-use crate::query::plan::{predicate, LogicalPlan};
+use crate::query::plan::LogicalPlan;
 use result_set::LimitResultSet;
 
 /// Executes logical plans against the catalog.
@@ -100,19 +100,15 @@ mod tests {
     use crate::catalog::error::CatalogError;
     use crate::query::parser::ast::Literal;
     use crate::query::plan::predicate::{LogicalOperator, Predicate};
-    use crate::schema::primary_key::PrimaryKey;
-    use crate::schema::Schema;
     use crate::storage::row::Row;
+    use crate::test_utils::{create_schema, create_schema_with_primary_key};
     use crate::types::column_type::ColumnType;
     use crate::types::column_value::ColumnValue;
 
     #[test]
     fn execute_show_tables() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
         let executor = Executor::new(&catalog);
@@ -128,10 +124,7 @@ mod tests {
     #[test]
     fn execute_describe_table() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
         let executor = Executor::new(&catalog);
@@ -152,11 +145,7 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_primary_key(PrimaryKey::single("id"))
-                .unwrap(),
+            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
         );
         assert!(result.is_ok());
 
@@ -192,10 +181,7 @@ mod tests {
     #[test]
     fn execute_select_star() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
         let _ = catalog
@@ -234,11 +220,7 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_column("name", ColumnType::Text)
-                .unwrap(),
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
         );
         assert!(result.is_ok());
 
@@ -272,11 +254,7 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_column("name", ColumnType::Text)
-                .unwrap(),
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
         );
         assert!(result.is_ok());
 
@@ -300,10 +278,7 @@ mod tests {
     #[test]
     fn execute_select_with_where_clause() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
         let _ = catalog
@@ -344,10 +319,7 @@ mod tests {
         use crate::query::parser::ordering_key::OrderingKey;
 
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
         let _ = catalog
@@ -386,10 +358,7 @@ mod tests {
         use crate::query::parser::ordering_key::OrderingKey;
 
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
         let _ = catalog
@@ -432,11 +401,7 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_column("age", ColumnType::Int)
-                .unwrap(),
+            create_schema(&[("id", ColumnType::Int), ("age", ColumnType::Int)]),
         );
         assert!(result.is_ok());
 
@@ -496,10 +461,7 @@ mod tests {
     #[test]
     fn execute_select_star_with_limit() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
         let _ = catalog
@@ -534,11 +496,7 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_column("name", ColumnType::Text)
-                .unwrap(),
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
         );
         assert!(result.is_ok());
 
