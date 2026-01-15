@@ -46,7 +46,7 @@ impl<'a> Executor<'a> {
         logical_plan: LogicalPlan,
     ) -> Result<Box<dyn result_set::ResultSet>, ExecutionError> {
         match logical_plan {
-            LogicalPlan::ScanTable { table_name } => {
+            LogicalPlan::Scan { table_name } => {
                 let (table_entry, table) = self
                     .catalog
                     .scan(table_name.as_ref())
@@ -64,7 +64,7 @@ impl<'a> Executor<'a> {
                     result_set::ProjectResultSet::new(result_set, &columns[..])?;
                 Ok(Box::new(project_result_set))
             }
-            LogicalPlan::OrderBy {
+            LogicalPlan::Sort {
                 base_plan: base,
                 ordering_keys,
             } => {
