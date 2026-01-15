@@ -156,15 +156,16 @@ cargo test
 
 The SQL subset supported by `relop` is defined in [docs/grammar.ebnf](docs/grammar.ebnf).
 
-## References
-  - [Crafting Interpreters](https://craftinginterpreters.com/contents.html)
-    - Chapters 4,5,6
-  - [Database design and implementation](https://link.springer.com/book/10.1007/978-3-030-33836-7)
-    - Chapter 10
-
 ## Non-goals
 
 - SQL `INSERT` / `CREATE TABLE` statements (these are handled via the API).
 - Persistence or Disk I/O.
 - Query Optimization (Cost-based or Rule-based).
 - Full SQL Compatibility.
+
+## References
+
+- [Crafting Interpreters](https://craftinginterpreters.com/contents.html)
+    - Chapters 4,5,6
+- [Database design and implementation](https://link.springer.com/book/10.1007/978-3-030-33836-7)
+    - Chapter 10
