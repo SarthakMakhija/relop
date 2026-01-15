@@ -128,12 +128,12 @@ cargo test
 - `SELECT col1, col2 FROM <table> ORDER by col1 asc, col2 desc`
 - `SELECT col1, col2 FROM <table> ORDER by col1 LIMIT <n>`
 - `SELECT col1, col2 FROM <table> LIMIT <n>`
-- `SELECT col1, col2 FROM <table> WHERE col1 = <literal> <n>`
-- `SELECT col1, col2 FROM <table> WHERE col1 > <literal> <n>`
-- `SELECT col1, col2 FROM <table> WHERE col1 >= <literal> <n>`
-- `SELECT col1, col2 FROM <table> WHERE col1 < <literal> <n>`
-- `SELECT col1, col2 FROM <table> WHERE col1 <= <literal> <n>`
-- `SELECT col1, col2 FROM <table> WHERE col1 != <literal> <n>`
+- `SELECT col1, col2 FROM <table> WHERE col1 = <literal>`
+- `SELECT col1, col2 FROM <table> WHERE col1 > <literal>`
+- `SELECT col1, col2 FROM <table> WHERE col1 >= <literal>`
+- `SELECT col1, col2 FROM <table> WHERE col1 < <literal>`
+- `SELECT col1, col2 FROM <table> WHERE col1 <= <literal>`
+- `SELECT col1, col2 FROM <table> WHERE col1 != <literal>`
 - `SHOW TABLES`
 - `DESCRIBE TABLE <table>`
 
