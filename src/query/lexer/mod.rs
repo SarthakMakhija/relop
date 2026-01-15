@@ -44,7 +44,7 @@ impl Lexer {
     /// Performs lexical analysis on the input and returns a `TokenStream`.
     ///
     /// It iterates through the input characters, recognizing tokens such as whitespace,
-    /// punctuation (semicolon, comma, star), identifiers, numbers, and keywords.
+    /// punctuation (semicolon, comma, star), identifiers, numbers, string literals, and keywords.
     ///
     /// # Returns
     ///
@@ -58,6 +58,9 @@ impl Lexer {
                 ';' => self.capture_token(&mut stream, Token::semicolon()),
                 '*' => self.capture_token(&mut stream, Token::star()),
                 ',' => self.capture_token(&mut stream, Token::comma()),
+                '\'' => stream.add(self.string()?),
+                '=' => self.capture_token(&mut stream, Token::equal()),
+                '>' | '<' | '!' => stream.add(self.comparison_operator()?),
                 ch if Self::looks_like_a_whole_number(ch) => stream.add(self.number()),
                 ch if Self::looks_like_an_identifier(ch) => {
                     stream.add(self.identifier_or_keyword())
@@ -112,6 +115,21 @@ impl Lexer {
         }
     }
 
+    fn string(&mut self) -> Result<Token, LexError> {
+        let mut lexeme = String::new();
+        self.eat();
+
+        while let Some(ch) = self.peek() {
+            if ch == '\'' {
+                self.eat();
+                return Ok(Token::new(lexeme, TokenType::StringLiteral));
+            }
+            lexeme.push(ch);
+            let _ = self.advance();
+        }
+        Err(LexError::UnterminatedStringLiteral)
+    }
+
     fn number(&mut self) -> Token {
         let mut lexeme = String::new();
 
@@ -124,6 +142,40 @@ impl Lexer {
             }
         }
         Token::new(lexeme, TokenType::WholeNumber)
+    }
+
+    fn comparison_operator(&mut self) -> Result<Token, LexError> {
+        //SAFETY: current character is always present when this method is called.
+        //So, peek() will always return a non-none character.
+        //Hence, unwrap() is safe here.
+        let current_ch = self.peek().unwrap();
+        match current_ch {
+            '>' => {
+                self.advance();
+                if let Some('=') = self.peek() {
+                    self.eat();
+                    return Ok(Token::greater_equal());
+                }
+                Ok(Token::greater())
+            }
+            '<' => {
+                self.advance();
+                if let Some('=') = self.peek() {
+                    self.eat();
+                    return Ok(Token::lesser_equal());
+                }
+                Ok(Token::lesser())
+            }
+            '!' => {
+                self.advance();
+                if let Some('=') = self.peek() {
+                    self.eat();
+                    return Ok(Token::not_equal());
+                }
+                Err(LexError::UnsupportedOperator(current_ch))
+            }
+            _ => panic!("unsupported comparison operator"),
+        }
     }
 
     fn looks_like_an_identifier(ch: char) -> bool {
@@ -231,15 +283,43 @@ mod tests {
     }
 
     #[test]
-    fn lex_select_with_limit() {
+    fn lex_select_with_where_clause_with_equal_operator_involving_string_literal() {
         assert_lex!(
-            "SELECT * FROM employees limit 10",
+            "SELECT * FROM employees where name = 'alice'",
             [
                 (TokenType::Keyword, "SELECT"),
                 (TokenType::Star, "*"),
                 (TokenType::Keyword, "FROM"),
                 (TokenType::Identifier, "employees"),
-                (TokenType::Keyword, "limit"),
+                (TokenType::Keyword, "where"),
+                (TokenType::Identifier, "name"),
+                (TokenType::Equal, "="),
+                (TokenType::StringLiteral, "alice"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_with_where_clause_with_unterminated_string_literal() {
+        let result =
+            Lexer::new_with_default_keywords("SELECT * FROM employees where name = 'alice").lex();
+
+        assert!(matches!(result, Err(LexError::UnterminatedStringLiteral)));
+    }
+
+    #[test]
+    fn lex_select_with_where_clause_with_greater_operator() {
+        assert_lex!(
+            "SELECT * FROM employees where id > 10",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::Keyword, "where"),
+                (TokenType::Identifier, "id"),
+                (TokenType::Greater, ">"),
                 (TokenType::WholeNumber, "10"),
                 (TokenType::EndOfStream, ""),
             ]
@@ -247,12 +327,85 @@ mod tests {
     }
 
     #[test]
-    fn lex_select_with_limit_with_a_float_value() {
-        let result = Lexer::new_with_default_keywords("select * from employees limit 120.34").lex();
+    fn lex_select_with_where_clause_with_greater_equal_operator() {
+        assert_lex!(
+            "SELECT * FROM employees where id >= 10",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::Keyword, "where"),
+                (TokenType::Identifier, "id"),
+                (TokenType::GreaterEqual, ">="),
+                (TokenType::WholeNumber, "10"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_with_where_clause_with_lesser_operator() {
+        assert_lex!(
+            "SELECT * FROM employees where id < 10",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::Keyword, "where"),
+                (TokenType::Identifier, "id"),
+                (TokenType::Lesser, "<"),
+                (TokenType::WholeNumber, "10"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_with_where_clause_with_lesser_equal_operator() {
+        assert_lex!(
+            "SELECT * FROM employees where id <= 10",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::Keyword, "where"),
+                (TokenType::Identifier, "id"),
+                (TokenType::LesserEqual, "<="),
+                (TokenType::WholeNumber, "10"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_with_where_clause_with_not_equal_operator() {
+        assert_lex!(
+            "SELECT * FROM employees where id != 10",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::Keyword, "where"),
+                (TokenType::Identifier, "id"),
+                (TokenType::NotEqual, "!="),
+                (TokenType::WholeNumber, "10"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_with_where_clause_with_unsupported_operator() {
+        let result =
+            Lexer::new_with_default_keywords("select * from employees where id ! 10").lex();
         assert!(matches!(
             result,
-            Err(LexError::UnexpectedCharacter(ch)) if ch == '.'
-        ))
+            Err(LexError::UnsupportedOperator(ch)) if ch == '!'
+        ));
     }
 
     #[test]
@@ -319,5 +472,30 @@ mod tests {
             result,
             Err(LexError::UnexpectedCharacter(ch)) if ch == '+'
         ));
+    }
+
+    #[test]
+    fn lex_select_with_limit() {
+        assert_lex!(
+            "SELECT * FROM employees limit 10",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::Keyword, "limit"),
+                (TokenType::WholeNumber, "10"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_with_limit_with_a_float_value() {
+        let result = Lexer::new_with_default_keywords("select * from employees limit 120.34").lex();
+        assert!(matches!(
+            result,
+            Err(LexError::UnexpectedCharacter(ch)) if ch == '.'
+        ))
     }
 }

@@ -10,8 +10,8 @@ impl Keywords {
     /// The default keywords include: "show", "tables", "describe", "table", "select", "from" etc.
     pub(crate) fn new_with_default_keywords() -> Keywords {
         Self::new_with_keywords(&[
-            "show", "tables", "describe", "table", "select", "from", "limit", "order", "by", "asc",
-            "desc",
+            "show", "tables", "describe", "table", "select", "from", "where", "order", "by", "asc",
+            "limit", "desc",
         ])
     }
 

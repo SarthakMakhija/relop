@@ -27,6 +27,20 @@ pub(crate) enum TokenType {
     Comma,
     /// A whole number (e.g.; 100, 120)
     WholeNumber,
+    /// A string literal (e.g.; 'relop')
+    StringLiteral,
+    /// Equal operator `=`.
+    Equal,
+    /// Greater than or equal operator `>=`.
+    GreaterEqual,
+    /// Greater than operator `>`.
+    Greater,
+    /// Less than or equal operator `<=`.
+    LesserEqual,
+    /// Less than operator `<`.
+    Lesser,
+    /// Not equal operator `!=`.
+    NotEqual,
     /// Indicates the end of the token stream.
     EndOfStream,
 }
@@ -53,6 +67,36 @@ impl Token {
     /// Creates an asterisk token `*`.
     pub(crate) fn star() -> Token {
         Token::new("*", TokenType::Star)
+    }
+
+    /// Creates an equal to token `=`.
+    pub(crate) fn equal() -> Token {
+        Token::new("=", TokenType::Equal)
+    }
+
+    /// Creates a greater than or equal token `>=`.
+    pub(crate) fn greater_equal() -> Token {
+        Token::new(">=", TokenType::GreaterEqual)
+    }
+
+    /// Creates a greater than token `>`.
+    pub(crate) fn greater() -> Token {
+        Token::new(">", TokenType::Greater)
+    }
+
+    /// Creates a less than or equal token `<=`.
+    pub(crate) fn lesser_equal() -> Token {
+        Token::new("<=", TokenType::LesserEqual)
+    }
+
+    /// Creates a less than token `<`.
+    pub(crate) fn lesser() -> Token {
+        Token::new("<", TokenType::Lesser)
+    }
+
+    /// Creates a not equal token `!=`.
+    pub(crate) fn not_equal() -> Token {
+        Token::new("!=", TokenType::NotEqual)
     }
 
     /// Creates a comma token `,`.
@@ -211,6 +255,48 @@ mod token_tests {
         let token = Token::comma();
         assert_eq!(",", token.lexeme());
         assert_eq!(TokenType::Comma, token.token_type());
+    }
+
+    #[test]
+    fn equal_token() {
+        let token = Token::equal();
+        assert_eq!("=", token.lexeme());
+        assert_eq!(TokenType::Equal, token.token_type());
+    }
+
+    #[test]
+    fn greater_equal_token() {
+        let token = Token::greater_equal();
+        assert_eq!(">=", token.lexeme());
+        assert_eq!(TokenType::GreaterEqual, token.token_type());
+    }
+
+    #[test]
+    fn greater_token() {
+        let token = Token::greater();
+        assert_eq!(">", token.lexeme());
+        assert_eq!(TokenType::Greater, token.token_type());
+    }
+
+    #[test]
+    fn lesser_equal_token() {
+        let token = Token::lesser_equal();
+        assert_eq!("<=", token.lexeme());
+        assert_eq!(TokenType::LesserEqual, token.token_type());
+    }
+
+    #[test]
+    fn lesser_token() {
+        let token = Token::lesser();
+        assert_eq!("<", token.lexeme());
+        assert_eq!(TokenType::Lesser, token.token_type());
+    }
+
+    #[test]
+    fn not_equal_token() {
+        let token = Token::not_equal();
+        assert_eq!("!=", token.lexeme());
+        assert_eq!(TokenType::NotEqual, token.token_type());
     }
 
     #[test]
