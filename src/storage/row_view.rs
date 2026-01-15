@@ -58,7 +58,7 @@ impl<'a> RowView<'a> {
     ///
     /// - Column name resolution is case-sensitive.
     /// - This method performs a schema lookup on each call.
-    pub fn column(&self, column_name: &str) -> Option<&ColumnValue> {
+    pub fn column_value_by(&self, column_name: &str) -> Option<&ColumnValue> {
         let column_position = self.schema.column_position(column_name)?;
         if self.visible_positions.contains(&column_position) {
             return self.row.column_value_at(column_position);
@@ -159,13 +159,13 @@ mod tests {
     use crate::types::column_type::ColumnType;
 
     #[test]
-    fn column() {
+    fn column_value() {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
         let row = Row::filled(vec![ColumnValue::int(200)]);
 
         let visible_positions = vec![0];
         let view = RowView::new(row, &schema, &visible_positions);
-        assert_eq!(&ColumnValue::int(200), view.column("id").unwrap());
+        assert_eq!(&ColumnValue::int(200), view.column_value_by("id").unwrap());
     }
 
     #[test]
@@ -175,7 +175,7 @@ mod tests {
 
         let visible_positions = vec![0];
         let view = RowView::new(row, &schema, &visible_positions);
-        assert!(view.column("name").is_none());
+        assert!(view.column_value_by("name").is_none());
     }
 
     #[test]
@@ -189,8 +189,11 @@ mod tests {
 
         let visible_positions = vec![1];
         let view = RowView::new(row, &schema, &visible_positions);
-        assert!(view.column("id").is_none());
-        assert_eq!(&ColumnValue::text("relop"), view.column("name").unwrap());
+        assert!(view.column_value_by("id").is_none());
+        assert_eq!(
+            &ColumnValue::text("relop"),
+            view.column_value_by("name").unwrap()
+        );
     }
     #[test]
     fn project_row_view() {
@@ -204,15 +207,18 @@ mod tests {
 
         let visible_positions = vec![0, 1];
         let view = RowView::new(row, &schema, &visible_positions);
-        assert_eq!(&ColumnValue::int(200), view.column("id").unwrap());
-        assert_eq!(&ColumnValue::text("relop"), view.column("name").unwrap());
+        assert_eq!(&ColumnValue::int(200), view.column_value_by("id").unwrap());
+        assert_eq!(
+            &ColumnValue::text("relop"),
+            view.column_value_by("name").unwrap()
+        );
 
         let projection = vec![1];
         let projected_view = view.project(&projection);
-        assert!(projected_view.column("id").is_none());
+        assert!(projected_view.column_value_by("id").is_none());
         assert_eq!(
             &ColumnValue::text("relop"),
-            projected_view.column("name").unwrap()
+            projected_view.column_value_by("name").unwrap()
         );
     }
 }

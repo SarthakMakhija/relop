@@ -315,7 +315,7 @@ impl Relop {
     ///  let mut iterator = result_set.iterator().unwrap();
     ///
     ///  let row_view = iterator.next().unwrap();
-    ///  assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+    ///  assert_eq!(&ColumnValue::int(1), row_view.column_value_by("id").unwrap());
     /// ```
     pub fn execute(&self, query: &str) -> Result<QueryResult, ClientError> {
         let mut lexer = Lexer::new_with_default_keywords(query);
@@ -554,10 +554,16 @@ mod tests {
         let mut row_iter = result_set.iterator().unwrap();
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::int(2), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(2),
+            row_view.column_value_by("id").unwrap()
+        );
     }
 
     #[test]
@@ -600,10 +606,16 @@ mod tests {
         let mut row_iter = result_set.iterator().unwrap();
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::int(10), row_view.column("rank").unwrap());
+        assert_eq!(
+            &ColumnValue::int(10),
+            row_view.column_value_by("rank").unwrap()
+        );
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::int(20), row_view.column("rank").unwrap());
+        assert_eq!(
+            &ColumnValue::int(20),
+            row_view.column_value_by("rank").unwrap()
+        );
     }
 
     #[test]
@@ -662,10 +674,16 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         let row_view = row_iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
 
         let row_view = row_iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(2), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(2),
+            row_view.column_value_by("id").unwrap()
+        );
 
         assert!(row_iterator.next().is_none());
     }
@@ -703,9 +721,12 @@ mod tests {
         let row_view = row_iterator.next().unwrap();
         assert_eq!(
             &ColumnValue::text("relop"),
-            row_view.column("name").unwrap()
+            row_view.column_value_by("name").unwrap()
         );
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
 
         assert!(row_iterator.next().is_none());
     }
@@ -736,10 +757,16 @@ mod tests {
         let mut row_iter = result_set.iterator().unwrap();
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::int(2), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(2),
+            row_view.column_value_by("id").unwrap()
+        );
     }
 
     #[test]
@@ -772,11 +799,23 @@ mod tests {
         let mut row_iter = result_set.iterator().unwrap();
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
-        assert_eq!(&ColumnValue::int(20), row_view.column("rank").unwrap());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
+        assert_eq!(
+            &ColumnValue::int(20),
+            row_view.column_value_by("rank").unwrap()
+        );
 
         let row_view = row_iter.next().unwrap();
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
-        assert_eq!(&ColumnValue::int(10), row_view.column("rank").unwrap());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
+        assert_eq!(
+            &ColumnValue::int(10),
+            row_view.column_value_by("rank").unwrap()
+        );
     }
 }

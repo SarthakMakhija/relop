@@ -200,7 +200,7 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         let row_view = row_iterator.next().unwrap();
-        let column_value = row_view.column("id").unwrap();
+        let column_value = row_view.column_value_by("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
         assert!(row_iterator.next().is_none());
     }
@@ -249,10 +249,10 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         let row_view = row_iterator.next().unwrap();
-        let column_value = row_view.column("id").unwrap();
+        let column_value = row_view.column_value_by("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
 
-        assert!(row_view.column("name").is_none());
+        assert!(row_view.column_value_by("name").is_none());
         assert!(row_iterator.next().is_none());
     }
 
@@ -316,7 +316,7 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         let row_view = row_iterator.next().unwrap();
-        let column_value = row_view.column("id").unwrap();
+        let column_value = row_view.column_value_by("id").unwrap();
 
         assert_eq!(100, column_value.int_value().unwrap());
         assert!(row_iterator.next().is_none());
@@ -356,10 +356,10 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         let row_view = row_iterator.next().unwrap();
-        let column_value = row_view.column("id").unwrap();
+        let column_value = row_view.column_value_by("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
 
-        let column_value = row_view.column("name").unwrap();
+        let column_value = row_view.column_value_by("name").unwrap();
         assert_eq!("relop", column_value.text_value().unwrap());
 
         assert!(row_iterator.next().is_none());
@@ -397,11 +397,11 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         let row_view = row_iterator.next().unwrap();
-        let column_value = row_view.column("id").unwrap();
+        let column_value = row_view.column_value_by("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
 
         let row_view = row_iterator.next().unwrap();
-        let column_value = row_view.column("id").unwrap();
+        let column_value = row_view.column_value_by("id").unwrap();
         assert_eq!(200, column_value.int_value().unwrap());
 
         assert!(row_iterator.next().is_none());
@@ -441,11 +441,11 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         let row_view = row_iterator.next().unwrap();
-        let column_value = row_view.column("id").unwrap();
+        let column_value = row_view.column_value_by("id").unwrap();
         assert_eq!(200, column_value.int_value().unwrap());
 
         let row_view = row_iterator.next().unwrap();
-        let column_value = row_view.column("id").unwrap();
+        let column_value = row_view.column_value_by("id").unwrap();
         assert_eq!(100, column_value.int_value().unwrap());
 
         assert!(row_iterator.next().is_none());
@@ -490,12 +490,32 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         let row_view = row_iterator.next().unwrap();
-        assert_eq!(1, row_view.column("id").unwrap().int_value().unwrap());
-        assert_eq!(20, row_view.column("age").unwrap().int_value().unwrap());
+        assert_eq!(
+            1,
+            row_view.column_value_by("id").unwrap().int_value().unwrap()
+        );
+        assert_eq!(
+            20,
+            row_view
+                .column_value_by("age")
+                .unwrap()
+                .int_value()
+                .unwrap()
+        );
 
         let row_view = row_iterator.next().unwrap();
-        assert_eq!(1, row_view.column("id").unwrap().int_value().unwrap());
-        assert_eq!(30, row_view.column("age").unwrap().int_value().unwrap());
+        assert_eq!(
+            1,
+            row_view.column_value_by("id").unwrap().int_value().unwrap()
+        );
+        assert_eq!(
+            30,
+            row_view
+                .column_value_by("age")
+                .unwrap()
+                .int_value()
+                .unwrap()
+        );
 
         assert!(row_iterator.next().is_none());
     }

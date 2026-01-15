@@ -237,10 +237,13 @@ mod tests {
         let mut iterator = result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
         assert_eq!(
             &ColumnValue::text("relop"),
-            row_view.column("name").unwrap()
+            row_view.column_value_by("name").unwrap()
         );
         assert!(iterator.next().is_none());
     }
@@ -259,7 +262,7 @@ mod tests {
         let mut iterator = result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert!(row_view.column("name").is_none());
+        assert!(row_view.column_value_by("name").is_none());
     }
 
     #[test]
@@ -287,9 +290,9 @@ mod tests {
         let row_view = iterator.next().unwrap();
         assert_eq!(
             &ColumnValue::text("relop"),
-            row_view.column("name").unwrap()
+            row_view.column_value_by("name").unwrap()
         );
-        assert!(row_view.column("id").is_none());
+        assert!(row_view.column_value_by("id").is_none());
         assert!(iterator.next().is_none());
     }
 
@@ -332,10 +335,13 @@ mod tests {
         let mut iterator = limit_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
         assert_eq!(
             &ColumnValue::text("relop"),
-            row_view.column("name").unwrap()
+            row_view.column_value_by("name").unwrap()
         );
         assert!(iterator.next().is_none());
     }
@@ -362,17 +368,23 @@ mod tests {
         let mut iterator = limit_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
         assert_eq!(
             &ColumnValue::text("relop"),
-            row_view.column("name").unwrap()
+            row_view.column_value_by("name").unwrap()
         );
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(2), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(2),
+            row_view.column_value_by("id").unwrap()
+        );
         assert_eq!(
             &ColumnValue::text("query"),
-            row_view.column("name").unwrap()
+            row_view.column_value_by("name").unwrap()
         );
         assert!(iterator.next().is_none());
     }
@@ -400,8 +412,11 @@ mod tests {
         let mut iterator = limit_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
-        assert!(row_view.column("name").is_none());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
+        assert!(row_view.column_value_by("name").is_none());
         assert!(iterator.next().is_none());
     }
 
@@ -424,10 +439,16 @@ mod tests {
         let mut iterator = ordering_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(2), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(2),
+            row_view.column_value_by("id").unwrap()
+        );
 
         assert!(iterator.next().is_none());
     }
@@ -451,10 +472,16 @@ mod tests {
         let mut iterator = ordering_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(2), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(2),
+            row_view.column_value_by("id").unwrap()
+        );
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
 
         assert!(iterator.next().is_none());
     }
@@ -485,12 +512,24 @@ mod tests {
         let mut iterator = ordering_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
-        assert_eq!(&ColumnValue::int(10), row_view.column("rank").unwrap());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
+        assert_eq!(
+            &ColumnValue::int(10),
+            row_view.column_value_by("rank").unwrap()
+        );
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
-        assert_eq!(&ColumnValue::int(20), row_view.column("rank").unwrap());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
+        assert_eq!(
+            &ColumnValue::int(20),
+            row_view.column_value_by("rank").unwrap()
+        );
 
         assert!(iterator.next().is_none());
     }
@@ -521,10 +560,16 @@ mod tests {
         let mut iterator = limit_result_set.iterator().unwrap();
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(1), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(1),
+            row_view.column_value_by("id").unwrap()
+        );
 
         let row_view = iterator.next().unwrap();
-        assert_eq!(&ColumnValue::int(2), row_view.column("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(2),
+            row_view.column_value_by("id").unwrap()
+        );
 
         assert!(iterator.next().is_none());
     }
