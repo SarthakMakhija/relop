@@ -161,11 +161,17 @@ impl Parser {
         let operator = self.expect_operator()?;
         let literal = self.expect_literal()?;
 
-        Ok(WhereClause::Comparison {
-            column_name,
-            operator,
-            literal,
-        })
+        match operator {
+            BinaryOperator::Like => Ok(WhereClause::Like {
+                column_name,
+                literal,
+            }),
+            _ => Ok(WhereClause::Comparison {
+                column_name,
+                operator,
+                literal,
+            }),
+        }
     }
 
     fn expect_operator(&mut self) -> Result<BinaryOperator, ParseError> {
@@ -927,8 +933,8 @@ mod select_where_with_single_comparison_tests {
         stream.add(Token::new("employees", TokenType::Identifier));
         stream.add(Token::new("where", TokenType::Keyword));
         stream.add(Token::new("name", TokenType::Identifier));
-        stream.add(Token::new("=", TokenType::Equal));
-        stream.add(Token::new("relop", TokenType::StringLiteral));
+        stream.add(Token::new("like", TokenType::Keyword));
+        stream.add(Token::new("rel%", TokenType::StringLiteral));
         stream.add(Token::semicolon());
         stream.add(Token::end_of_stream());
 
@@ -939,10 +945,8 @@ mod select_where_with_single_comparison_tests {
             matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
                 if table_name == "employees" &&
                     projection == Projection::All &&
-                    matches!(&where_clause, Some(WhereClause::Comparison { column_name, operator, literal })
-                        if column_name == "name" &&
-                            *operator == BinaryOperator::Eq &&
-                                *literal == Literal::Text("relop".to_string())
+                    matches!(&where_clause, Some(WhereClause::Like { column_name, literal })
+                        if column_name == "name" && *literal == Literal::Text("rel%".to_string())
                     )
             )
         );

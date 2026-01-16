@@ -39,6 +39,13 @@ pub(crate) enum WhereClause {
         /// The literal value to compare against.
         literal: Literal,
     },
+    /// A LIKE expression (e.g., `name like 'John%'`).
+    Like {
+        /// The column name to match.
+        column_name: String,
+        /// The literal pattern to match against (e.g., "John%").
+        literal: Literal,
+    },
 }
 
 /// `BinaryOperator` defines the binary operators supported in a WHERE clause.

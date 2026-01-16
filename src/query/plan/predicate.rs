@@ -30,6 +30,7 @@ impl From<WhereClause> for Predicate {
                 operator: operator.into(),
                 literal,
             },
+            _ => unimplemented!(),
         }
     }
 }
