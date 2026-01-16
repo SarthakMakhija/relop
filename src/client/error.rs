@@ -2,6 +2,7 @@ use crate::catalog::error::{CatalogError, InsertError};
 use crate::query::executor::error::ExecutionError;
 use crate::query::lexer::error::LexError;
 use crate::query::parser::error::ParseError;
+use crate::query::plan::error::PlanningError;
 
 /// Represents the various errors that can occur when using the `Relop` client.
 #[derive(Debug)]
@@ -16,4 +17,6 @@ pub enum ClientError {
     Parse(ParseError),
     /// Errors related to executing the logical plan.
     Execution(ExecutionError),
+    /// Errors related to logical planning.
+    Plan(PlanningError),
 }

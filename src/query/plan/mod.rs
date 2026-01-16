@@ -1,8 +1,10 @@
+pub(crate) mod error;
 pub(crate) mod predicate;
 
 use crate::query::parser::ast::{Ast, WhereClause};
 use crate::query::parser::ordering_key::OrderingKey;
 use crate::query::parser::projection::Projection;
+use crate::query::plan::error::PlanningError;
 use crate::query::plan::predicate::Predicate;
 
 /// `LogicalPlan` represents the logical steps required to execute a query.
@@ -62,10 +64,10 @@ impl LogicalPlanner {
     /// Converts a given `Ast` into a `LogicalPlan`.
     /// The plan hierarchy is:
     /// Scan → Filter → Projection → Sort → Limit
-    pub(crate) fn plan(ast: Ast) -> LogicalPlan {
+    pub(crate) fn plan(ast: Ast) -> Result<LogicalPlan, PlanningError> {
         match ast {
-            Ast::ShowTables => LogicalPlan::ShowTables,
-            Ast::DescribeTable { table_name } => LogicalPlan::DescribeTable { table_name },
+            Ast::ShowTables => Ok(LogicalPlan::ShowTables),
+            Ast::DescribeTable { table_name } => Ok(LogicalPlan::DescribeTable { table_name }),
             Ast::Select {
                 table_name,
                 projection,
@@ -74,10 +76,10 @@ impl LogicalPlanner {
                 order_by,
             } => {
                 let base_plan = LogicalPlan::Scan { table_name };
-                let base_plan = Self::plan_for_filter(where_clause, base_plan);
+                let base_plan = Self::plan_for_filter(where_clause, base_plan)?;
                 let base_plan = Self::plan_for_projection(projection, base_plan);
                 let base_plan = Self::plan_for_sort(order_by, base_plan);
-                Self::plan_for_limit(limit, base_plan)
+                Ok(Self::plan_for_limit(limit, base_plan))
             }
         }
     }
@@ -92,14 +94,17 @@ impl LogicalPlanner {
         }
     }
 
-    fn plan_for_filter(where_clause: Option<WhereClause>, base_plan: LogicalPlan) -> LogicalPlan {
+    fn plan_for_filter(
+        where_clause: Option<WhereClause>,
+        base_plan: LogicalPlan,
+    ) -> Result<LogicalPlan, PlanningError> {
         if let Some(clause) = where_clause {
-            return LogicalPlan::Filter {
+            return Ok(LogicalPlan::Filter {
                 base_plan: base_plan.boxed(),
-                predicate: Predicate::from(clause),
-            };
+                predicate: Predicate::try_from(clause)?,
+            });
         }
-        base_plan
+        Ok(base_plan)
     }
 
     fn plan_for_sort(order_by: Option<Vec<OrderingKey>>, base_plan: LogicalPlan) -> LogicalPlan {
@@ -187,7 +192,7 @@ mod tests {
 
     #[test]
     fn logical_plan_for_show_tables() {
-        let logical_plan = LogicalPlanner::plan(Ast::ShowTables);
+        let logical_plan = LogicalPlanner::plan(Ast::ShowTables).unwrap();
         assert!(matches!(logical_plan, LogicalPlan::ShowTables));
     }
 
@@ -195,7 +200,8 @@ mod tests {
     fn logical_plan_for_describe_table() {
         let logical_plan = LogicalPlanner::plan(Ast::DescribeTable {
             table_name: "employees".to_string(),
-        });
+        })
+        .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::DescribeTable { table_name } if table_name == "employees"
@@ -210,7 +216,8 @@ mod tests {
             where_clause: None,
             order_by: None,
             limit: None,
-        });
+        })
+        .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Scan { table_name } if table_name == "employees"
@@ -221,11 +228,12 @@ mod tests {
     fn logical_plan_for_select_with_projection() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
-            projection: Projection::Columns(vec![String::from("id")]),
+            projection: Projection::Columns(vec!["id".to_string()]),
             where_clause: None,
             order_by: None,
             limit: None,
-        });
+        })
+        .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Projection {base_plan: _, columns } if columns.iter().eq(&["id"])
@@ -236,11 +244,12 @@ mod tests {
     fn logical_plan_for_select_with_projection_validating_the_base_plan() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
-            projection: Projection::Columns(vec![String::from("id")]),
+            projection: Projection::Columns(vec!["id".to_string()]),
             where_clause: None,
             order_by: None,
             limit: None,
-        });
+        })
+        .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Projection {base_plan, columns: _ }
@@ -260,7 +269,8 @@ mod tests {
             )),
             order_by: None,
             limit: None,
-        });
+        })
+        .unwrap();
 
         assert!(matches!(
             logical_plan,
@@ -283,7 +293,8 @@ mod tests {
             )),
             order_by: None,
             limit: None,
-        });
+        })
+        .unwrap();
 
         assert!(matches!(
             logical_plan,
@@ -306,7 +317,8 @@ mod tests {
             where_clause: None,
             order_by: Some(vec![asc!("id")]),
             limit: None,
-        });
+        })
+        .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Sort {base_plan, ordering_keys }
@@ -322,7 +334,8 @@ mod tests {
             where_clause: None,
             order_by: Some(vec![desc!("id")]),
             limit: None,
-        });
+        })
+        .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Sort {base_plan, ordering_keys }
@@ -338,7 +351,8 @@ mod tests {
             where_clause: None,
             order_by: Some(vec![asc!("id"), desc!("name")]),
             limit: None,
-        });
+        })
+        .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Sort {base_plan, ordering_keys }
@@ -354,7 +368,8 @@ mod tests {
             where_clause: None,
             order_by: None,
             limit: Some(10),
-        });
+        })
+        .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Limit { base_plan, count: _ } if matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
@@ -369,7 +384,8 @@ mod tests {
             where_clause: None,
             order_by: None,
             limit: Some(10),
-        });
+        })
+        .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Limit { base_plan: _, count } if count == 10
@@ -384,7 +400,8 @@ mod tests {
             where_clause: None,
             order_by: None,
             limit: Some(10),
-        });
+        })
+        .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Limit { base_plan: _, count } if count == 10
@@ -399,7 +416,8 @@ mod tests {
             where_clause: None,
             order_by: None,
             limit: Some(10),
-        });
+        })
+        .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Limit {base_plan, count: _ }
@@ -416,7 +434,8 @@ mod tests {
             where_clause: None,
             order_by: None,
             limit: Some(10),
-        });
+        })
+        .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Limit {base_plan, count: _ }
@@ -433,7 +452,8 @@ mod tests {
             where_clause: None,
             order_by: Some(vec![asc!("id"), desc!("name")]),
             limit: Some(10),
-        });
+        })
+        .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Limit {base_plan, count}

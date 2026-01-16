@@ -324,7 +324,7 @@ impl Relop {
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().map_err(ClientError::Parse)?;
 
-        let plan = LogicalPlanner::plan(ast);
+        let plan = LogicalPlanner::plan(ast).map_err(ClientError::Plan)?;
 
         let executor = Executor::new(&self.catalog);
         executor.execute(plan).map_err(ClientError::Execution)

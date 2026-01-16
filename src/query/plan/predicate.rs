@@ -16,25 +16,46 @@ pub(crate) enum Predicate {
         /// The literal value to compare against.
         literal: Literal,
     },
+    /// A LIKE predicate (e.g., `name LIKE 'Joh%'`).
     Like {
+        /// The column name to match against.
         column_name: String,
+        /// The compiled regular expression for the pattern.
         regex: regex::Regex,
     },
 }
 
-impl From<WhereClause> for Predicate {
-    fn from(clause: WhereClause) -> Self {
+use crate::query::plan::error::PlanningError;
+
+impl TryFrom<WhereClause> for Predicate {
+    type Error = PlanningError;
+
+    fn try_from(clause: WhereClause) -> Result<Self, Self::Error> {
         match clause {
             WhereClause::Comparison {
                 column_name,
                 operator,
                 literal,
-            } => Predicate::Comparison {
+            } => Ok(Predicate::Comparison {
                 column_name,
                 operator: operator.into(),
                 literal,
-            },
-            _ => unimplemented!(),
+            }),
+            WhereClause::Like {
+                column_name,
+                literal,
+            } => {
+                let regex_pattern = match literal {
+                    Literal::Text(pattern) => pattern,
+                    _ => {
+                        return Err(PlanningError::InvalidRegex(
+                            "Like clause requires a string literal".to_string(),
+                        ))
+                    }
+                };
+                let regex = regex::Regex::new(&regex_pattern)?;
+                Ok(Predicate::Like { column_name, regex })
+            }
         }
     }
 }
@@ -458,11 +479,30 @@ mod predicate_tests {
     fn predicate_from_where_clause() {
         let clause = WhereClause::comparison("age", BinaryOperator::Greater, Literal::Int(30));
 
-        let predicate = Predicate::from(clause);
+        let predicate = Predicate::try_from(clause).unwrap();
         assert!(matches!(
             predicate,
             Predicate::Comparison {column_name, operator, literal}
                 if column_name == "age" && operator == LogicalOperator::Greater && literal == Literal::Int(30)
+        ));
+    }
+
+    #[test]
+    fn predicate_from_where_clause_with_invalid_regex_like() {
+        let clause = WhereClause::like("name", Literal::Text("[".to_string()));
+
+        let result = Predicate::try_from(clause);
+        assert!(matches!(result, Err(PlanningError::InvalidRegex(_))));
+    }
+
+    #[test]
+    fn predicate_from_where_clause_with_valid_regex_like() {
+        let clause = WhereClause::like("name", Literal::Text("J%".to_string()));
+
+        let result = Predicate::try_from(clause);
+        assert!(matches!(
+            result,
+            Ok(Predicate::Like { column_name, regex: _ }) if column_name == "name"
         ));
     }
 
