@@ -268,9 +268,9 @@ mod tests {
     use crate::query::plan::predicate::LogicalOperator;
 
     use crate::storage::table_store::TableStore;
-    use crate::test_utils::{assert_no_more_rows, assert_row, create_schema};
+    use crate::test_utils::create_schema;
     use crate::types::column_type::ColumnType;
-    use crate::{asc, desc, row, rows};
+    use crate::{asc, assert_next_row, assert_no_more_rows, desc, row, rows};
 
     #[test]
     fn scan_result_set() {
@@ -286,10 +286,8 @@ mod tests {
 
         let mut iterator = result_set.iterator().unwrap();
 
-        assert_row(iterator.as_mut())
-            .match_column("id", 1)
-            .match_column("name", "relop");
-        assert_no_more_rows(iterator.as_mut());
+        assert_next_row!(iterator.as_mut(), "id" => 1, "name" => "relop");
+        assert_no_more_rows!(iterator.as_mut());
     }
 
     #[test]
@@ -302,7 +300,7 @@ mod tests {
         let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
 
         let mut iterator = result_set.iterator().unwrap();
-        assert_row(iterator.as_mut()).does_not_have_column("name");
+        assert_next_row!(iterator.as_mut(), !"name");
     }
 
     #[test]
@@ -320,10 +318,8 @@ mod tests {
         let projected_result_set = ProjectResultSet::new(result_set, &["name"]).unwrap();
         let mut iterator = projected_result_set.iterator().unwrap();
 
-        assert_row(iterator.as_mut())
-            .match_column("name", "relop")
-            .does_not_have_column("id");
-        assert_no_more_rows(iterator.as_mut());
+        assert_next_row!(iterator.as_mut(), "name" => "relop", ! "id");
+        assert_no_more_rows!(iterator.as_mut());
     }
 
     #[test]
@@ -345,10 +341,8 @@ mod tests {
 
         let mut iterator = projected_result_set.iterator().unwrap();
 
-        assert_row(iterator.as_mut())
-            .match_column("name", "relop")
-            .does_not_have_column("id");
-        assert_no_more_rows(iterator.as_mut());
+        assert_next_row!(iterator.as_mut(), "name" => "relop", ! "id");
+        assert_no_more_rows!(iterator.as_mut());
     }
 
     #[test]
@@ -382,8 +376,8 @@ mod tests {
         let filter_result_set = FilterResultSet::new(result_set, predicate);
         let mut iterator = filter_result_set.iterator().unwrap();
 
-        assert_row(iterator.as_mut()).match_column("id", 1);
-        assert_no_more_rows(iterator.as_mut());
+        assert_next_row!(iterator.as_mut(), "id" => 1);
+        assert_no_more_rows!(iterator.as_mut());
     }
 
     #[test]
@@ -401,7 +395,7 @@ mod tests {
         let predicate = Predicate::comparison("id", LogicalOperator::Eq, Literal::Int(3));
         let filter_result_set = FilterResultSet::new(result_set, predicate);
         let mut iterator = filter_result_set.iterator().unwrap();
-        assert_no_more_rows(iterator.as_mut());
+        assert_no_more_rows!(iterator.as_mut());
     }
 
     #[test]
@@ -424,8 +418,8 @@ mod tests {
         let filter_result_set = FilterResultSet::new(result_set, predicate);
         let mut iterator = filter_result_set.iterator().unwrap();
 
-        assert_row(iterator.as_mut()).match_column("name", "relop");
-        assert_no_more_rows(iterator.as_mut());
+        assert_next_row!(iterator.as_mut(), "name" => "relop");
+        assert_no_more_rows!(iterator.as_mut());
     }
 
     #[test]
@@ -441,9 +435,9 @@ mod tests {
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
-        assert_row(iterator.as_mut()).match_column("id", 1);
-        assert_row(iterator.as_mut()).match_column("id", 2);
-        assert_no_more_rows(iterator.as_mut());
+        assert_next_row!(iterator.as_mut(), "id" => 1);
+        assert_next_row!(iterator.as_mut(), "id" => 2);
+        assert_no_more_rows!(iterator.as_mut());
     }
 
     #[test]
@@ -459,9 +453,9 @@ mod tests {
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
-        assert_row(iterator.as_mut()).match_column("id", 2);
-        assert_row(iterator.as_mut()).match_column("id", 1);
-        assert_no_more_rows(iterator.as_mut());
+        assert_next_row!(iterator.as_mut(), "id" => 2);
+        assert_next_row!(iterator.as_mut(), "id" => 1);
+        assert_no_more_rows!(iterator.as_mut());
     }
 
     #[test]
@@ -480,15 +474,9 @@ mod tests {
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
-        assert_row(iterator.as_mut())
-            .match_column("id", 1)
-            .match_column("rank", 10);
-
-        assert_row(iterator.as_mut())
-            .match_column("id", 1)
-            .match_column("rank", 20);
-
-        assert_no_more_rows(iterator.as_mut());
+        assert_next_row!(iterator.as_mut(), "id" => 1, "rank" => 10);
+        assert_next_row!(iterator.as_mut(), "id" => 1, "rank" => 20);
+        assert_no_more_rows!(iterator.as_mut());
     }
 
     #[test]
@@ -509,9 +497,9 @@ mod tests {
         let limit_result_set = LimitResultSet::new(Box::new(ordering_result_set), 2);
         let mut iterator = limit_result_set.iterator().unwrap();
 
-        assert_row(iterator.as_mut()).match_column("id", 1);
-        assert_row(iterator.as_mut()).match_column("id", 2);
-        assert_no_more_rows(iterator.as_mut());
+        assert_next_row!(iterator.as_mut(), "id" => 1);
+        assert_next_row!(iterator.as_mut(), "id" => 2);
+        assert_no_more_rows!(iterator.as_mut());
     }
     #[test]
     fn limit_result_set() {
@@ -528,10 +516,8 @@ mod tests {
         let limit_result_set = LimitResultSet::new(result_set, 1);
         let mut iterator = limit_result_set.iterator().unwrap();
 
-        assert_row(iterator.as_mut())
-            .match_column("id", 1)
-            .match_column("name", "relop");
-        assert_no_more_rows(iterator.as_mut());
+        assert_next_row!(iterator.as_mut(), "id" => 1, "name" => "relop");
+        assert_no_more_rows!(iterator.as_mut());
     }
 
     #[test]
@@ -549,14 +535,9 @@ mod tests {
         let limit_result_set = LimitResultSet::new(result_set, 4);
         let mut iterator = limit_result_set.iterator().unwrap();
 
-        assert_row(iterator.as_mut())
-            .match_column("id", 1)
-            .match_column("name", "relop");
-
-        assert_row(iterator.as_mut())
-            .match_column("id", 2)
-            .match_column("name", "query");
-        assert_no_more_rows(iterator.as_mut());
+        assert_next_row!(iterator.as_mut(), "id" => 1, "name" => "relop");
+        assert_next_row!(iterator.as_mut(), "id" => 2, "name" => "query");
+        assert_no_more_rows!(iterator.as_mut());
     }
 
     #[test]
@@ -575,10 +556,8 @@ mod tests {
         let limit_result_set = LimitResultSet::new(Box::new(projected_result_set), 1);
         let mut iterator = limit_result_set.iterator().unwrap();
 
-        assert_row(iterator.as_mut())
-            .match_column("id", 1)
-            .does_not_have_column("name");
-        assert_no_more_rows(iterator.as_mut());
+        assert_next_row!(iterator.as_mut(), "id" => 1, ! "name");
+        assert_no_more_rows!(iterator.as_mut());
     }
 
     #[test]

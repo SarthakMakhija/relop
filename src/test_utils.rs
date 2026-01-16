@@ -55,7 +55,6 @@ pub fn insert_rows(catalog: &Catalog, table_name: &str, rows: Vec<Row>) {
 /// ```
 /// use relop::row;
 /// use relop::storage::row::Row;
-/// // use relop::types::column_value::ColumnValue;
 ///
 /// let row = row![1, "text"];
 /// /*
@@ -129,11 +128,32 @@ macro_rules! desc {
     };
 }
 
+/// Asserts that the next row in the iterator matches the specified columns and values.
+///
+/// # Examples
+///
+/// ```
+/// use relop::assert_next_row;
+/// // assert_row!(iter, "id" => 1, "name" => "relop");
+/// ```
+#[macro_export]
+macro_rules! assert_next_row {
+    ($iterator:expr $(, $col:literal => $val:expr )* $(, ! $missing:literal )* $(,)?) => {{
+        $crate::test_utils::assert_row($iterator)
+            $(
+                .match_column($col, $val)
+            )*
+            $(
+                .does_not_have_column($missing)
+            )*
+    }};
+}
+
 /// A helper struct for asserting properties of a single `RowView`.
 ///
 /// `RowAssertion` provides a fluent interface for checking expected values of columns
 /// within a row. It is typically created via the [`assert_row`] function.
-pub struct RowAssertion<'a>(RowView<'a>);
+pub(crate) struct RowAssertion<'a>(RowView<'a>);
 
 /// Creates a `RowAssertion` for the next row in the given iterator.
 ///
@@ -143,11 +163,26 @@ pub struct RowAssertion<'a>(RowView<'a>);
 /// # Panics
 ///
 /// Panics if the iterator yields `None` (no more rows) or if it yields an `Err`.
-pub fn assert_row<'a>(
+pub(crate) fn assert_row<'a>(
     iterator: &'a mut dyn Iterator<Item = Result<RowView, ExecutionError>>,
 ) -> RowAssertion<'a> {
     let row_view = iterator.next().unwrap().unwrap();
     RowAssertion(row_view)
+}
+
+/// Asserts that there are no more rows in the iterator.
+///
+/// # Examples
+///
+/// ```
+/// use relop::assert_no_more_rows;
+/// // assert_no_more_rows!(iter);
+/// ```
+#[macro_export]
+macro_rules! assert_no_more_rows {
+    ($iterator:expr) => {
+        $crate::test_utils::assert_no_more_rows($iterator)
+    };
 }
 
 /// Asserts that there are no more rows in the iterator.
@@ -159,7 +194,9 @@ pub fn assert_row<'a>(
 /// # Panics
 ///
 /// Panics if the iterator yields `Some` (meaning there are more rows).
-pub fn assert_no_more_rows(iterator: &mut dyn Iterator<Item = Result<RowView, ExecutionError>>) {
+pub(crate) fn assert_no_more_rows(
+    iterator: &mut dyn Iterator<Item = Result<RowView, ExecutionError>>,
+) {
     assert!(iterator.next().is_none(), "Expected no more rows");
 }
 
@@ -175,7 +212,7 @@ impl RowAssertion<'_> {
     /// # Panics
     ///
     /// Panics if the column does not exist or if the value does not match.
-    pub fn match_column<V: Into<ColumnValue>>(self, column: &str, expected: V) -> Self {
+    pub(crate) fn match_column<V: Into<ColumnValue>>(self, column: &str, expected: V) -> Self {
         let actual = self.0.column_value_by(column).expect("Column not found");
         assert_eq!(actual, &expected.into(), "Mismatch in column '{}'", column);
         self
@@ -190,7 +227,7 @@ impl RowAssertion<'_> {
     /// # Panics
     ///
     /// Panics if the column exists (is not `None`).
-    pub fn does_not_have_column(self, column: &str) -> Self {
+    pub(crate) fn does_not_have_column(self, column: &str) -> Self {
         assert!(self.0.column_value_by(column).is_none());
         self
     }

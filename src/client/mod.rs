@@ -334,15 +334,15 @@ impl Relop {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_next_row;
+    use crate::assert_no_more_rows;
     use crate::catalog::error::{CatalogError, InsertError};
     use crate::query::executor::error::ExecutionError;
     use crate::query::lexer::error::LexError;
     use crate::query::parser::error::ParseError;
     use crate::row;
     use crate::rows;
-    use crate::test_utils::{
-        assert_no_more_rows, assert_row, create_schema, create_schema_with_primary_key, insert_rows,
-    };
+    use crate::test_utils::{create_schema, create_schema_with_primary_key, insert_rows};
     use crate::types::column_type::ColumnType;
 
     #[test]
@@ -477,7 +477,6 @@ mod tests {
         let relop = Relop::new(Catalog::new());
 
         let query_result = relop.execute("show \\");
-
         assert!(matches!(
             query_result,
             Err(ClientError::Lex(LexError::UnexpectedCharacter(ch))) if ch == '\\'
@@ -507,8 +506,8 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
 
         let mut row_iterator = result_set.iterator().unwrap();
-        assert_row(row_iterator.as_mut()).match_column("id", 1);
-        assert_row(row_iterator.as_mut()).match_column("id", 2);
+        assert_next_row!(row_iterator.as_mut(), "id" => 1);
+        assert_next_row!(row_iterator.as_mut(), "id" => 2);
     }
 
     #[test]
@@ -537,8 +536,8 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
 
         let mut row_iterator = result_set.iterator().unwrap();
-        assert_row(row_iterator.as_mut()).match_column("rank", 10);
-        assert_row(row_iterator.as_mut()).match_column("rank", 20);
+        assert_next_row!(row_iterator.as_mut(), "rank" => 10);
+        assert_next_row!(row_iterator.as_mut(), "rank" => 20);
     }
 
     #[test]
@@ -574,8 +573,8 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
 
         let mut row_iterator = result_set.iterator().unwrap();
-        assert_row(row_iterator.as_mut()).match_column("id", 1);
-        assert_row(row_iterator.as_mut()).match_column("id", 2);
+        assert_next_row!(row_iterator.as_mut(), "id" => 1);
+        assert_next_row!(row_iterator.as_mut(), "id" => 2);
     }
 
     #[test]
@@ -596,13 +595,8 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
 
-        assert_row(row_iterator.as_mut())
-            .match_column("id", 1)
-            .match_column("rank", 20);
-
-        assert_row(row_iterator.as_mut())
-            .match_column("id", 1)
-            .match_column("rank", 10);
+        assert_next_row!(row_iterator.as_mut(), "id" => 1, "rank" => 20);
+        assert_next_row!(row_iterator.as_mut(), "id" => 1, "rank" => 10);
     }
 
     #[test]
@@ -617,9 +611,9 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
 
         let mut row_iterator = result_set.iterator().unwrap();
-        assert_row(row_iterator.as_mut()).match_column("id", 1);
-        assert_row(row_iterator.as_mut()).match_column("id", 2);
-        assert_no_more_rows(row_iterator.as_mut());
+        assert_next_row!(row_iterator.as_mut(), "id" => 1);
+        assert_next_row!(row_iterator.as_mut(), "id" => 2);
+        assert_no_more_rows!(row_iterator.as_mut());
     }
 
     #[test]
@@ -644,11 +638,8 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
 
         let mut row_iterator = result_set.iterator().unwrap();
-        assert_row(row_iterator.as_mut())
-            .match_column("name", "relop")
-            .match_column("id", 1);
-
-        assert_no_more_rows(row_iterator.as_mut());
+        assert_next_row!(row_iterator.as_mut(), "name" => "relop", "id" => 1);
+        assert_no_more_rows!(row_iterator.as_mut());
     }
 
     #[test]
@@ -673,10 +664,8 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
 
-        assert_row(row_iterator.as_mut())
-            .match_column("id", 1)
-            .match_column("name", "relop");
-        assert_no_more_rows(row_iterator.as_mut());
+        assert_next_row!(row_iterator.as_mut(), "id" => 1, "name" => "relop");
+        assert_no_more_rows!(row_iterator.as_mut());
     }
 
     #[test]
@@ -693,7 +682,6 @@ mod tests {
             "employees",
             rows![[1, "relop"], [2, "query"]],
         );
-
         let query_result = relop
             .execute("select * from employees where id > 1")
             .unwrap();
@@ -701,10 +689,8 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
 
         let mut row_iterator = result_set.iterator().unwrap();
-        assert_row(row_iterator.as_mut())
-            .match_column("id", 2)
-            .match_column("name", "query");
-        assert_no_more_rows(row_iterator.as_mut());
+        assert_next_row!(row_iterator.as_mut(), "id" => 2, "name" => "query");
+        assert_no_more_rows!(row_iterator.as_mut());
     }
 
     #[test]
@@ -721,7 +707,6 @@ mod tests {
             "employees",
             rows![[1, "relop"], [2, "query"]],
         );
-
         let query_result = relop
             .execute("select name from employees where id != 1")
             .unwrap();
@@ -729,10 +714,8 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
 
         let mut row_iterator = result_set.iterator().unwrap();
-        assert_row(row_iterator.as_mut())
-            .match_column("name", "query")
-            .does_not_have_column("id");
-        assert_no_more_rows(row_iterator.as_mut());
+        assert_next_row!(row_iterator.as_mut(), "name" => "query", ! "id");
+        assert_no_more_rows!(row_iterator.as_mut());
     }
 
     #[test]
@@ -757,15 +740,9 @@ mod tests {
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
 
-        assert_row(row_iterator.as_mut())
-            .match_column("id", 1)
-            .match_column("name", "relop");
-
-        assert_row(row_iterator.as_mut())
-            .match_column("id", 3)
-            .match_column("name", "relational");
-
-        assert_no_more_rows(row_iterator.as_mut());
+        assert_next_row!(row_iterator.as_mut(), "id" => 1, "name" => "relop");
+        assert_next_row!(row_iterator.as_mut(), "id" => 3, "name" => "relational");
+        assert_no_more_rows!(row_iterator.as_mut());
     }
 
     #[test]
@@ -789,7 +766,6 @@ mod tests {
 
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
-
-        assert_no_more_rows(row_iterator.as_mut());
+        assert_no_more_rows!(row_iterator.as_mut());
     }
 }
