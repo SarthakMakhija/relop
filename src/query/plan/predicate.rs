@@ -1,5 +1,5 @@
 use crate::query::executor::error::ExecutionError;
-use crate::query::parser::ast::{Literal, Operator, WhereClause};
+use crate::query::parser::ast::{BinaryOperator, Literal, WhereClause};
 
 use crate::storage::row_view::RowView;
 use crate::types::column_value::ColumnValue;
@@ -73,15 +73,16 @@ pub(crate) enum LogicalOperator {
     LesserEq,
 }
 
-impl From<Operator> for LogicalOperator {
-    fn from(operator: Operator) -> Self {
+impl From<BinaryOperator> for LogicalOperator {
+    fn from(operator: BinaryOperator) -> Self {
         match operator {
-            Operator::Eq => LogicalOperator::Eq,
-            Operator::Greater => LogicalOperator::Greater,
-            Operator::GreaterEq => LogicalOperator::GreaterEq,
-            Operator::Lesser => LogicalOperator::Lesser,
-            Operator::LesserEq => LogicalOperator::LesserEq,
-            Operator::NotEq => LogicalOperator::NotEq,
+            BinaryOperator::Eq => LogicalOperator::Eq,
+            BinaryOperator::Greater => LogicalOperator::Greater,
+            BinaryOperator::GreaterEq => LogicalOperator::GreaterEq,
+            BinaryOperator::Lesser => LogicalOperator::Lesser,
+            BinaryOperator::LesserEq => LogicalOperator::LesserEq,
+            BinaryOperator::NotEq => LogicalOperator::NotEq,
+            _ => panic!("unsupported binary operator"),
         }
     }
 }
@@ -135,17 +136,20 @@ impl Predicate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::query::parser::ast::{Literal, Operator};
+    use crate::query::parser::ast::{BinaryOperator, Literal};
 
     #[test]
     fn logical_operator_from_eq_operator() {
-        assert_eq!(LogicalOperator::from(Operator::Eq), LogicalOperator::Eq);
+        assert_eq!(
+            LogicalOperator::from(BinaryOperator::Eq),
+            LogicalOperator::Eq
+        );
     }
 
     #[test]
     fn logical_operator_from_not_eq_operator() {
         assert_eq!(
-            LogicalOperator::from(Operator::NotEq),
+            LogicalOperator::from(BinaryOperator::NotEq),
             LogicalOperator::NotEq
         );
     }
@@ -153,7 +157,7 @@ mod tests {
     #[test]
     fn logical_operator_from_greater_operator() {
         assert_eq!(
-            LogicalOperator::from(Operator::Greater),
+            LogicalOperator::from(BinaryOperator::Greater),
             LogicalOperator::Greater
         );
     }
@@ -161,7 +165,7 @@ mod tests {
     #[test]
     fn logical_operator_from_greater_eq_operator() {
         assert_eq!(
-            LogicalOperator::from(Operator::GreaterEq),
+            LogicalOperator::from(BinaryOperator::GreaterEq),
             LogicalOperator::GreaterEq
         );
     }
@@ -169,7 +173,7 @@ mod tests {
     #[test]
     fn logical_operator_from_lesser_operator() {
         assert_eq!(
-            LogicalOperator::from(Operator::Lesser),
+            LogicalOperator::from(BinaryOperator::Lesser),
             LogicalOperator::Lesser
         );
     }
@@ -177,9 +181,15 @@ mod tests {
     #[test]
     fn logical_operator_from_lesser_eq_operator() {
         assert_eq!(
-            LogicalOperator::from(Operator::LesserEq),
+            LogicalOperator::from(BinaryOperator::LesserEq),
             LogicalOperator::LesserEq
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "unsupported binary operator")]
+    fn attempt_to_create_logical_operator_from_like() {
+        let _ = LogicalOperator::from(BinaryOperator::Like);
     }
 
     #[test]
@@ -443,7 +453,7 @@ mod predicate_tests {
     fn predicate_from_where_clause() {
         let clause = WhereClause::Comparison {
             column_name: "age".to_string(),
-            operator: Operator::Greater,
+            operator: BinaryOperator::Greater,
             literal: Literal::Int(30),
         };
 

@@ -35,15 +35,15 @@ pub(crate) enum WhereClause {
         /// The column name to compare.
         column_name: String,
         /// The comparison operator.
-        operator: Operator,
+        operator: BinaryOperator,
         /// The literal value to compare against.
         literal: Literal,
     },
 }
 
-/// `Operator` defines the comparison operators supported in a WHERE clause.
+/// `BinaryOperator` defines the binary operators supported in a WHERE clause.
 #[derive(Debug, Eq, PartialEq)]
-pub(crate) enum Operator {
+pub(crate) enum BinaryOperator {
     /// Equal to `=`.
     Eq,
     /// Greater than `>`.
@@ -56,21 +56,24 @@ pub(crate) enum Operator {
     LesserEq,
     /// Not equal to `!=`.
     NotEq,
+    /// Like
+    Like,
 }
 
-impl Operator {
-    /// Converts a `Token` into an `Operator`.
+impl BinaryOperator {
+    /// Converts a `Token` into an `BinaryOperator`.
     ///
-    /// Returns `Some(Operator)` if the token represents a valid comparison operator,
+    /// Returns `Some(BinaryOperator)` if the token represents a valid binary operator,
     /// otherwise returns `None`.
     pub(crate) fn from_token(token: &Token) -> Result<Self, ParseError> {
         match token.token_type() {
-            TokenType::Equal => Ok(Operator::Eq),
-            TokenType::Greater => Ok(Operator::Greater),
-            TokenType::GreaterEqual => Ok(Operator::GreaterEq),
-            TokenType::Lesser => Ok(Operator::Lesser),
-            TokenType::LesserEqual => Ok(Operator::LesserEq),
-            TokenType::NotEqual => Ok(Operator::NotEq),
+            TokenType::Equal => Ok(BinaryOperator::Eq),
+            TokenType::Greater => Ok(BinaryOperator::Greater),
+            TokenType::GreaterEqual => Ok(BinaryOperator::GreaterEq),
+            TokenType::Lesser => Ok(BinaryOperator::Lesser),
+            TokenType::LesserEqual => Ok(BinaryOperator::LesserEq),
+            TokenType::NotEqual => Ok(BinaryOperator::NotEq),
+            _ if token.is_keyword("like") => Ok(BinaryOperator::Like),
             _ => Err(ParseError::UnexpectedToken {
                 expected: "operator".to_string(),
                 found: token.lexeme().to_string(),
@@ -118,50 +121,71 @@ impl Literal {
 
 #[cfg(test)]
 mod operator_tests {
-    use crate::query::lexer::token::Token;
-    use crate::query::parser::ast::Operator;
+    use crate::query::lexer::token::{Token, TokenType};
+    use crate::query::parser::ast::BinaryOperator;
     use crate::query::parser::error::ParseError;
 
     #[test]
     fn from_token_equal() {
         let token = Token::equal();
-        assert_eq!(Operator::from_token(&token), Ok(Operator::Eq));
+        assert_eq!(BinaryOperator::from_token(&token), Ok(BinaryOperator::Eq));
     }
 
     #[test]
     fn from_token_greater() {
         let token = Token::greater();
-        assert_eq!(Operator::from_token(&token), Ok(Operator::Greater));
+        assert_eq!(
+            BinaryOperator::from_token(&token),
+            Ok(BinaryOperator::Greater)
+        );
     }
 
     #[test]
     fn from_token_greater_equal() {
         let token = Token::greater_equal();
-        assert_eq!(Operator::from_token(&token), Ok(Operator::GreaterEq));
+        assert_eq!(
+            BinaryOperator::from_token(&token),
+            Ok(BinaryOperator::GreaterEq)
+        );
     }
 
     #[test]
     fn from_token_lesser() {
         let token = Token::lesser();
-        assert_eq!(Operator::from_token(&token), Ok(Operator::Lesser));
+        assert_eq!(
+            BinaryOperator::from_token(&token),
+            Ok(BinaryOperator::Lesser)
+        );
     }
 
     #[test]
     fn from_token_lesser_equal() {
         let token = Token::lesser_equal();
-        assert_eq!(Operator::from_token(&token), Ok(Operator::LesserEq));
+        assert_eq!(
+            BinaryOperator::from_token(&token),
+            Ok(BinaryOperator::LesserEq)
+        );
     }
 
     #[test]
     fn from_token_not_equal() {
         let token = Token::not_equal();
-        assert_eq!(Operator::from_token(&token), Ok(Operator::NotEq));
+        assert_eq!(
+            BinaryOperator::from_token(&token),
+            Ok(BinaryOperator::NotEq)
+        );
+    }
+
+    #[test]
+    fn from_token_like() {
+        let token = Token::new("like", TokenType::Keyword);
+        assert_eq!(BinaryOperator::from_token(&token), Ok(BinaryOperator::Like));
     }
 
     #[test]
     fn from_token_semicolon() {
         let token = Token::semicolon();
-        let result = Operator::from_token(&token);
+        let result = BinaryOperator::from_token(&token);
 
         assert!(matches!(
             result,

@@ -5,7 +5,7 @@ pub(crate) mod projection;
 
 use crate::query::lexer::token::{Token, TokenStream, TokenType};
 use crate::query::lexer::token_cursor::TokenCursor;
-use crate::query::parser::ast::{Ast, Literal, Operator, WhereClause};
+use crate::query::parser::ast::{Ast, BinaryOperator, Literal, WhereClause};
 use crate::query::parser::error::ParseError;
 use crate::query::parser::ordering_key::{OrderingDirection, OrderingKey};
 use crate::query::parser::projection::Projection;
@@ -168,9 +168,9 @@ impl Parser {
         })
     }
 
-    fn expect_operator(&mut self) -> Result<Operator, ParseError> {
+    fn expect_operator(&mut self) -> Result<BinaryOperator, ParseError> {
         match self.cursor.next() {
-            Some(token) => Operator::from_token(token),
+            Some(token) => BinaryOperator::from_token(token),
             None => Err(ParseError::UnexpectedEndOfInput),
         }
     }
@@ -911,7 +911,7 @@ mod select_where_with_single_comparison_tests {
                     projection == Projection::All &&
                     matches!(&where_clause, Some(WhereClause::Comparison { column_name, operator, literal })
                         if column_name == "name" &&
-                            *operator == Operator::Eq &&
+                            *operator == BinaryOperator::Eq &&
                                 *literal == Literal::Text("relop".to_string())
                     )
             )
@@ -941,7 +941,7 @@ mod select_where_with_single_comparison_tests {
                     projection == Projection::All &&
                     matches!(&where_clause, Some(WhereClause::Comparison { column_name, operator, literal })
                         if column_name == "name" &&
-                            *operator == Operator::Eq &&
+                            *operator == BinaryOperator::Eq &&
                                 *literal == Literal::Text("relop".to_string())
                     )
             )

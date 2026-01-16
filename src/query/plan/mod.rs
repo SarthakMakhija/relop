@@ -181,7 +181,7 @@ impl LogicalPlan {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::query::parser::ast::{Literal, Operator};
+    use crate::query::parser::ast::{BinaryOperator, Literal};
     use crate::query::parser::projection::Projection;
     use crate::query::plan::predicate::LogicalOperator;
     use crate::{asc, desc};
@@ -256,7 +256,7 @@ mod tests {
             projection: Projection::All,
             where_clause: Some(WhereClause::Comparison {
                 column_name: "age".to_string(),
-                operator: Operator::Greater,
+                operator: BinaryOperator::Greater,
                 literal: Literal::Int(30),
             }),
             order_by: None,
@@ -278,7 +278,7 @@ mod tests {
             projection: Projection::Columns(vec![String::from("id")]),
             where_clause: Some(WhereClause::Comparison {
                 column_name: "age".to_string(),
-                operator: Operator::Greater,
+                operator: BinaryOperator::Greater,
                 literal: Literal::Int(30),
             }),
             order_by: None,
