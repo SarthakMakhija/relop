@@ -48,9 +48,9 @@ fn main() {
     let result_set = query_result.result_set().unwrap();
     
     // 5. Iterate Results
-    for row_view_result in result_set.iterator() {
+    for row_view_result in result_set.iterator().unwrap() {
       let row_view = row_view_result.unwrap();
-      println!("Found employee: {:?}", row_view.column("name").unwrap());
+      println!("Found employee: {:?}", row_view.column_value_by("name").unwrap());
     }
 }
 ```
