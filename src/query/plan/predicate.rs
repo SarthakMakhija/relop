@@ -36,11 +36,11 @@ impl TryFrom<WhereClause> for Predicate {
                 column_name,
                 operator,
                 literal,
-            } => Ok(Predicate::Comparison {
-                column_name,
-                operator: operator.into(),
+            } => Ok(Predicate::comparison(
+                &column_name,
+                operator.into(),
                 literal,
-            }),
+            )),
             WhereClause::Like {
                 column_name,
                 literal,
@@ -54,7 +54,7 @@ impl TryFrom<WhereClause> for Predicate {
                     }
                 };
                 let regex = regex::Regex::new(&regex_pattern)?;
-                Ok(Predicate::Like { column_name, regex })
+                Ok(Predicate::like(&column_name, regex))
             }
         }
     }
@@ -146,6 +146,13 @@ impl LogicalOperator {
 }
 
 impl Predicate {
+    /// Creates a new `Comparison` predicate.
+    ///
+    /// # Arguments
+    ///
+    /// * `column_name` - The name of the column to compare.
+    /// * `operator` - The logical operator to use for comparison.
+    /// * `literal` - The literal value to compare against.
     pub(crate) fn comparison(
         column_name: &str,
         operator: LogicalOperator,
@@ -155,6 +162,19 @@ impl Predicate {
             column_name: column_name.to_string(),
             operator,
             literal,
+        }
+    }
+
+    /// Creates a new `Like` predicate.
+    ///
+    /// # Arguments
+    ///
+    /// * `column_name` - The name of the column to match against.
+    /// * `pattern` - The compiled regular expression pattern.
+    pub(crate) fn like(column_name: &str, pattern: regex::Regex) -> Self {
+        Predicate::Like {
+            column_name: column_name.to_string(),
+            regex: pattern,
         }
     }
 }
@@ -474,6 +494,32 @@ mod predicate_tests {
     use crate::storage::row_view::RowView;
     use crate::test_utils::create_schema;
     use crate::types::column_type::ColumnType;
+
+    #[test]
+    fn create_comparison_predicate() {
+        let predicate = Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(18));
+        assert!(matches!(
+            predicate,
+            Predicate::Comparison {
+                column_name,
+                operator: LogicalOperator::Greater,
+                literal: Literal::Int(18),
+            } if column_name == "age"
+        ));
+    }
+
+    #[test]
+    fn create_like_predicate() {
+        let regex = regex::Regex::new("^J").unwrap();
+        let predicate = Predicate::like("name", regex);
+        assert!(matches!(
+            predicate,
+            Predicate::Like {
+                column_name,
+                regex: _,
+            } if column_name == "name"
+        ));
+    }
 
     #[test]
     fn predicate_from_where_clause() {
