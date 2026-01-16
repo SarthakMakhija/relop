@@ -86,9 +86,9 @@ impl TableStore {
 
 #[cfg(test)]
 mod tests {
-    use crate::{row, rows};
     use super::*;
     use crate::types::column_value::ColumnValue;
+    use crate::{row, rows};
 
     #[test]
     fn insert_row_and_get_row_id() {
