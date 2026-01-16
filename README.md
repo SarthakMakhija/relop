@@ -22,6 +22,7 @@ use relop::schema::Schema;
 use relop::types::column_type::ColumnType;
 use relop::storage::row::Row;
 use relop::types::column_value::ColumnValue;
+use relop::row;
 
 fn main() {
     // 1. Initialize the system
@@ -35,13 +36,7 @@ fn main() {
     relop.create_table("employees", schema).unwrap();
 
     // 3. Insert Data
-    relop.insert_into(
-        "employees", 
-        Row::filled(vec![
-            ColumnValue::int(1), 
-            ColumnValue::text("Alice")
-        ])
-    ).unwrap();
+    relop.insert_into("employees", row![1, "Alice"]).unwrap();
 
     // 4. Run SQL Query
     let query_result = relop.execute("SELECT id, name FROM employees").unwrap();
