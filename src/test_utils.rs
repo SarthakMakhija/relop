@@ -69,9 +69,8 @@ macro_rules! row {
     ( $( $x:expr ),* ) => {
         {
             use $crate::storage::row::Row;
-            use $crate::types::column_value::ColumnValue;
             Row::filled(vec![
-                $( ColumnValue::from($x) ),*
+                $( $x.into() ),*
             ])
         }
     };

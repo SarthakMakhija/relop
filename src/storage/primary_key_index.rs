@@ -70,8 +70,8 @@ impl PrimaryKeyIndex {
 
 #[cfg(test)]
 mod tests {
-    use crate::row;
     use super::*;
+    use crate::row;
     use crate::schema::primary_key::PrimaryKey;
     use crate::test_utils::create_schema;
     use crate::types::column_type::ColumnType;
