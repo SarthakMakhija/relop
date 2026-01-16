@@ -138,24 +138,44 @@ mod tests {
     use crate::query::parser::ast::{Literal, Operator};
 
     #[test]
-    fn logical_operator_from_operator() {
+    fn logical_operator_from_eq_operator() {
         assert_eq!(LogicalOperator::from(Operator::Eq), LogicalOperator::Eq);
+    }
+
+    #[test]
+    fn logical_operator_from_not_eq_operator() {
         assert_eq!(
             LogicalOperator::from(Operator::NotEq),
             LogicalOperator::NotEq
         );
+    }
+
+    #[test]
+    fn logical_operator_from_greater_operator() {
         assert_eq!(
             LogicalOperator::from(Operator::Greater),
             LogicalOperator::Greater
         );
+    }
+
+    #[test]
+    fn logical_operator_from_greater_eq_operator() {
         assert_eq!(
             LogicalOperator::from(Operator::GreaterEq),
             LogicalOperator::GreaterEq
         );
+    }
+
+    #[test]
+    fn logical_operator_from_lesser_operator() {
         assert_eq!(
             LogicalOperator::from(Operator::Lesser),
             LogicalOperator::Lesser
         );
+    }
+
+    #[test]
+    fn logical_operator_from_lesser_eq_operator() {
         assert_eq!(
             LogicalOperator::from(Operator::LesserEq),
             LogicalOperator::LesserEq
@@ -414,11 +434,10 @@ mod tests {
 mod predicate_tests {
     use super::*;
     use crate::query::parser::ast::Literal;
-    use crate::schema::Schema;
-    use crate::storage::row::Row;
+    use crate::row;
     use crate::storage::row_view::RowView;
+    use crate::test_utils::create_schema;
     use crate::types::column_type::ColumnType;
-    use crate::types::column_value::ColumnValue;
 
     #[test]
     fn predicate_from_where_clause() {
@@ -437,8 +456,8 @@ mod predicate_tests {
 
     #[test]
     fn matches_for_the_row() {
-        let schema = Schema::new().add_column("age", ColumnType::Int).unwrap();
-        let row = Row::filled(vec![ColumnValue::int(30)]);
+        let schema = create_schema(&[("age", ColumnType::Int)]);
+        let row = row![30];
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
@@ -448,8 +467,8 @@ mod predicate_tests {
 
     #[test]
     fn does_not_match_for_the_row() {
-        let schema = Schema::new().add_column("age", ColumnType::Int).unwrap();
-        let row = Row::filled(vec![ColumnValue::int(30)]);
+        let schema = create_schema(&[("age", ColumnType::Int)]);
+        let row = row![30];
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
@@ -459,8 +478,8 @@ mod predicate_tests {
 
     #[test]
     fn attempt_to_match_predicate_when_the_column_is_not_present_in_the_row() {
-        let schema = Schema::new().add_column("age", ColumnType::Int).unwrap();
-        let row = Row::filled(vec![ColumnValue::int(30)]);
+        let schema = create_schema(&[("age", ColumnType::Int)]);
+        let row = row![30];
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
@@ -475,8 +494,8 @@ mod predicate_tests {
 
     #[test]
     fn attempt_to_match_predicate_when_there_is_a_column_type_mismatch() {
-        let schema = Schema::new().add_column("age", ColumnType::Int).unwrap();
-        let row = Row::filled(vec![ColumnValue::int(30)]);
+        let schema = create_schema(&[("age", ColumnType::Int)]);
+        let row = row![30];
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
