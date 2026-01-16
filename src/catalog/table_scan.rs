@@ -47,23 +47,22 @@ impl Iterator for TableIterator<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::row::Row;
-    use crate::types::column_value::ColumnValue;
+    use crate::row;
 
     #[test]
     fn scan_table() {
         let store = Arc::new(TableStore::new());
-        store.insert(Row::filled(vec![ColumnValue::int(1)]));
-        store.insert(Row::filled(vec![ColumnValue::int(2)]));
+        store.insert(row![1]);
+        store.insert(row![2]);
 
         let table_scan = TableScan::new(store);
         let mut iterator = table_scan.iter();
 
         let row1 = iterator.next().unwrap();
-        assert_eq!(ColumnValue::int(1), row1.column_values()[0]);
+        assert_eq!(row![1], row1);
 
         let row2 = iterator.next().unwrap();
-        assert_eq!(ColumnValue::int(2), row2.column_values()[0]);
+        assert_eq!(row![2], row2);
 
         assert!(iterator.next().is_none());
     }

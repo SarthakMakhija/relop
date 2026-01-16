@@ -88,16 +88,12 @@ impl TableDescriptor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::primary_key::PrimaryKey;
-    use crate::schema::Schema;
+    use crate::test_utils::{create_schema, create_schema_with_primary_key};
     use crate::types::column_type::ColumnType;
 
     #[test]
     fn table_name() {
-        let table = Table::new(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
         let table_descriptor = TableDescriptor::new(Arc::new(table));
 
         assert_eq!("employees", table_descriptor.table_name());
@@ -105,10 +101,7 @@ mod tests {
 
     #[test]
     fn column_names() {
-        let table = Table::new(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
         let table_descriptor = TableDescriptor::new(Arc::new(table));
 
         assert_eq!(vec!["id"], table_descriptor.column_names());
@@ -118,11 +111,7 @@ mod tests {
     fn primary_key_column_names() {
         let table = Table::new(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_primary_key(PrimaryKey::single("id"))
-                .unwrap(),
+            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
         );
         let table_descriptor = TableDescriptor::new(Arc::new(table));
 

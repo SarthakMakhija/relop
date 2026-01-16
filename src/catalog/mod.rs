@@ -366,7 +366,6 @@ mod tests {
         assert!(result.is_ok());
 
         let result = catalog.insert_all_into("employees", rows![[10]]);
-
         assert!(matches!(
             result,
             Err(InsertError::Schema(SchemaError::ColumnCountMismatch {expected, actual})) if expected == 2 && actual == 1
@@ -380,7 +379,6 @@ mod tests {
         assert!(result.is_ok());
 
         let result = catalog.insert_all_into("employees", rows![["relop"]]);
-
         assert!(matches!(
             result,
             Err(InsertError::Schema(SchemaError::ColumnTypeMismatch {column, expected, actual})) if column == "id" && expected == ColumnType::Int && actual == ColumnType::Text
@@ -405,8 +403,8 @@ mod tests {
 
         let row_id = catalog.insert_into("employees", row![1]).unwrap();
         let row = catalog.get("employees", row_id).unwrap().unwrap();
-        let expected_row = row![1];
 
+        let expected_row = row![1];
         assert_eq!(expected_row, row);
     }
 

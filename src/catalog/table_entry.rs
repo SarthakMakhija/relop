@@ -158,20 +158,19 @@ impl TableEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::row;
+    use crate::rows;
     use crate::schema::primary_key::PrimaryKey;
-    use crate::schema::Schema;
+    use crate::test_utils::{create_schema, create_schema_with_primary_key};
     use crate::types::column_type::ColumnType;
-    use crate::types::column_value::ColumnValue;
 
     #[test]
     fn insert_row() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+            create_schema(&[("id", ColumnType::Int)]),
         ));
-        table_entry
-            .insert(Row::filled(vec![ColumnValue::int(100)]))
-            .unwrap();
+        table_entry.insert(row![100]).unwrap();
 
         let rows = table_entry.scan().iter().collect::<Vec<_>>();
 
@@ -183,27 +182,17 @@ mod tests {
     fn insert_row_with_primary_key() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_primary_key(PrimaryKey::single("id"))
-                .unwrap(),
+            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
         ));
-        table_entry
-            .insert(Row::filled(vec![ColumnValue::int(100)]))
-            .unwrap();
+        table_entry.insert(row![100]).unwrap();
 
         let rows = table_entry.scan().iter().collect::<Vec<_>>();
         assert_eq!(1, rows.len());
         assert_eq!(100, rows[0].column_values()[0].int_value().unwrap());
 
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_primary_key(PrimaryKey::single("id"))
-            .unwrap();
+        let schema = create_schema_with_primary_key(&[("id", ColumnType::Int)], "id");
 
-        let row = Row::filled(vec![ColumnValue::int(100)]);
+        let row = row![100];
         let primary_key = PrimaryKey::single("id");
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
 
@@ -217,17 +206,11 @@ mod tests {
     fn attempt_to_insert_row_with_duplicate_primary_key() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_primary_key(PrimaryKey::single("id"))
-                .unwrap(),
+            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
         ));
-        table_entry
-            .insert(Row::filled(vec![ColumnValue::int(100)]))
-            .unwrap();
+        table_entry.insert(row![100]).unwrap();
 
-        let result = table_entry.insert(Row::filled(vec![ColumnValue::int(100)]));
+        let result = table_entry.insert(row![100]);
         assert!(matches!(result, Err(InsertError::DuplicatePrimaryKey)));
     }
 
@@ -235,35 +218,25 @@ mod tests {
     fn insert_rows() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+            create_schema(&[("id", ColumnType::Int)]),
         ));
-        let batch = Batch::new(vec![
-            Row::filled(vec![ColumnValue::int(10)]),
-            Row::filled(vec![ColumnValue::int(20)]),
-        ]);
+        let batch = Batch::new(rows![[10], [20]]);
         table_entry.insert_all(batch).unwrap();
 
         let rows = table_entry.scan().iter().collect::<Vec<_>>();
         assert_eq!(2, rows.len());
 
-        assert!(rows.contains(&Row::filled(vec![ColumnValue::int(10),])));
-        assert!(rows.contains(&Row::filled(vec![ColumnValue::int(20),])));
+        assert!(rows.contains(&row![10]));
+        assert!(rows.contains(&row![20]));
     }
 
     #[test]
     fn insert_rows_with_duplicate_primary_key_values() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_primary_key(PrimaryKey::single("id"))
-                .unwrap(),
+            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
         ));
-        let batch = Batch::new(vec![
-            Row::filled(vec![ColumnValue::int(10)]),
-            Row::filled(vec![ColumnValue::int(10)]),
-        ]);
+        let batch = Batch::new(rows![[10], [10]]);
         let result = table_entry.insert_all(batch);
         assert!(matches!(result, Err(InsertError::DuplicatePrimaryKey)));
     }
@@ -272,20 +245,13 @@ mod tests {
     fn insert_rows_with_duplicate_primary_key_values_in_index() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_primary_key(PrimaryKey::single("id"))
-                .unwrap(),
+            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
         ));
-        let batch = Batch::new(vec![
-            Row::filled(vec![ColumnValue::int(10)]),
-            Row::filled(vec![ColumnValue::int(20)]),
-        ]);
+        let batch = Batch::new(rows![[10], [20]]);
         let result = table_entry.insert_all(batch);
         assert!(result.is_ok());
 
-        let batch = Batch::new(vec![Row::filled(vec![ColumnValue::int(10)])]);
+        let batch = Batch::new(rows![[10]]);
         let result = table_entry.insert_all(batch);
         assert!(matches!(result, Err(InsertError::DuplicatePrimaryKey)));
     }
@@ -294,11 +260,9 @@ mod tests {
     fn insert_row_and_get_by_row_id() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+            create_schema(&[("id", ColumnType::Int)]),
         ));
-        let row_id = table_entry
-            .insert(Row::filled(vec![ColumnValue::int(100)]))
-            .unwrap();
+        let row_id = table_entry.insert(row![100]).unwrap();
 
         let row = table_entry.get(row_id).unwrap();
         assert_eq!(100, row.column_values()[0].int_value().unwrap());
@@ -308,11 +272,9 @@ mod tests {
     fn insert_row_and_attempt_to_get_by_non_existent_row_id() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+            create_schema(&[("id", ColumnType::Int)]),
         ));
-        table_entry
-            .insert(Row::filled(vec![ColumnValue::int(100)]))
-            .unwrap();
+        table_entry.insert(row![100]).unwrap();
 
         let entry = table_entry.get(1000);
         assert!(entry.is_none());
@@ -322,11 +284,7 @@ mod tests {
     fn should_create_primary_key_index() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_primary_key(PrimaryKey::single("id"))
-                .unwrap(),
+            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
         ));
         assert!(table_entry.has_primary_key_index());
     }
@@ -335,7 +293,7 @@ mod tests {
     fn should_not_create_primary_key_index() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
+            create_schema(&[("id", ColumnType::Int)]),
         ));
         assert!(!table_entry.has_primary_key_index());
     }
