@@ -254,11 +254,11 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::All,
-            where_clause: Some(WhereClause::Comparison {
-                column_name: "age".to_string(),
-                operator: BinaryOperator::Greater,
-                literal: Literal::Int(30),
-            }),
+            where_clause: Some(WhereClause::comparison(
+                "age",
+                BinaryOperator::Greater,
+                Literal::Int(30),
+            )),
             order_by: None,
             limit: None,
         });
@@ -276,11 +276,11 @@ mod tests {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
             table_name: "employees".to_string(),
             projection: Projection::Columns(vec![String::from("id")]),
-            where_clause: Some(WhereClause::Comparison {
-                column_name: "age".to_string(),
-                operator: BinaryOperator::Greater,
-                literal: Literal::Int(30),
-            }),
+            where_clause: Some(WhereClause::comparison(
+                "age",
+                BinaryOperator::Greater,
+                Literal::Int(30),
+            )),
             order_by: None,
             limit: None,
         });

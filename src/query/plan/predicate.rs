@@ -452,11 +452,7 @@ mod predicate_tests {
 
     #[test]
     fn predicate_from_where_clause() {
-        let clause = WhereClause::Comparison {
-            column_name: "age".to_string(),
-            operator: BinaryOperator::Greater,
-            literal: Literal::Int(30),
-        };
+        let clause = WhereClause::comparison("age", BinaryOperator::Greater, Literal::Int(30));
 
         let predicate = Predicate::from(clause);
         assert_eq!(

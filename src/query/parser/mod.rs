@@ -162,15 +162,8 @@ impl Parser {
         let literal = self.expect_literal()?;
 
         match operator {
-            BinaryOperator::Like => Ok(WhereClause::Like {
-                column_name,
-                literal,
-            }),
-            _ => Ok(WhereClause::Comparison {
-                column_name,
-                operator,
-                literal,
-            }),
+            BinaryOperator::Like => Ok(WhereClause::like(&column_name, literal)),
+            _ => Ok(WhereClause::comparison(&column_name, operator, literal)),
         }
     }
 
@@ -915,10 +908,12 @@ mod select_where_with_single_comparison_tests {
             matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
                 if table_name == "employees" &&
                     projection == Projection::All &&
-                    matches!(&where_clause, Some(WhereClause::Comparison { column_name, operator, literal })
-                        if column_name == "name" &&
-                            *operator == BinaryOperator::Eq &&
-                                *literal == Literal::Text("relop".to_string())
+                    matches!(&where_clause, Some(ref wc)
+                        if *wc == WhereClause::comparison(
+                            "name",
+                            BinaryOperator::Eq,
+                            Literal::Text("relop".to_string())
+                        )
                     )
             )
         );
@@ -945,8 +940,11 @@ mod select_where_with_single_comparison_tests {
             matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
                 if table_name == "employees" &&
                     projection == Projection::All &&
-                    matches!(&where_clause, Some(WhereClause::Like { column_name, literal })
-                        if column_name == "name" && *literal == Literal::Text("rel%".to_string())
+                    matches!(&where_clause, Some(ref wc)
+                         if *wc == WhereClause::like(
+                             "name",
+                             Literal::Text("rel%".to_string())
+                         )
                     )
             )
         );

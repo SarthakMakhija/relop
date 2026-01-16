@@ -48,6 +48,25 @@ pub(crate) enum WhereClause {
     },
 }
 
+impl WhereClause {
+    /// Creates a new `WhereClause::Comparison` variant.
+    pub fn comparison(column_name: &str, operator: BinaryOperator, literal: Literal) -> Self {
+        WhereClause::Comparison {
+            column_name: column_name.to_string(),
+            operator,
+            literal,
+        }
+    }
+
+    /// Creates a new `WhereClause::Like` variant.
+    pub fn like(column_name: &str, literal: Literal) -> Self {
+        WhereClause::Like {
+            column_name: column_name.to_string(),
+            literal,
+        }
+    }
+}
+
 /// `BinaryOperator` defines the binary operators supported in a WHERE clause.
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum BinaryOperator {
@@ -239,5 +258,37 @@ mod literal_tests {
             result,
             Err(ParseError::NumericLiteralOutOfRange(value)) if value == "9999999999999999999999"
         ));
+    }
+}
+#[cfg(test)]
+mod where_clause_tests {
+    use crate::query::parser::ast::{BinaryOperator, Literal, WhereClause};
+
+    #[test]
+    fn create_comparison() {
+        let where_clause =
+            WhereClause::comparison("age", BinaryOperator::Greater, Literal::Int(25));
+
+        assert_eq!(
+            where_clause,
+            WhereClause::Comparison {
+                column_name: "age".to_string(),
+                operator: BinaryOperator::Greater,
+                literal: Literal::Int(25),
+            }
+        );
+    }
+
+    #[test]
+    fn create_like() {
+        let where_clause = WhereClause::like("name", Literal::Text("John%".to_string()));
+
+        assert_eq!(
+            where_clause,
+            WhereClause::Like {
+                column_name: "name".to_string(),
+                literal: Literal::Text("John%".to_string()),
+            }
+        );
     }
 }
