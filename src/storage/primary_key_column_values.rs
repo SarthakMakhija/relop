@@ -47,23 +47,16 @@ impl PrimaryKeyColumnValues {
 
 #[cfg(test)]
 mod tests {
+    use crate::row;
     use crate::schema::primary_key::PrimaryKey;
-    use crate::schema::Schema;
     use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
-    use crate::storage::row::Row;
+    use crate::test_utils::create_schema;
     use crate::types::column_type::ColumnType;
-    use crate::types::column_value::ColumnValue;
 
     #[test]
     fn create_primary_key_column_values() {
-        let mut schema = Schema::new();
-        schema = schema
-            .add_column("first_name", ColumnType::Text)
-            .unwrap()
-            .add_column("id", ColumnType::Int)
-            .unwrap();
-
-        let row = Row::filled(vec![ColumnValue::text("relop"), ColumnValue::int(200)]);
+        let schema = create_schema(&[("first_name", ColumnType::Text), ("id", ColumnType::Int)]);
+        let row = row!["relop", 200];
         let primary_key = PrimaryKey::composite(vec!["first_name", "id"]).unwrap();
 
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
