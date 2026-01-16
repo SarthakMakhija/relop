@@ -106,28 +106,24 @@ impl ColumnValue {
     }
 }
 
-#[cfg(test)]
 impl From<i64> for ColumnValue {
     fn from(value: i64) -> Self {
         ColumnValue::int(value)
     }
 }
 
-#[cfg(test)]
 impl From<i32> for ColumnValue {
     fn from(value: i32) -> Self {
         ColumnValue::int(value as i64)
     }
 }
 
-#[cfg(test)]
 impl From<&str> for ColumnValue {
     fn from(value: &str) -> Self {
         ColumnValue::text(value)
     }
 }
 
-#[cfg(test)]
 impl From<String> for ColumnValue {
     fn from(value: String) -> Self {
         ColumnValue::text(value)
@@ -137,6 +133,30 @@ impl From<String> for ColumnValue {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn create_int_value_from_i64() {
+        let value: ColumnValue = 100_i64.into();
+        assert_eq!(value, ColumnValue::int(100));
+    }
+
+    #[test]
+    fn create_int_value_from_i32() {
+        let value: ColumnValue = 100_i32.into();
+        assert_eq!(value, ColumnValue::int(100));
+    }
+
+    #[test]
+    fn create_text_value_from_str() {
+        let value: ColumnValue = "relop".into();
+        assert_eq!(value, ColumnValue::text("relop"));
+    }
+
+    #[test]
+    fn create_text_value_from_string() {
+        let value: ColumnValue = String::from("relop").into();
+        assert_eq!(value, ColumnValue::text("relop"));
+    }
 
     #[test]
     fn create_int_value() {
