@@ -101,7 +101,8 @@ mod tests {
     use crate::query::parser::ast::Literal;
     use crate::query::plan::predicate::{LogicalOperator, Predicate};
     use crate::test_utils::{
-        assert_row, create_schema, create_schema_with_primary_key, insert_row, insert_rows,
+        assert_no_more_rows, assert_row, create_schema, create_schema_with_primary_key, insert_row,
+        insert_rows,
     };
     use crate::types::column_type::ColumnType;
     use crate::{asc, desc, row, rows};
@@ -196,7 +197,7 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         assert_row(row_iterator.as_mut()).match_column("id", 100);
-        assert!(row_iterator.next().is_none());
+        assert_no_more_rows(row_iterator.as_mut());
     }
 
     #[test]
@@ -237,7 +238,7 @@ mod tests {
             .match_column("id", 100)
             .does_not_have_column("name");
 
-        assert!(row_iterator.next().is_none());
+        assert_no_more_rows(row_iterator.as_mut());
     }
 
     #[test]
@@ -284,7 +285,7 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         assert_row(row_iterator.as_mut()).match_column("id", 1);
-        assert!(row_iterator.next().is_none());
+        assert_no_more_rows(row_iterator.as_mut());
     }
 
     #[test]
@@ -307,7 +308,7 @@ mod tests {
 
         assert_row(row_iterator.as_mut()).match_column("id", 100);
         assert_row(row_iterator.as_mut()).match_column("id", 200);
-        assert!(row_iterator.next().is_none());
+        assert_no_more_rows(row_iterator.as_mut());
     }
 
     #[test]
@@ -330,7 +331,7 @@ mod tests {
 
         assert_row(row_iterator.as_mut()).match_column("id", 200);
         assert_row(row_iterator.as_mut()).match_column("id", 100);
-        assert!(row_iterator.next().is_none());
+        assert_no_more_rows(row_iterator.as_mut());
     }
 
     #[test]
@@ -362,7 +363,7 @@ mod tests {
             .match_column("id", 1)
             .match_column("age", 30);
 
-        assert!(row_iterator.next().is_none());
+        assert_no_more_rows(row_iterator.as_mut());
     }
 
     #[test]
@@ -384,7 +385,7 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         assert_row(row_iterator.as_mut()).match_column("id", 100);
-        assert!(row_iterator.next().is_none());
+        assert_no_more_rows(row_iterator.as_mut());
     }
 
     #[test]
@@ -412,6 +413,6 @@ mod tests {
             .match_column("id", 100)
             .match_column("name", "relop");
 
-        assert!(row_iterator.next().is_none());
+        assert_no_more_rows(row_iterator.as_mut());
     }
 }

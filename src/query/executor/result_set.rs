@@ -268,7 +268,7 @@ mod tests {
     use crate::query::plan::predicate::LogicalOperator;
 
     use crate::storage::table_store::TableStore;
-    use crate::test_utils::{assert_row, create_schema};
+    use crate::test_utils::{assert_no_more_rows, assert_row, create_schema};
     use crate::types::column_type::ColumnType;
     use crate::{asc, desc, row, rows};
 
@@ -289,7 +289,7 @@ mod tests {
         assert_row(iterator.as_mut())
             .match_column("id", 1)
             .match_column("name", "relop");
-        assert!(iterator.next().is_none());
+        assert_no_more_rows(iterator.as_mut());
     }
 
     #[test]
@@ -323,7 +323,7 @@ mod tests {
         assert_row(iterator.as_mut())
             .match_column("name", "relop")
             .does_not_have_column("id");
-        assert!(iterator.next().is_none());
+        assert_no_more_rows(iterator.as_mut());
     }
 
     #[test]
@@ -348,7 +348,7 @@ mod tests {
         assert_row(iterator.as_mut())
             .match_column("name", "relop")
             .does_not_have_column("id");
-        assert!(iterator.next().is_none());
+        assert_no_more_rows(iterator.as_mut());
     }
 
     #[test]
@@ -383,7 +383,7 @@ mod tests {
         let mut iterator = filter_result_set.iterator().unwrap();
 
         assert_row(iterator.as_mut()).match_column("id", 1);
-        assert!(iterator.next().is_none());
+        assert_no_more_rows(iterator.as_mut());
     }
 
     #[test]
@@ -401,7 +401,7 @@ mod tests {
         let predicate = Predicate::comparison("id", LogicalOperator::Eq, Literal::Int(3));
         let filter_result_set = FilterResultSet::new(result_set, predicate);
         let mut iterator = filter_result_set.iterator().unwrap();
-        assert!(iterator.next().is_none());
+        assert_no_more_rows(iterator.as_mut());
     }
 
     #[test]
@@ -425,7 +425,7 @@ mod tests {
         let mut iterator = filter_result_set.iterator().unwrap();
 
         assert_row(iterator.as_mut()).match_column("name", "relop");
-        assert!(iterator.next().is_none());
+        assert_no_more_rows(iterator.as_mut());
     }
 
     #[test]
@@ -443,7 +443,7 @@ mod tests {
 
         assert_row(iterator.as_mut()).match_column("id", 1);
         assert_row(iterator.as_mut()).match_column("id", 2);
-        assert!(iterator.next().is_none());
+        assert_no_more_rows(iterator.as_mut());
     }
 
     #[test]
@@ -461,7 +461,7 @@ mod tests {
 
         assert_row(iterator.as_mut()).match_column("id", 2);
         assert_row(iterator.as_mut()).match_column("id", 1);
-        assert!(iterator.next().is_none());
+        assert_no_more_rows(iterator.as_mut());
     }
 
     #[test]
@@ -488,7 +488,7 @@ mod tests {
             .match_column("id", 1)
             .match_column("rank", 20);
 
-        assert!(iterator.next().is_none());
+        assert_no_more_rows(iterator.as_mut());
     }
 
     #[test]
@@ -511,7 +511,7 @@ mod tests {
 
         assert_row(iterator.as_mut()).match_column("id", 1);
         assert_row(iterator.as_mut()).match_column("id", 2);
-        assert!(iterator.next().is_none());
+        assert_no_more_rows(iterator.as_mut());
     }
     #[test]
     fn limit_result_set() {
@@ -531,7 +531,7 @@ mod tests {
         assert_row(iterator.as_mut())
             .match_column("id", 1)
             .match_column("name", "relop");
-        assert!(iterator.next().is_none());
+        assert_no_more_rows(iterator.as_mut());
     }
 
     #[test]
@@ -556,7 +556,7 @@ mod tests {
         assert_row(iterator.as_mut())
             .match_column("id", 2)
             .match_column("name", "query");
-        assert!(iterator.next().is_none());
+        assert_no_more_rows(iterator.as_mut());
     }
 
     #[test]
@@ -578,7 +578,7 @@ mod tests {
         assert_row(iterator.as_mut())
             .match_column("id", 1)
             .does_not_have_column("name");
-        assert!(iterator.next().is_none());
+        assert_no_more_rows(iterator.as_mut());
     }
 
     #[test]

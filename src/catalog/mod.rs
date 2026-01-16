@@ -323,7 +323,8 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(InsertError::Schema(SchemaError::ColumnTypeMismatch {column, expected, actual})) if column == "id" && expected == ColumnType::Int && actual == ColumnType::Text
+            Err(InsertError::Schema(SchemaError::ColumnTypeMismatch {column, expected, actual}))
+                if column == "id" && expected == ColumnType::Int && actual == ColumnType::Text
         ))
     }
 
@@ -368,7 +369,8 @@ mod tests {
         let result = catalog.insert_all_into("employees", rows![[10]]);
         assert!(matches!(
             result,
-            Err(InsertError::Schema(SchemaError::ColumnCountMismatch {expected, actual})) if expected == 2 && actual == 1
+            Err(InsertError::Schema(SchemaError::ColumnCountMismatch {expected, actual}))
+                if expected == 2 && actual == 1
         ))
     }
 
@@ -381,7 +383,8 @@ mod tests {
         let result = catalog.insert_all_into("employees", rows![["relop"]]);
         assert!(matches!(
             result,
-            Err(InsertError::Schema(SchemaError::ColumnTypeMismatch {column, expected, actual})) if column == "id" && expected == ColumnType::Int && actual == ColumnType::Text
+            Err(InsertError::Schema(SchemaError::ColumnTypeMismatch {column, expected, actual}))
+                if column == "id" && expected == ColumnType::Int && actual == ColumnType::Text
         ))
     }
 
@@ -391,7 +394,8 @@ mod tests {
         let result = catalog.insert_all_into("employees", rows![[1, "relop"], [2, "operator"]]);
 
         assert!(
-            matches!(result, Err(InsertError::Catalog(CatalogError::TableDoesNotExist(ref table_name))) if table_name == "employees"),
+            matches!(result, Err(InsertError::Catalog(CatalogError::TableDoesNotExist(ref table_name)))
+                    if table_name == "employees"),
         )
     }
 

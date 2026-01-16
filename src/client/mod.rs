@@ -341,7 +341,7 @@ mod tests {
     use crate::row;
     use crate::rows;
     use crate::test_utils::{
-        assert_row, create_schema, create_schema_with_primary_key, insert_rows,
+        assert_no_more_rows, assert_row, create_schema, create_schema_with_primary_key, insert_rows,
     };
     use crate::types::column_type::ColumnType;
 
@@ -619,7 +619,7 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
         assert_row(row_iterator.as_mut()).match_column("id", 1);
         assert_row(row_iterator.as_mut()).match_column("id", 2);
-        assert!(row_iterator.next().is_none());
+        assert_no_more_rows(row_iterator.as_mut());
     }
 
     #[test]
@@ -648,7 +648,7 @@ mod tests {
             .match_column("name", "relop")
             .match_column("id", 1);
 
-        assert!(row_iterator.next().is_none());
+        assert_no_more_rows(row_iterator.as_mut());
     }
 
     #[test]
@@ -676,7 +676,7 @@ mod tests {
         assert_row(row_iterator.as_mut())
             .match_column("id", 1)
             .match_column("name", "relop");
-        assert!(row_iterator.next().is_none());
+        assert_no_more_rows(row_iterator.as_mut());
     }
 
     #[test]
@@ -704,7 +704,7 @@ mod tests {
         assert_row(row_iterator.as_mut())
             .match_column("id", 2)
             .match_column("name", "query");
-        assert!(row_iterator.next().is_none());
+        assert_no_more_rows(row_iterator.as_mut());
     }
 
     #[test]
@@ -732,6 +732,6 @@ mod tests {
         assert_row(row_iterator.as_mut())
             .match_column("name", "query")
             .does_not_have_column("id");
-        assert!(row_iterator.next().is_none());
+        assert_no_more_rows(row_iterator.as_mut());
     }
 }

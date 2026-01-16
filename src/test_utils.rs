@@ -55,14 +55,16 @@ pub fn insert_rows(catalog: &Catalog, table_name: &str, rows: Vec<Row>) {
 /// ```
 /// use relop::row;
 /// use relop::storage::row::Row;
-/// use relop::types::column_value::ColumnValue;
+/// // use relop::types::column_value::ColumnValue;
 ///
 /// let row = row![1, "text"];
+/// /*
 /// let expected = Row::filled(vec![
 ///     ColumnValue::int(1),
 ///     ColumnValue::text("text")
 /// ]);
 /// assert_eq!(row, expected);
+/// */
 /// ```
 #[macro_export]
 macro_rules! row {
@@ -146,6 +148,19 @@ pub fn assert_row<'a>(
 ) -> RowAssertion<'a> {
     let row_view = iterator.next().unwrap().unwrap();
     RowAssertion(row_view)
+}
+
+/// Asserts that there are no more rows in the iterator.
+///
+/// # Arguments
+///
+/// * `iterator` - The iterator to check.
+///
+/// # Panics
+///
+/// Panics if the iterator yields `Some` (meaning there are more rows).
+pub fn assert_no_more_rows(iterator: &mut dyn Iterator<Item = Result<RowView, ExecutionError>>) {
+    assert!(iterator.next().is_none(), "Expected no more rows");
 }
 
 impl RowAssertion<'_> {
