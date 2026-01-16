@@ -106,11 +106,11 @@ cargo test
   - [x] Scan
   - [ ] Filter (__WIP__)
   - [x] Projection
-  - [ ] Join (incrementally)
   - [x] Limit
   - [x] Order by
   - [x] Show tables
   - [x] Describe table
+  - [ ] Join (maybe)
 - [x] **Build a minimal in-memory store**:
   - [x] Tables with schemas
   - [x] Rows stored in memory (SkipMap based)
@@ -118,6 +118,12 @@ cargo test
   - [x] Row lookup via IDs
   - [x] Sequential table scan
   - [x] Primary key index
+
+## Pending
+
+- **Boolean Logic**: Add support for `AND` and `OR` operators in `WHERE` clauses.
+- **Complex Expressions**: Enable grouping conditions with parentheses `( ... )` to control precedence.
+- **Compound Predicates**: Allow mixing `AND` and `OR` to define complex filtering criteria.
 
 ## Supported SQL
 
