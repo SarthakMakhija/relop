@@ -265,11 +265,8 @@ mod tests {
         assert!(matches!(
             logical_plan,
             LogicalPlan::Filter { base_plan, predicate }
-                if predicate == Predicate::Comparison {
-                    column_name: "age".to_string(),
-                    operator: LogicalOperator::Greater,
-                    literal: Literal::Int(30),
-                } && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+                if predicate == Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30))
+                    && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
         ));
     }
 
@@ -293,11 +290,8 @@ mod tests {
                 && matches!(
                 base_plan.as_ref(),
                 LogicalPlan::Filter { base_plan, predicate }
-                if *predicate == Predicate::Comparison {
-                    column_name: "age".to_string(),
-                    operator: LogicalOperator::Greater,
-                    literal: Literal::Int(30),
-                } && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+                if *predicate == Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30))
+                    && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
             )
         ));
     }

@@ -349,11 +349,7 @@ mod tests {
         let scan_result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
         let filter_result_set = Box::new(FilterResultSet::new(
             scan_result_set,
-            Predicate::Comparison {
-                column_name: "id".to_string(),
-                operator: LogicalOperator::Eq,
-                literal: Literal::Int(1),
-            },
+            Predicate::comparison("id", LogicalOperator::Eq, Literal::Int(1)),
         ));
         let projected_result_set = ProjectResultSet::new(filter_result_set, &["name"]).unwrap();
 
@@ -395,12 +391,7 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
-        let predicate = Predicate::Comparison {
-            column_name: "id".to_string(),
-            operator: LogicalOperator::Eq,
-            literal: Literal::Int(1),
-        };
-
+        let predicate = Predicate::comparison("id", LogicalOperator::Eq, Literal::Int(1));
         let filter_result_set = FilterResultSet::new(result_set, predicate);
         let mut iterator = filter_result_set.iterator().unwrap();
 
@@ -423,12 +414,7 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
-        let predicate = Predicate::Comparison {
-            column_name: "id".to_string(),
-            operator: LogicalOperator::Eq,
-            literal: Literal::Int(3),
-        };
-
+        let predicate = Predicate::comparison("id", LogicalOperator::Eq, Literal::Int(3));
         let filter_result_set = FilterResultSet::new(result_set, predicate);
         let mut iterator = filter_result_set.iterator().unwrap();
         assert!(iterator.next().is_none());
@@ -449,12 +435,11 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
-        let predicate = Predicate::Comparison {
-            column_name: "name".to_string(),
-            operator: LogicalOperator::Eq,
-            literal: Literal::Text("relop".to_string()),
-        };
-
+        let predicate = Predicate::comparison(
+            "name",
+            LogicalOperator::Eq,
+            Literal::Text("relop".to_string()),
+        );
         let filter_result_set = FilterResultSet::new(result_set, predicate);
         let mut iterator = filter_result_set.iterator().unwrap();
 

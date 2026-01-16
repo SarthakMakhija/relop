@@ -118,6 +118,21 @@ impl LogicalOperator {
 }
 
 #[cfg(test)]
+impl Predicate {
+    pub(crate) fn comparison(
+        column_name: &str,
+        operator: LogicalOperator,
+        literal: Literal,
+    ) -> Self {
+        Predicate::Comparison {
+            column_name: column_name.to_string(),
+            operator,
+            literal,
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::query::parser::ast::{Literal, Operator};
@@ -416,11 +431,7 @@ mod predicate_tests {
         let predicate = Predicate::from(clause);
         assert_eq!(
             predicate,
-            Predicate::Comparison {
-                column_name: "age".to_string(),
-                operator: LogicalOperator::Greater,
-                literal: Literal::Int(30),
-            }
+            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30))
         );
     }
 
@@ -431,12 +442,7 @@ mod predicate_tests {
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
-        let predicate = Predicate::Comparison {
-            column_name: "age".to_string(),
-            operator: LogicalOperator::Eq,
-            literal: Literal::Int(30),
-        };
-
+        let predicate = Predicate::comparison("age", LogicalOperator::Eq, Literal::Int(30));
         assert!(predicate.matches(&row_view).unwrap());
     }
 
@@ -447,12 +453,7 @@ mod predicate_tests {
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
-        let predicate = Predicate::Comparison {
-            column_name: "age".to_string(),
-            operator: LogicalOperator::Greater,
-            literal: Literal::Int(30),
-        };
-
+        let predicate = Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30));
         assert!(!predicate.matches(&row_view).unwrap());
     }
 
@@ -463,12 +464,8 @@ mod predicate_tests {
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
-        let predicate = Predicate::Comparison {
-            column_name: "height".to_string(),
-            operator: LogicalOperator::Greater,
-            literal: Literal::Int(170),
-        };
-
+        let predicate =
+            Predicate::comparison("height", LogicalOperator::Greater, Literal::Int(170));
         let result = predicate.matches(&row_view);
         assert!(matches!(
             result,
@@ -483,12 +480,7 @@ mod predicate_tests {
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
-        let predicate = Predicate::Comparison {
-            column_name: "age".to_string(),
-            operator: LogicalOperator::Eq,
-            literal: Literal::Text("30".to_string()),
-        };
-
+        let predicate = Predicate::comparison("age", LogicalOperator::Eq, Literal::Text("30".to_string()));
         assert!(matches!(
             predicate.matches(&row_view),
             Err(ExecutionError::TypeMismatchInComparison)

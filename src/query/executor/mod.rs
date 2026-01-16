@@ -290,13 +290,11 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let query_result = executor
-            .execute(
-                LogicalPlan::scan("employees").filter(Predicate::Comparison {
-                    column_name: "id".to_string(),
-                    operator: LogicalOperator::Eq,
-                    literal: Literal::Int(1),
-                }),
-            )
+            .execute(LogicalPlan::scan("employees").filter(Predicate::comparison(
+                "id",
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            )))
             .unwrap();
 
         assert!(query_result.result_set().is_some());
