@@ -723,14 +723,14 @@ mod tests {
         );
 
         let query_result = relop
-            .execute("select name from employees where id = 1")
+            .execute("select name from employees where id != 1")
             .unwrap();
 
         let result_set = query_result.result_set().unwrap();
 
         let mut row_iterator = result_set.iterator().unwrap();
         assert_row(row_iterator.as_mut())
-            .match_column("name", "relop")
+            .match_column("name", "query")
             .does_not_have_column("id");
         assert!(row_iterator.next().is_none());
     }
