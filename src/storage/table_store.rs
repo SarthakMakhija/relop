@@ -86,16 +86,14 @@ impl TableStore {
 
 #[cfg(test)]
 mod tests {
+    use crate::{row, rows};
     use super::*;
     use crate::types::column_value::ColumnValue;
 
     #[test]
     fn insert_row_and_get_row_id() {
         let store = TableStore::new();
-        let row_id = store.insert(Row::filled(vec![
-            ColumnValue::int(10),
-            ColumnValue::text("relop"),
-        ]));
+        let row_id = store.insert(row![10, "relop"]);
 
         assert_eq!(1, row_id);
     }
@@ -103,10 +101,7 @@ mod tests {
     #[test]
     fn insert_row_and_scan() {
         let store = TableStore::new();
-        store.insert(Row::filled(vec![
-            ColumnValue::int(10),
-            ColumnValue::text("relop"),
-        ]));
+        store.insert(row![10, "relop"]);
 
         let rows: Vec<Row> = store.scan();
         assert_eq!(1, rows.len());
@@ -120,10 +115,7 @@ mod tests {
     #[test]
     fn insert_rows() {
         let store = TableStore::new();
-        let row_ids = store.insert_all(vec![
-            Row::filled(vec![ColumnValue::int(10), ColumnValue::text("relop")]),
-            Row::filled(vec![ColumnValue::int(20), ColumnValue::text("query")]),
-        ]);
+        let row_ids = store.insert_all(rows![[10, "relop"], [20, "query"]]);
 
         assert_eq!(2, row_ids.len());
         assert_eq!(&1, row_ids.first().unwrap());
@@ -133,10 +125,7 @@ mod tests {
     #[test]
     fn insert_rows_and_scan() {
         let store = TableStore::new();
-        store.insert_all(vec![
-            Row::filled(vec![ColumnValue::int(10), ColumnValue::text("relop")]),
-            Row::filled(vec![ColumnValue::int(20), ColumnValue::text("query")]),
-        ]);
+        store.insert_all(rows![[10, "relop"], [20, "query"]]);
 
         let rows = store.scan();
         assert_eq!(2, rows.len());
@@ -154,10 +143,7 @@ mod tests {
     #[test]
     fn insert_row_and_get_by_row_id() {
         let store = TableStore::new();
-        let row_id = store.insert(Row::filled(vec![
-            ColumnValue::int(10),
-            ColumnValue::text("relop"),
-        ]));
+        let row_id = store.insert(row![10, "relop"]);
 
         let row = store.get(row_id).unwrap();
         let expected_row = Row::filled(vec![ColumnValue::int(10), ColumnValue::text("relop")]);
@@ -168,10 +154,7 @@ mod tests {
     #[test]
     fn insert_row_and_attempt_to_get_by_non_existent_row_id() {
         let store = TableStore::new();
-        store.insert(Row::filled(vec![
-            ColumnValue::int(10),
-            ColumnValue::text("relop"),
-        ]));
+        store.insert(row![10, "relop"]);
 
         let entry = store.get(1000);
         assert!(entry.is_none());
@@ -180,10 +163,7 @@ mod tests {
     #[test]
     fn iterate_over_all_rows() {
         let store = TableStore::new();
-        store.insert_all(vec![
-            Row::filled(vec![ColumnValue::int(10)]),
-            Row::filled(vec![ColumnValue::int(20)]),
-        ]);
+        store.insert_all(rows![[10], [20]]);
 
         let mut iterator = store.iter();
 
