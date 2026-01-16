@@ -734,4 +734,62 @@ mod tests {
             .does_not_have_column("id");
         assert_no_more_rows(row_iterator.as_mut());
     }
+
+    #[test]
+    fn execute_select_star_with_like_clause_matching() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"], [3, "relational"]],
+        );
+
+        let query_result = relop
+            .execute("select * from employees where name like '^rel.*' order by id")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_row(row_iterator.as_mut())
+            .match_column("id", 1)
+            .match_column("name", "relop");
+
+        assert_row(row_iterator.as_mut())
+            .match_column("id", 3)
+            .match_column("name", "relational");
+
+        assert_no_more_rows(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_star_with_like_clause_not_matching() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"]],
+        );
+
+        let query_result = relop
+            .execute("select * from employees where name like '^nomatch.*'")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_no_more_rows(row_iterator.as_mut());
+    }
 }
