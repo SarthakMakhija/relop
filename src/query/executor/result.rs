@@ -55,12 +55,13 @@ impl QueryResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::catalog::table::Table;
     use crate::catalog::table_descriptor::TableDescriptor;
     use crate::query::executor::result_set::{ResultSet, RowViewResult};
-    use crate::schema::error::SchemaError;
     use crate::schema::Schema;
-
+    use crate::test_utils::create_schema;
     use crate::types::column_type::ColumnType;
+    use std::sync::Arc;
 
     struct MockResultSet;
 
@@ -90,25 +91,18 @@ mod tests {
     }
 
     #[test]
-    fn query_result_table_description() -> Result<(), SchemaError> {
-        use crate::catalog::table::Table;
-        use std::sync::Arc;
+    fn query_result_table_description() {
+        let schema = create_schema(&[("id", ColumnType::Int)]);
 
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)?
-            .add_column("name", ColumnType::Text)?;
-
-        let table = Table::new("table1", schema);
+        let table = Table::new("employees", schema);
         let descriptor = TableDescriptor::new(Arc::new(table));
 
         let result = QueryResult::TableDescription(descriptor);
 
         let retrieved_descriptor = result.table_descriptor().unwrap();
-        assert_eq!(retrieved_descriptor.table_name(), "table1");
-
+        assert_eq!(retrieved_descriptor.table_name(), "employees");
         assert!(result.all_tables().is_none());
         assert!(result.result_set().is_none());
-        Ok(())
     }
 
     #[test]
