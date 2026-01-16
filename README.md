@@ -135,6 +135,7 @@ cargo test
 - `SELECT col1, col2 FROM <table> WHERE col1 <= <literal>`
 - `SELECT col1, col2 FROM <table> WHERE col1 != <literal>`
 - `SELECT col1, col2 FROM <table> WHERE col1 != <literal>`
+- `SELECT col1, col2 FROM <table> WHERE col1 like <regular expression>`
 - `SELECT col1, col2 FROM <table> WHERE col1 != <literal> ORDER by col1 asc, col2 desc LIMIT <n>`
 - `SHOW TABLES`
 - `DESCRIBE TABLE <table>`
