@@ -70,19 +70,16 @@ impl PrimaryKeyIndex {
 
 #[cfg(test)]
 mod tests {
+    use crate::row;
     use super::*;
     use crate::schema::primary_key::PrimaryKey;
-    use crate::schema::Schema;
-    use crate::storage::row::Row;
+    use crate::test_utils::create_schema;
     use crate::types::column_type::ColumnType;
-    use crate::types::column_value::ColumnValue;
 
     #[test]
     fn insert_a_single_primary_key_column_value_in_index() {
-        let mut schema = Schema::new();
-        schema = schema.add_column("first_name", ColumnType::Text).unwrap();
-
-        let row = Row::filled(vec![ColumnValue::text("relop")]);
+        let schema = create_schema(&[("first_name", ColumnType::Text)]);
+        let row = row!["relop"];
         let primary_key = PrimaryKey::single("first_name");
 
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
@@ -99,10 +96,8 @@ mod tests {
     #[test]
     #[should_panic]
     fn attempt_to_add_duplicate_primary_key() {
-        let mut schema = Schema::new();
-        schema = schema.add_column("first_name", ColumnType::Text).unwrap();
-
-        let row = Row::filled(vec![ColumnValue::text("relop")]);
+        let schema = create_schema(&[("first_name", ColumnType::Text)]);
+        let row = row!["relop"];
         let primary_key = PrimaryKey::single("first_name");
 
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
@@ -120,14 +115,8 @@ mod tests {
 
     #[test]
     fn insert_a_composite_primary_key_column_value_in_index() {
-        let mut schema = Schema::new();
-        schema = schema
-            .add_column("first_name", ColumnType::Text)
-            .unwrap()
-            .add_column("id", ColumnType::Int)
-            .unwrap();
-
-        let row = Row::filled(vec![ColumnValue::text("relop"), ColumnValue::int(200)]);
+        let schema = create_schema(&[("first_name", ColumnType::Text), ("id", ColumnType::Int)]);
+        let row = row!["relop", 200];
         let primary_key = PrimaryKey::composite(vec!["first_name", "id"]).unwrap();
 
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
@@ -143,10 +132,8 @@ mod tests {
 
     #[test]
     fn get_row_id_from_index() {
-        let mut schema = Schema::new();
-        schema = schema.add_column("first_name", ColumnType::Text).unwrap();
-
-        let row = Row::filled(vec![ColumnValue::text("relop")]);
+        let schema = create_schema(&[("first_name", ColumnType::Text)]);
+        let row = row!["relop"];
         let primary_key = PrimaryKey::single("first_name");
 
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
@@ -162,10 +149,8 @@ mod tests {
 
     #[test]
     fn attempt_to_get_non_existing_index_key() {
-        let mut schema = Schema::new();
-        schema = schema.add_column("first_name", ColumnType::Text).unwrap();
-
-        let row = Row::filled(vec![ColumnValue::text("relop")]);
+        let schema = create_schema(&[("first_name", ColumnType::Text)]);
+        let row = row!["relop"];
         let primary_key = PrimaryKey::single("first_name");
 
         let index = PrimaryKeyIndex::new();
@@ -176,10 +161,8 @@ mod tests {
 
     #[test]
     fn should_not_contain_index_key() {
-        let mut schema = Schema::new();
-        schema = schema.add_column("first_name", ColumnType::Text).unwrap();
-
-        let row = Row::filled(vec![ColumnValue::text("relop")]);
+        let schema = create_schema(&[("first_name", ColumnType::Text)]);
+        let row = row!["relop"];
         let primary_key = PrimaryKey::single("first_name");
 
         let index = PrimaryKeyIndex::new();
@@ -190,10 +173,8 @@ mod tests {
 
     #[test]
     fn duplicate_primary_key_value() {
-        let mut schema = Schema::new();
-        schema = schema.add_column("first_name", ColumnType::Text).unwrap();
-
-        let row = Row::filled(vec![ColumnValue::text("relop")]);
+        let schema = create_schema(&[("first_name", ColumnType::Text)]);
+        let row = row!["relop"];
         let primary_key = PrimaryKey::single("first_name");
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
 
@@ -207,10 +188,8 @@ mod tests {
 
     #[test]
     fn no_duplicate_primary_key_value() {
-        let mut schema = Schema::new();
-        schema = schema.add_column("first_name", ColumnType::Text).unwrap();
-
-        let row = Row::filled(vec![ColumnValue::text("relop")]);
+        let schema = create_schema(&[("first_name", ColumnType::Text)]);
+        let row = row!["relop"];
         let primary_key = PrimaryKey::single("first_name");
         let index = PrimaryKeyIndex::new();
 
