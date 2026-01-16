@@ -1106,6 +1106,7 @@ mod select_where_with_single_comparison_tests {
 mod select_order_by_tests {
     use super::*;
     use crate::query::lexer::token::Token;
+    use crate::{asc, desc};
 
     #[test]
     fn parse_select_with_order_by_ascending() {
@@ -1126,7 +1127,7 @@ mod select_order_by_tests {
             matches!(ast, Ast::Select { table_name, projection, order_by, .. }
                     if table_name == "employees"
                         && projection == Projection::Columns(vec!["id".to_string()])
-                        && order_by == Some(vec![OrderingKey::ascending_by("id")])
+                        && order_by == Some(vec![asc!("id")])
             )
         )
     }
@@ -1151,7 +1152,7 @@ mod select_order_by_tests {
             matches!(ast, Ast::Select { table_name, projection, order_by, .. }
                     if table_name == "employees"
                         && projection == Projection::Columns(vec!["id".to_string()])
-                        && order_by == Some(vec![OrderingKey::descending_by("id")])
+                        && order_by == Some(vec![desc!("id")])
             )
         )
     }
@@ -1177,7 +1178,7 @@ mod select_order_by_tests {
             matches!(ast, Ast::Select { table_name, projection, order_by, .. }
                     if table_name == "employees"
                         && projection == Projection::Columns(vec!["id".to_string()])
-                        && order_by == Some(vec![OrderingKey::ascending_by("id")])
+                        && order_by == Some(vec![asc!("id")])
             )
         )
     }

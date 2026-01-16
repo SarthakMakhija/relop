@@ -184,6 +184,7 @@ mod tests {
     use crate::query::parser::ast::{Literal, Operator};
     use crate::query::parser::projection::Projection;
     use crate::query::plan::predicate::LogicalOperator;
+    use crate::{asc, desc};
 
     #[test]
     fn logical_plan_for_show_tables() {
@@ -302,13 +303,13 @@ mod tests {
             table_name: "employees".to_string(),
             projection: Projection::All,
             where_clause: None,
-            order_by: Some(vec![OrderingKey::ascending_by("id")]),
+            order_by: Some(vec![asc!("id")]),
             limit: None,
         });
         assert!(matches!(
             logical_plan,
             LogicalPlan::Sort {base_plan, ordering_keys }
-                if ordering_keys == vec![OrderingKey::ascending_by("id")] &&
+                if ordering_keys == vec![asc!("id")] &&
                     matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees") ));
     }
 
@@ -318,13 +319,13 @@ mod tests {
             table_name: "employees".to_string(),
             projection: Projection::All,
             where_clause: None,
-            order_by: Some(vec![OrderingKey::descending_by("id")]),
+            order_by: Some(vec![desc!("id")]),
             limit: None,
         });
         assert!(matches!(
             logical_plan,
             LogicalPlan::Sort {base_plan, ordering_keys }
-                if ordering_keys == vec![OrderingKey::descending_by("id")] &&
+                if ordering_keys == vec![desc!("id")] &&
                     matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees") ));
     }
 
@@ -334,16 +335,13 @@ mod tests {
             table_name: "employees".to_string(),
             projection: Projection::All,
             where_clause: None,
-            order_by: Some(vec![
-                OrderingKey::ascending_by("id"),
-                OrderingKey::descending_by("name"),
-            ]),
+            order_by: Some(vec![asc!("id"), desc!("name")]),
             limit: None,
         });
         assert!(matches!(
             logical_plan,
             LogicalPlan::Sort {base_plan, ordering_keys }
-                if ordering_keys == vec![OrderingKey::ascending_by("id"), OrderingKey::descending_by("name")] &&
+                if ordering_keys == vec![asc!("id"), desc!("name")] &&
                     matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees") ));
     }
 
@@ -432,17 +430,14 @@ mod tests {
             table_name: "employees".to_string(),
             projection: Projection::All,
             where_clause: None,
-            order_by: Some(vec![
-                OrderingKey::ascending_by("id"),
-                OrderingKey::descending_by("name"),
-            ]),
+            order_by: Some(vec![asc!("id"), desc!("name")]),
             limit: Some(10),
         });
         assert!(matches!(
             logical_plan,
             LogicalPlan::Limit {base_plan, count}
                 if count == 10 && matches!(base_plan.as_ref(), LogicalPlan::Sort { base_plan, ordering_keys }
-                    if *ordering_keys == vec![OrderingKey::ascending_by("id"), OrderingKey::descending_by("name")] &&
+                    if *ordering_keys == vec![asc!("id"), desc!("name")] &&
                         matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
             )
         ));

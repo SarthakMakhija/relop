@@ -98,6 +98,36 @@ macro_rules! rows {
     };
 }
 
+/// Creates an `OrderingKey` for ascending order.
+///
+/// # Examples
+///
+/// ```
+/// use relop::asc;
+/// // let key = asc!("id");
+/// ```
+#[macro_export]
+macro_rules! asc {
+    ( $x:expr ) => {
+        $crate::query::parser::ordering_key::OrderingKey::ascending_by($x)
+    };
+}
+
+/// Creates an `OrderingKey` for descending order.
+///
+/// # Examples
+///
+/// ```
+/// use relop::desc;
+/// // let key = desc!("id");
+/// ```
+#[macro_export]
+macro_rules! desc {
+    ( $x:expr ) => {
+        $crate::query::parser::ordering_key::OrderingKey::descending_by($x)
+    };
+}
+
 /// A helper struct for asserting properties of a single `RowView`.
 ///
 /// `RowAssertion` provides a fluent interface for checking expected values of columns

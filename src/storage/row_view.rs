@@ -228,13 +228,14 @@ mod row_view_comparator_tests {
     use super::*;
     use crate::schema::Schema;
     use crate::types::column_type::ColumnType;
+    use crate::{asc, desc};
     use std::cmp::Ordering;
 
     #[test]
     fn compare_row_views_on_single_column_ascending() {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
 
-        let ordering_keys = vec![OrderingKey::ascending_by("id")];
+        let ordering_keys = vec![asc!("id")];
 
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
 
@@ -256,10 +257,7 @@ mod row_view_comparator_tests {
             .add_column("rank", ColumnType::Int)
             .unwrap();
 
-        let ordering_keys = vec![
-            OrderingKey::ascending_by("id"),
-            OrderingKey::ascending_by("rank"),
-        ];
+        let ordering_keys = vec![asc!("id"), asc!("rank")];
 
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
 
@@ -281,10 +279,7 @@ mod row_view_comparator_tests {
             .add_column("rank", ColumnType::Int)
             .unwrap();
 
-        let ordering_keys = vec![
-            OrderingKey::ascending_by("id"),
-            OrderingKey::ascending_by("rank"),
-        ];
+        let ordering_keys = vec![asc!("id"), asc!("rank")];
 
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
 
@@ -306,10 +301,7 @@ mod row_view_comparator_tests {
             .add_column("rank", ColumnType::Int)
             .unwrap();
 
-        let ordering_keys = vec![
-            OrderingKey::ascending_by("id"),
-            OrderingKey::descending_by("rank"),
-        ];
+        let ordering_keys = vec![asc!("id"), desc!("rank")];
 
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
 
@@ -330,10 +322,7 @@ mod row_view_comparator_tests {
     fn attempt_compare_row_views_on_with_non_existing_column() {
         let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
 
-        let ordering_keys = vec![
-            OrderingKey::ascending_by("id"),
-            OrderingKey::descending_by("rank"),
-        ];
+        let ordering_keys = vec![asc!("id"), desc!("rank")];
 
         let result = RowViewComparator::new(&schema, &ordering_keys);
         assert!(

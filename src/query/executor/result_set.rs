@@ -270,7 +270,7 @@ mod tests {
     use crate::storage::table_store::TableStore;
     use crate::test_utils::{assert_row, create_schema};
     use crate::types::column_type::ColumnType;
-    use crate::{row, rows};
+    use crate::{asc, desc, row, rows};
 
     #[test]
     fn scan_result_set() {
@@ -437,7 +437,7 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
-        let ordering_keys = vec![OrderingKey::ascending_by("id")];
+        let ordering_keys = vec![asc!("id")];
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
@@ -455,7 +455,7 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
-        let ordering_keys = vec![OrderingKey::descending_by("id")];
+        let ordering_keys = vec![desc!("id")];
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
@@ -476,10 +476,7 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
-        let ordering_keys = vec![
-            OrderingKey::ascending_by("id"),
-            OrderingKey::ascending_by("rank"),
-        ];
+        let ordering_keys = vec![asc!("id"), asc!("rank")];
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
@@ -506,7 +503,7 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
-        let ordering_keys = vec![OrderingKey::ascending_by("id")];
+        let ordering_keys = vec![asc!("id")];
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
 
         let limit_result_set = LimitResultSet::new(Box::new(ordering_result_set), 2);

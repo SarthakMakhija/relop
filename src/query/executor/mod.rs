@@ -104,7 +104,7 @@ mod tests {
         assert_row, create_schema, create_schema_with_primary_key, insert_row, insert_rows,
     };
     use crate::types::column_type::ColumnType;
-    use crate::{row, rows};
+    use crate::{asc, desc, row, rows};
 
     #[test]
     fn execute_show_tables() {
@@ -289,8 +289,6 @@ mod tests {
 
     #[test]
     fn execute_select_with_order_by_single_column_ascending() {
-        use crate::query::parser::ordering_key::OrderingKey;
-
         let catalog = Catalog::new();
         let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
@@ -299,7 +297,7 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let query_result = executor
-            .execute(LogicalPlan::scan("employees").order_by(vec![OrderingKey::ascending_by("id")]))
+            .execute(LogicalPlan::scan("employees").order_by(vec![asc!("id")]))
             .unwrap();
 
         assert!(query_result.result_set().is_some());
@@ -314,8 +312,6 @@ mod tests {
 
     #[test]
     fn execute_select_with_order_by_single_column_descending() {
-        use crate::query::parser::ordering_key::OrderingKey;
-
         let catalog = Catalog::new();
         let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
@@ -324,9 +320,7 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let query_result = executor
-            .execute(
-                LogicalPlan::scan("employees").order_by(vec![OrderingKey::descending_by("id")]),
-            )
+            .execute(LogicalPlan::scan("employees").order_by(vec![desc!("id")]))
             .unwrap();
 
         assert!(query_result.result_set().is_some());
@@ -341,8 +335,6 @@ mod tests {
 
     #[test]
     fn execute_select_with_order_by_multiple_columns() {
-        use crate::query::parser::ordering_key::OrderingKey;
-
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
@@ -354,10 +346,7 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let query_result = executor
-            .execute(LogicalPlan::scan("employees").order_by(vec![
-                OrderingKey::ascending_by("id"),
-                OrderingKey::ascending_by("age"),
-            ]))
+            .execute(LogicalPlan::scan("employees").order_by(vec![asc!("id"), asc!("age")]))
             .unwrap();
 
         assert!(query_result.result_set().is_some());
