@@ -8,15 +8,16 @@
 /// ```
 /// use relop::row;
 /// use relop::storage::row::Row;
+/// use relop::types::column_value::ColumnValue;
 ///
 /// let row = row![1, "text"];
-/// /*
+///
 /// let expected = Row::filled(vec![
 ///     ColumnValue::int(1),
 ///     ColumnValue::text("text")
 /// ]);
 /// assert_eq!(row, expected);
-/// */
+///
 /// ```
 #[macro_export]
 macro_rules! row {
@@ -35,10 +36,17 @@ macro_rules! row {
 /// # Examples
 ///
 /// ```
-/// use relop::rows;
-/// // use relop::row;
+/// use relop::{row, rows};
 ///
-/// let batch = rows![[1, "a"], [2, "b"]];
+/// let rows: Vec<_> = rows![[1, "a"], [2, "b"]];
+/// assert_eq!(2, rows.len());
+///
+/// let row1 = row![1, "a"];
+/// assert_eq!(&row1, rows.get(0).unwrap());
+///
+/// let row2 = row![2, "b"];
+/// assert_eq!(&row2, rows.get(1).unwrap());
+///
 /// ```
 #[macro_export]
 macro_rules! rows {
