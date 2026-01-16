@@ -1,6 +1,8 @@
+use crate::catalog::Catalog;
 use crate::query::executor::error::ExecutionError;
 use crate::schema::primary_key::PrimaryKey;
 use crate::schema::Schema;
+use crate::storage::row::Row;
 use crate::storage::row_view::RowView;
 use crate::types::column_type::ColumnType;
 use crate::types::column_value::ColumnValue;
@@ -31,6 +33,69 @@ pub fn create_schema_with_primary_key(columns: &[(&str, ColumnType)], primary_ke
     schema
         .add_primary_key(PrimaryKey::single(primary_key))
         .unwrap()
+}
+
+/// Inserts a single row into the specified table, unwrapping the result.
+pub fn insert_row(catalog: &Catalog, table_name: &str, row: Row) {
+    catalog.insert_into(table_name, row).unwrap();
+}
+
+/// Inserts multiple rows into the specified table, unwrapping the result.
+pub fn insert_rows(catalog: &Catalog, table_name: &str, rows: Vec<Row>) {
+    catalog.insert_all_into(table_name, rows).unwrap();
+}
+
+/// Creates a `Row` from a list of values.
+///
+/// This macro simplifies row creation in tests by automatically converting
+/// provided values into `ColumnValue`s using `From` implementations.
+///
+/// # Examples
+///
+/// ```
+/// use relop::row;
+/// use relop::storage::row::Row;
+/// use relop::types::column_value::ColumnValue;
+///
+/// let row = row![1, "text"];
+/// let expected = Row::filled(vec![
+///     ColumnValue::int(1),
+///     ColumnValue::text("text")
+/// ]);
+/// assert_eq!(row, expected);
+/// ```
+#[macro_export]
+macro_rules! row {
+    ( $( $x:expr ),* ) => {
+        {
+            use $crate::storage::row::Row;
+            use $crate::types::column_value::ColumnValue;
+            Row::filled(vec![
+                $( ColumnValue::from($x) ),*
+            ])
+        }
+    };
+}
+
+/// Creates a `Vec<Row>` from a list of row definitions.
+///
+/// # Examples
+///
+/// ```
+/// use relop::rows;
+/// // use relop::row;
+///
+/// let batch = rows![[1, "a"], [2, "b"]];
+/// ```
+#[macro_export]
+macro_rules! rows {
+    ( $( [ $( $x:expr ),* ] ),* ) => {
+        vec![
+            $(
+                $crate::row![ $( $x ),* ]
+            ),*
+        ]
+    };
 }
 
 /// A helper struct for asserting properties of a single `RowView`.

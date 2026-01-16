@@ -267,11 +267,10 @@ mod tests {
     use crate::query::parser::ast::Literal;
     use crate::query::plan::predicate::LogicalOperator;
 
-    use crate::storage::row::Row;
     use crate::storage::table_store::TableStore;
     use crate::test_utils::{assert_row, create_schema};
     use crate::types::column_type::ColumnType;
-    use crate::types::column_value::ColumnValue;
+    use crate::{row, rows};
 
     #[test]
     fn scan_result_set() {
@@ -280,10 +279,7 @@ mod tests {
             create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
         );
         let table_store = TableStore::new();
-        table_store.insert(Row::filled(vec![
-            ColumnValue::int(1),
-            ColumnValue::text("relop"),
-        ]));
+        table_store.insert(row![1, "relop"]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
@@ -300,7 +296,7 @@ mod tests {
     fn attempt_to_get_result_set_with_non_existent_column() {
         let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
         let table_store = TableStore::new();
-        table_store.insert(Row::filled(vec![ColumnValue::int(1)]));
+        table_store.insert(row![1]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
@@ -316,10 +312,7 @@ mod tests {
             create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
         );
         let table_store = TableStore::new();
-        table_store.insert(Row::filled(vec![
-            ColumnValue::int(1),
-            ColumnValue::text("relop"),
-        ]));
+        table_store.insert(row![1, "relop"]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
@@ -340,10 +333,7 @@ mod tests {
             create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
         );
         let table_store = TableStore::new();
-        table_store.insert(Row::filled(vec![
-            ColumnValue::int(1),
-            ColumnValue::text("relop"),
-        ]));
+        table_store.insert(row![1, "relop"]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let scan_result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
@@ -365,7 +355,7 @@ mod tests {
     fn attempt_to_get_projected_result_set_with_non_existent_column() {
         let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
         let table_store = TableStore::new();
-        table_store.insert(Row::filled(vec![ColumnValue::int(1)]));
+        table_store.insert(row![1]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
@@ -383,10 +373,7 @@ mod tests {
             create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
         );
         let table_store = TableStore::new();
-        table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
-            Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
-        ]);
+        table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
@@ -406,10 +393,7 @@ mod tests {
             create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
         );
         let table_store = TableStore::new();
-        table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
-            Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
-        ]);
+        table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
@@ -427,10 +411,7 @@ mod tests {
             create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
         );
         let table_store = TableStore::new();
-        table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
-            Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
-        ]);
+        table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
@@ -451,10 +432,7 @@ mod tests {
     fn ordering_result_set_single_column_ascending() {
         let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
         let table_store = TableStore::new();
-        table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::int(2)]),
-            Row::filled(vec![ColumnValue::int(1)]),
-        ]);
+        table_store.insert_all(rows![[2], [1]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
@@ -472,10 +450,7 @@ mod tests {
     fn ordering_result_set_single_column_descending() {
         let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
         let table_store = TableStore::new();
-        table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::int(1)]),
-            Row::filled(vec![ColumnValue::int(2)]),
-        ]);
+        table_store.insert_all(rows![[1], [2]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
@@ -496,10 +471,7 @@ mod tests {
             create_schema(&[("id", ColumnType::Int), ("rank", ColumnType::Int)]),
         );
         let table_store = TableStore::new();
-        table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::int(1), ColumnValue::int(20)]),
-            Row::filled(vec![ColumnValue::int(1), ColumnValue::int(10)]),
-        ]);
+        table_store.insert_all(rows![[1, 20], [1, 10]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
@@ -529,11 +501,7 @@ mod tests {
             create_schema(&[("id", ColumnType::Int), ("rank", ColumnType::Int)]),
         );
         let table_store = TableStore::new();
-        table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::int(3), ColumnValue::int(30)]),
-            Row::filled(vec![ColumnValue::int(1), ColumnValue::int(10)]),
-            Row::filled(vec![ColumnValue::int(2), ColumnValue::int(20)]),
-        ]);
+        table_store.insert_all(rows![[3, 30], [1, 10], [2, 20]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
@@ -555,10 +523,7 @@ mod tests {
             create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
         );
         let table_store = TableStore::new();
-        table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
-            Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
-        ]);
+        table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
@@ -579,10 +544,7 @@ mod tests {
             create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
         );
         let table_store = TableStore::new();
-        table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
-            Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
-        ]);
+        table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
@@ -607,10 +569,7 @@ mod tests {
             create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
         );
         let table_store = TableStore::new();
-        table_store.insert_all(vec![
-            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
-            Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
-        ]);
+        table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));

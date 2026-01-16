@@ -338,9 +338,12 @@ mod tests {
     use crate::query::executor::error::ExecutionError;
     use crate::query::lexer::error::LexError;
     use crate::query::parser::error::ParseError;
-    use crate::test_utils::{assert_row, create_schema, create_schema_with_primary_key};
+    use crate::row;
+    use crate::rows;
+    use crate::test_utils::{
+        assert_row, create_schema, create_schema_with_primary_key, insert_rows,
+    };
     use crate::types::column_type::ColumnType;
-    use crate::types::column_value::ColumnValue;
 
     #[test]
     fn create_table() {
@@ -369,12 +372,10 @@ mod tests {
         let result = relop.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let row_id = relop
-            .insert_into("employees", Row::filled(vec![ColumnValue::int(1)]))
-            .unwrap();
+        let row_id = relop.insert_into("employees", row![1]).unwrap();
 
         let row = relop.catalog.get("employees", row_id).unwrap().unwrap();
-        let expected_row = Row::filled(vec![ColumnValue::int(1)]);
+        let expected_row = row![1];
 
         assert_eq!(expected_row, row);
     }
@@ -388,15 +389,13 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let row_id = relop
-            .insert_into("employees", Row::filled(vec![ColumnValue::int(1)]))
-            .unwrap();
+        let row_id = relop.insert_into("employees", row![1]).unwrap();
 
         let row = relop.catalog.get("employees", row_id).unwrap().unwrap();
-        let expected_row = Row::filled(vec![ColumnValue::int(1)]);
+        let expected_row = row![1];
         assert_eq!(expected_row, row);
 
-        let result = relop.insert_into("employees", Row::filled(vec![ColumnValue::int(1)]));
+        let result = relop.insert_into("employees", row![1]);
 
         assert!(matches!(
             result,
@@ -410,15 +409,7 @@ mod tests {
         let result = relop.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let row_ids = relop
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(1)]),
-                    Row::filled(vec![ColumnValue::int(2)]),
-                ],
-            )
-            .unwrap();
+        let row_ids = relop.insert_all_into("employees", rows![[1], [2]]).unwrap();
 
         let row = relop
             .catalog
@@ -426,7 +417,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let expected_row = Row::filled(vec![ColumnValue::int(1)]);
+        let expected_row = row![1];
         assert_eq!(expected_row, row);
 
         let row = relop
@@ -435,7 +426,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let expected_row = Row::filled(vec![ColumnValue::int(2)]);
+        let expected_row = row![2];
         assert_eq!(expected_row, row);
     }
 
@@ -510,15 +501,7 @@ mod tests {
         let result = relop.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let _ = relop
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(1)]),
-                    Row::filled(vec![ColumnValue::int(2)]),
-                ],
-            )
-            .unwrap();
+        insert_rows(&relop.catalog, "employees", rows![[1], [2]]);
 
         let query_result = relop.execute("select * from employees").unwrap();
         let result_set = query_result.result_set().unwrap();
@@ -548,15 +531,7 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let _ = relop
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(1), ColumnValue::int(10)]),
-                    Row::filled(vec![ColumnValue::int(2), ColumnValue::int(20)]),
-                ],
-            )
-            .unwrap();
+        insert_rows(&relop.catalog, "employees", rows![[1, 10], [2, 20]]);
 
         let query_result = relop.execute("select rank from employees").unwrap();
         let result_set = query_result.result_set().unwrap();
@@ -575,15 +550,7 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let _ = relop
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(1), ColumnValue::int(10)]),
-                    Row::filled(vec![ColumnValue::int(2), ColumnValue::int(20)]),
-                ],
-            )
-            .unwrap();
+        insert_rows(&relop.catalog, "employees", rows![[1, 10], [2, 20]]);
 
         let query_result = relop.execute("select unknown from employees");
         assert!(matches!(
@@ -598,15 +565,7 @@ mod tests {
         let result = relop.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let _ = relop
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(2)]),
-                    Row::filled(vec![ColumnValue::int(1)]),
-                ],
-            )
-            .unwrap();
+        insert_rows(&relop.catalog, "employees", rows![[2], [1]]);
 
         let query_result = relop
             .execute("select * from employees order by id ASC")
@@ -628,21 +587,13 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let _ = relop
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(1), ColumnValue::int(20)]),
-                    Row::filled(vec![ColumnValue::int(1), ColumnValue::int(10)]),
-                ],
-            )
-            .unwrap();
+        insert_rows(&relop.catalog, "employees", rows![[1, 20], [1, 10]]);
 
         let query_result = relop
             .execute("select * from employees order by id ASC, rank DESC")
             .unwrap();
-        let result_set = query_result.result_set().unwrap();
 
+        let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
 
         assert_row(row_iterator.as_mut())
@@ -660,16 +611,7 @@ mod tests {
         let result = relop.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let _ = relop
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(1)]),
-                    Row::filled(vec![ColumnValue::int(2)]),
-                    Row::filled(vec![ColumnValue::int(3)]),
-                ],
-            )
-            .unwrap();
+        insert_rows(&relop.catalog, "employees", rows![[1], [2], [3]]);
 
         let query_result = relop.execute("select * from employees limit 2").unwrap();
         let result_set = query_result.result_set().unwrap();
@@ -689,16 +631,11 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let _ = relop
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
-                    Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
-                    Row::filled(vec![ColumnValue::int(3), ColumnValue::text("parsing")]),
-                ],
-            )
-            .unwrap();
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"], [3, "parsing"]],
+        );
 
         let query_result = relop
             .execute("select name, id from employees limit 1")
@@ -723,23 +660,19 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let _ = relop
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
-                    Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
-                ],
-            )
-            .unwrap();
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"]],
+        );
 
         let query_result = relop
             .execute("select * from employees where id = 1")
             .unwrap();
 
         let result_set = query_result.result_set().unwrap();
-
         let mut row_iterator = result_set.iterator().unwrap();
+
         assert_row(row_iterator.as_mut())
             .match_column("id", 1)
             .match_column("name", "relop");
@@ -755,15 +688,11 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let _ = relop
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
-                    Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
-                ],
-            )
-            .unwrap();
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"]],
+        );
 
         let query_result = relop
             .execute("select * from employees where id > 1")
@@ -787,15 +716,11 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let _ = relop
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
-                    Row::filled(vec![ColumnValue::int(2), ColumnValue::text("query")]),
-                ],
-            )
-            .unwrap();
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"]],
+        );
 
         let query_result = relop
             .execute("select name from employees where id = 1")

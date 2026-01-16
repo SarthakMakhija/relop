@@ -480,7 +480,8 @@ mod predicate_tests {
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
-        let predicate = Predicate::comparison("age", LogicalOperator::Eq, Literal::Text("30".to_string()));
+        let predicate =
+            Predicate::comparison("age", LogicalOperator::Eq, Literal::Text("30".to_string()));
         assert!(matches!(
             predicate.matches(&row_view),
             Err(ExecutionError::TypeMismatchInComparison)

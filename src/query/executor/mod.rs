@@ -100,10 +100,11 @@ mod tests {
     use crate::catalog::error::CatalogError;
     use crate::query::parser::ast::Literal;
     use crate::query::plan::predicate::{LogicalOperator, Predicate};
-    use crate::storage::row::Row;
-    use crate::test_utils::{assert_row, create_schema, create_schema_with_primary_key};
+    use crate::test_utils::{
+        assert_row, create_schema, create_schema_with_primary_key, insert_row, insert_rows,
+    };
     use crate::types::column_type::ColumnType;
-    use crate::types::column_value::ColumnValue;
+    use crate::{row, rows};
 
     #[test]
     fn execute_show_tables() {
@@ -184,9 +185,7 @@ mod tests {
         let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let _ = catalog
-            .insert_into("employees", Row::single(ColumnValue::int(100)))
-            .unwrap();
+        insert_row(&catalog, "employees", row![100]);
 
         let executor = Executor::new(&catalog);
         let query_result = executor.execute(LogicalPlan::scan("employees")).unwrap();
@@ -222,12 +221,7 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let _ = catalog
-            .insert_into(
-                "employees",
-                Row::filled(vec![ColumnValue::int(100), ColumnValue::text("relop")]),
-            )
-            .unwrap();
+        insert_row(&catalog, "employees", row![100, "relop"]);
 
         let executor = Executor::new(&catalog);
         let query_result = executor
@@ -255,12 +249,7 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let _ = catalog
-            .insert_into(
-                "employees",
-                Row::filled(vec![ColumnValue::int(100), ColumnValue::text("relop")]),
-            )
-            .unwrap();
+        insert_row(&catalog, "employees", row![100, "relop"]);
 
         let executor = Executor::new(&catalog);
         let query_result =
@@ -278,15 +267,7 @@ mod tests {
         let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let _ = catalog
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::single(ColumnValue::int(1)),
-                    Row::single(ColumnValue::int(2)),
-                ],
-            )
-            .unwrap();
+        insert_rows(&catalog, "employees", rows![[1], [2]]);
 
         let executor = Executor::new(&catalog);
         let query_result = executor
@@ -314,15 +295,7 @@ mod tests {
         let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let _ = catalog
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::single(ColumnValue::int(200)),
-                    Row::single(ColumnValue::int(100)),
-                ],
-            )
-            .unwrap();
+        insert_rows(&catalog, "employees", rows![[200], [100]]);
 
         let executor = Executor::new(&catalog);
         let query_result = executor
@@ -347,15 +320,7 @@ mod tests {
         let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let _ = catalog
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::single(ColumnValue::int(100)),
-                    Row::single(ColumnValue::int(200)),
-                ],
-            )
-            .unwrap();
+        insert_rows(&catalog, "employees", rows![[100], [200]]);
 
         let executor = Executor::new(&catalog);
         let query_result = executor
@@ -385,15 +350,7 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let _ = catalog
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(1), ColumnValue::int(30)]),
-                    Row::filled(vec![ColumnValue::int(1), ColumnValue::int(20)]),
-                ],
-            )
-            .unwrap();
+        insert_rows(&catalog, "employees", rows![[1, 30], [1, 20]]);
 
         let executor = Executor::new(&catalog);
         let query_result = executor
@@ -425,15 +382,7 @@ mod tests {
         let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let _ = catalog
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::single(ColumnValue::int(100)),
-                    Row::single(ColumnValue::int(200)),
-                ],
-            )
-            .unwrap();
+        insert_rows(&catalog, "employees", rows![[100], [200]]);
 
         let executor = Executor::new(&catalog);
         let query_result = executor
@@ -458,15 +407,7 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let _ = catalog
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(100), ColumnValue::text("relop")]),
-                    Row::filled(vec![ColumnValue::int(200), ColumnValue::text("query")]),
-                ],
-            )
-            .unwrap();
+        insert_rows(&catalog, "employees", rows![[100, "relop"], [200, "query"]]);
 
         let executor = Executor::new(&catalog);
         let query_result = executor
