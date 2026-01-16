@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 crossbeam-skiplist = "0.1.3"
+regex = "1.12.2"

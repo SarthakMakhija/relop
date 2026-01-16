@@ -5,7 +5,7 @@ use crate::storage::row_view::RowView;
 use crate::types::column_value::ColumnValue;
 
 /// `Predicate` represents a filter condition in a logical plan.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub(crate) enum Predicate {
     /// A comparison predicate (e.g., `age > 30`).
     Comparison {
@@ -15,6 +15,10 @@ pub(crate) enum Predicate {
         operator: LogicalOperator,
         /// The literal value to compare against.
         literal: Literal,
+    },
+    Like {
+        column_name: String,
+        regex: regex::Regex,
     },
 }
 
@@ -53,6 +57,7 @@ impl Predicate {
 
                 operator.apply(column_value, literal)
             }
+            _ => unimplemented!(),
         }
     }
 }
@@ -119,7 +124,6 @@ impl LogicalOperator {
     }
 }
 
-#[cfg(test)]
 impl Predicate {
     pub(crate) fn comparison(
         column_name: &str,
@@ -455,10 +459,11 @@ mod predicate_tests {
         let clause = WhereClause::comparison("age", BinaryOperator::Greater, Literal::Int(30));
 
         let predicate = Predicate::from(clause);
-        assert_eq!(
+        assert!(matches!(
             predicate,
-            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30))
-        );
+            Predicate::Comparison {column_name, operator, literal}
+                if column_name == "age" && operator == LogicalOperator::Greater && literal == Literal::Int(30)
+        ));
     }
 
     #[test]

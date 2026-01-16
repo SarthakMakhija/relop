@@ -6,7 +6,6 @@ use crate::query::parser::projection::Projection;
 use crate::query::plan::predicate::Predicate;
 
 /// `LogicalPlan` represents the logical steps required to execute a query.
-#[derive(Eq, PartialEq)]
 pub(crate) enum LogicalPlan {
     /// Plan to show table names.
     ShowTables,
@@ -266,8 +265,9 @@ mod tests {
         assert!(matches!(
             logical_plan,
             LogicalPlan::Filter { base_plan, predicate }
-                if predicate == Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30))
-                    && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+                if matches!(&predicate, Predicate::Comparison {column_name, operator, literal}
+                    if column_name == "age" && *operator == LogicalOperator::Greater && *literal == Literal::Int(30))
+                        && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
         ));
     }
 
@@ -291,8 +291,9 @@ mod tests {
                 && matches!(
                 base_plan.as_ref(),
                 LogicalPlan::Filter { base_plan, predicate }
-                if *predicate == Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30))
-                    && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+                if matches!(predicate, Predicate::Comparison {column_name, operator, literal}
+                    if column_name == "age" && *operator == LogicalOperator::Greater && *literal == Literal::Int(30))
+                        && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
             )
         ));
     }
