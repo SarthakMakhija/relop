@@ -96,12 +96,12 @@ cargo test
 ## Goals Status
 
 - [ ] **Understand query processing**:
-  - [ ] Grammar
-  - [ ] Lexer
-  - [ ] Parser
-  - [ ] AST
-  - [ ] Logical plan
-  - [ ] Operator-based execution
+  - [ ] <kbd>Evolving</kbd> Grammar
+  - [ ] <kbd>Evolving</kbd> Lexer
+  - [ ] <kbd>Evolving</kbd> Parser
+  - [ ] <kbd>Evolving</kbd> AST
+  - [ ] <kbd>Evolving</kbd> Logical plan
+  - [ ] <kbd>Evolving</kbd> Operator-based execution
 - [ ] **Implement core relational operators**:
   - [x] Scan
   - [ ] Filter (__WIP__)
@@ -126,14 +126,16 @@ cargo test
 - `SELECT col1, col2 FROM <table> ORDER by col1`
 - `SELECT col1, col2 FROM <table> ORDER by col1 asc`
 - `SELECT col1, col2 FROM <table> ORDER by col1 asc, col2 desc`
-- `SELECT col1, col2 FROM <table> ORDER by col1 LIMIT <n>`
 - `SELECT col1, col2 FROM <table> LIMIT <n>`
+- `SELECT col1, col2 FROM <table> ORDER by col1 asc, col2 desc LIMIT <n>`
 - `SELECT col1, col2 FROM <table> WHERE col1 = <literal>`
 - `SELECT col1, col2 FROM <table> WHERE col1 > <literal>`
 - `SELECT col1, col2 FROM <table> WHERE col1 >= <literal>`
 - `SELECT col1, col2 FROM <table> WHERE col1 < <literal>`
 - `SELECT col1, col2 FROM <table> WHERE col1 <= <literal>`
 - `SELECT col1, col2 FROM <table> WHERE col1 != <literal>`
+- `SELECT col1, col2 FROM <table> WHERE col1 != <literal>`
+- `SELECT col1, col2 FROM <table> WHERE col1 != <literal> ORDER by col1 asc, col2 desc LIMIT <n>`
 - `SHOW TABLES`
 - `DESCRIBE TABLE <table>`
 
