@@ -78,7 +78,16 @@ impl Predicate {
 
                 operator.apply(column_value, literal)
             }
-            _ => unimplemented!(),
+            Predicate::Like { column_name, regex } => {
+                let column_value = row_view
+                    .column_value_by(column_name)
+                    .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?;
+
+                match column_value {
+                    ColumnValue::Text(value) => Ok(regex.is_match(value)),
+                    _ => Err(ExecutionError::TypeMismatchInComparison),
+                }
+            }
         }
     }
 }
@@ -602,6 +611,62 @@ mod predicate_tests {
         assert!(matches!(
             predicate.matches(&row_view),
             Err(ExecutionError::TypeMismatchInComparison)
+        ));
+    }
+
+    #[test]
+    fn matches_like_pattern() {
+        let schema = create_schema(&[("name", ColumnType::Text)]);
+        let row = row!["John"];
+        let visible_positions = vec![0];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let regex = regex::Regex::new("^J").unwrap();
+        let predicate = Predicate::like("name", regex);
+        assert!(predicate.matches(&row_view).unwrap());
+    }
+
+    #[test]
+    fn does_not_match_like_pattern() {
+        let schema = create_schema(&[("name", ColumnType::Text)]);
+        let row = row!["Doe"];
+        let visible_positions = vec![0];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let regex = regex::Regex::new("^J").unwrap();
+        let predicate = Predicate::like("name", regex);
+        assert!(!predicate.matches(&row_view).unwrap());
+    }
+
+    #[test]
+    fn attempt_to_match_predicate_when_there_is_a_column_type_mismatch_with_like() {
+        let schema = create_schema(&[("age", ColumnType::Int)]);
+        let row = row![30];
+        let visible_positions = vec![0];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let regex = regex::Regex::new("^3").unwrap();
+        let predicate = Predicate::like("age", regex);
+
+        assert!(matches!(
+            predicate.matches(&row_view),
+            Err(ExecutionError::TypeMismatchInComparison)
+        ));
+    }
+
+    #[test]
+    fn attempt_to_match_predicate_when_the_column_is_not_present_in_the_row_with_like() {
+        let schema = create_schema(&[("name", ColumnType::Text)]);
+        let row = row!["John"];
+        let visible_positions = vec![0];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let regex = regex::Regex::new("^J").unwrap();
+        let predicate = Predicate::like("unknown", regex);
+
+        assert!(matches!(
+            predicate.matches(&row_view),
+            Err(ExecutionError::UnknownColumn(col)) if col == "unknown"
         ));
     }
 }
