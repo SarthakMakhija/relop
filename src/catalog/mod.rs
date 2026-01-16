@@ -149,18 +149,16 @@ impl Catalog {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::row;
+    use crate::rows;
     use crate::schema::error::SchemaError;
-    use crate::schema::primary_key::PrimaryKey;
+    use crate::test_utils::{create_schema, create_schema_with_primary_key};
     use crate::types::column_type::ColumnType;
-    use crate::types::column_value::ColumnValue;
 
     #[test]
     fn create_table() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
 
         assert!(result.is_ok());
     }
@@ -168,10 +166,7 @@ mod tests {
     #[test]
     fn create_table_without_a_primary_key_index() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
 
         assert!(result.is_ok());
 
@@ -184,11 +179,7 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_primary_key(PrimaryKey::single("id"))
-                .unwrap(),
+            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
         );
 
         assert!(result.is_ok());
@@ -200,10 +191,7 @@ mod tests {
     #[test]
     fn create_table_and_get_table_by_name() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
 
         assert!(result.is_ok());
 
@@ -214,10 +202,7 @@ mod tests {
     #[test]
     fn get_all_tables() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
         let tables = catalog.show_tables();
@@ -235,10 +220,7 @@ mod tests {
     #[test]
     fn describe_table_with_name() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
         let table_descriptor = catalog.describe_table("employees").unwrap();
@@ -248,10 +230,7 @@ mod tests {
     #[test]
     fn describe_table_with_column_names() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
         let table_descriptor = catalog.describe_table("employees").unwrap();
@@ -263,11 +242,7 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_primary_key(PrimaryKey::single("id"))
-                .unwrap(),
+            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
         );
         assert!(result.is_ok());
 
@@ -289,16 +264,10 @@ mod tests {
     #[test]
     fn attempt_to_create_an_already_created_table() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(matches!(
             result,
             Err(CatalogError::TableAlreadyExists(ref table_name)) if table_name == "employees"));
@@ -307,29 +276,20 @@ mod tests {
     #[test]
     fn insert_into_table() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let row_id = catalog
-            .insert_into("employees", Row::filled(vec![ColumnValue::int(1)]))
-            .unwrap();
+        let row_id = catalog.insert_into("employees", row![1]).unwrap();
 
         let row = catalog.get("employees", row_id).unwrap().unwrap();
-        let expected_row = Row::filled(vec![ColumnValue::int(1)]);
+        let expected_row = row![1];
         assert_eq!(expected_row, row);
     }
 
     #[test]
     fn attempt_to_insert_into_non_existent_table() {
         let catalog = Catalog::new();
-
-        let result = catalog.insert_into(
-            "employees",
-            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
-        );
+        let result = catalog.insert_into("employees", row![1, "relop"]);
 
         assert!(
             matches!(result, Err(InsertError::Catalog(CatalogError::TableDoesNotExist(ref table_name))) if table_name == "employees"),
@@ -341,15 +301,11 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_column("name", ColumnType::Text)
-                .unwrap(),
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
         );
         assert!(result.is_ok());
 
-        let result = catalog.insert_into("employees", Row::filled(vec![ColumnValue::int(10)]));
+        let result = catalog.insert_into("employees", row![10]);
 
         assert!(matches!(
             result,
@@ -360,14 +316,10 @@ mod tests {
     #[test]
     fn attempt_to_insert_into_table_with_incompatible_column_values() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let result =
-            catalog.insert_into("employees", Row::filled(vec![ColumnValue::text("relop")]));
+        let result = catalog.insert_into("employees", row!["relop"]);
 
         assert!(matches!(
             result,
@@ -378,20 +330,11 @@ mod tests {
     #[test]
     fn insert_all_into_table() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
         let row_ids = catalog
-            .insert_all_into(
-                "employees",
-                vec![
-                    Row::filled(vec![ColumnValue::int(1)]),
-                    Row::filled(vec![ColumnValue::int(2)]),
-                ],
-            )
+            .insert_all_into("employees", rows![[1], [2]])
             .unwrap();
 
         assert_eq!(2, row_ids.len());
@@ -401,7 +344,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let expected_row = Row::filled(vec![ColumnValue::int(1)]);
+        let expected_row = row![1];
         assert_eq!(expected_row, row);
 
         let row = catalog
@@ -409,7 +352,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let expected_row = Row::filled(vec![ColumnValue::int(2)]);
+        let expected_row = row![2];
         assert_eq!(expected_row, row);
     }
 
@@ -418,16 +361,11 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_column("name", ColumnType::Text)
-                .unwrap(),
+            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
         );
         assert!(result.is_ok());
 
-        let result =
-            catalog.insert_all_into("employees", vec![Row::filled(vec![ColumnValue::int(10)])]);
+        let result = catalog.insert_all_into("employees", rows![[10]]);
 
         assert!(matches!(
             result,
@@ -438,16 +376,10 @@ mod tests {
     #[test]
     fn attempt_to_insert_all_into_table_with_incompatible_column_values() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let result = catalog.insert_all_into(
-            "employees",
-            vec![Row::filled(vec![ColumnValue::text("relop")])],
-        );
+        let result = catalog.insert_all_into("employees", rows![["relop"]]);
 
         assert!(matches!(
             result,
@@ -458,13 +390,7 @@ mod tests {
     #[test]
     fn attempt_to_insert_all_into_non_existent_table() {
         let catalog = Catalog::new();
-        let result = catalog.insert_all_into(
-            "employees",
-            vec![
-                Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")]),
-                Row::filled(vec![ColumnValue::int(2), ColumnValue::text("operator")]),
-            ],
-        );
+        let result = catalog.insert_all_into("employees", rows![[1, "relop"], [2, "operator"]]);
 
         assert!(
             matches!(result, Err(InsertError::Catalog(CatalogError::TableDoesNotExist(ref table_name))) if table_name == "employees"),
@@ -474,18 +400,12 @@ mod tests {
     #[test]
     fn get_by_row_id_from_table() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        let row_id = catalog
-            .insert_into("employees", Row::filled(vec![ColumnValue::int(1)]))
-            .unwrap();
-
+        let row_id = catalog.insert_into("employees", row![1]).unwrap();
         let row = catalog.get("employees", row_id).unwrap().unwrap();
-        let expected_row = Row::filled(vec![ColumnValue::int(1)]);
+        let expected_row = row![1];
 
         assert_eq!(expected_row, row);
     }
@@ -503,15 +423,10 @@ mod tests {
     #[test]
     fn insert_into_table_and_scan() {
         let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            Schema::new().add_column("id", ColumnType::Int).unwrap(),
-        );
+        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
         assert!(result.is_ok());
 
-        catalog
-            .insert_into("employees", Row::filled(vec![ColumnValue::int(1)]))
-            .unwrap();
+        catalog.insert_into("employees", row![1]).unwrap();
 
         let rows = catalog
             .scan("employees")
@@ -522,7 +437,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(1, rows.len());
 
-        let expected_row = Row::filled(vec![ColumnValue::int(1)]);
+        let expected_row = row![1];
         assert_eq!(expected_row, rows[0]);
     }
 
@@ -540,36 +455,25 @@ mod tests {
 #[cfg(test)]
 mod table_insert_and_index_tests {
     use crate::catalog::Catalog;
+    use crate::row;
     use crate::schema::primary_key::PrimaryKey;
-    use crate::schema::Schema;
     use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
-    use crate::storage::row::Row;
+    use crate::test_utils::create_schema_with_primary_key;
     use crate::types::column_type::ColumnType;
-    use crate::types::column_value::ColumnValue;
 
     #[test]
     fn insert_into_table_with_primary_key() {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            Schema::new()
-                .add_column("id", ColumnType::Int)
-                .unwrap()
-                .add_primary_key(PrimaryKey::single("id"))
-                .unwrap(),
+            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
         );
         assert!(result.is_ok());
 
-        catalog
-            .insert_into("employees", Row::filled(vec![ColumnValue::int(1)]))
-            .unwrap();
+        catalog.insert_into("employees", row![1]).unwrap();
 
-        let row = Row::filled(vec![ColumnValue::int(1)]);
-        let schema = Schema::new()
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_primary_key(PrimaryKey::single("id"))
-            .unwrap();
+        let row = row![1];
+        let schema = create_schema_with_primary_key(&[("id", ColumnType::Int)], "id");
 
         let primary_key = PrimaryKey::single("id");
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
