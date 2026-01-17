@@ -58,3 +58,39 @@ macro_rules! rows {
         ]
     };
 }
+
+/// Creates a `Schema` from a list of column definitions.
+///
+/// # Returns
+///
+/// Returns a `Result<Schema, SchemaError>`.
+///
+/// # Examples
+///
+/// ```
+/// use relop::schema;
+/// use relop::types::column_type::ColumnType;
+///
+/// let schema = schema![
+///     "id" => ColumnType::Int,
+///     "name" => ColumnType::Text
+/// ].unwrap();
+///
+/// assert_eq!(2, schema.column_count());
+/// ```
+#[macro_export]
+macro_rules! schema {
+    ($($name:expr => $ty:expr),* $(,)?) => {{
+        use $crate::schema::Schema;
+        use $crate::schema::error::SchemaError;
+        // Move the logic into a closure so we can use `?` safely
+        let schema_creation = || -> Result<Schema, SchemaError> {
+            let mut schema = Schema::new();
+            $(
+                schema = schema.add_column($name, $ty)?;
+            )*
+            Ok(schema)
+        };
+        schema_creation()
+    }};
+}

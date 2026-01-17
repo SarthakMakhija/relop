@@ -151,14 +151,15 @@ mod tests {
     use super::*;
     use crate::row;
     use crate::rows;
+    use crate::schema;
     use crate::schema::error::SchemaError;
-    use crate::test_utils::{create_schema, create_schema_with_primary_key};
+    use crate::test_utils::create_schema_with_primary_key;
     use crate::types::column_type::ColumnType;
 
     #[test]
     fn create_table() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
 
         assert!(result.is_ok());
     }
@@ -166,7 +167,7 @@ mod tests {
     #[test]
     fn create_table_without_a_primary_key_index() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
 
         assert!(result.is_ok());
 
@@ -191,7 +192,7 @@ mod tests {
     #[test]
     fn create_table_and_get_table_by_name() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
 
         assert!(result.is_ok());
 
@@ -202,7 +203,7 @@ mod tests {
     #[test]
     fn get_all_tables() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         let tables = catalog.show_tables();
@@ -220,7 +221,7 @@ mod tests {
     #[test]
     fn describe_table_with_name() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         let table_descriptor = catalog.describe_table("employees").unwrap();
@@ -230,7 +231,7 @@ mod tests {
     #[test]
     fn describe_table_with_column_names() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         let table_descriptor = catalog.describe_table("employees").unwrap();
@@ -264,10 +265,10 @@ mod tests {
     #[test]
     fn attempt_to_create_an_already_created_table() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(matches!(
             result,
             Err(CatalogError::TableAlreadyExists(ref table_name)) if table_name == "employees"));
@@ -276,7 +277,7 @@ mod tests {
     #[test]
     fn insert_into_table() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         let row_id = catalog.insert_into("employees", row![1]).unwrap();
@@ -301,7 +302,7 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         assert!(result.is_ok());
 
@@ -316,7 +317,7 @@ mod tests {
     #[test]
     fn attempt_to_insert_into_table_with_incompatible_column_values() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         let result = catalog.insert_into("employees", row!["relop"]);
@@ -331,7 +332,7 @@ mod tests {
     #[test]
     fn insert_all_into_table() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         let row_ids = catalog
@@ -362,7 +363,7 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         assert!(result.is_ok());
 
@@ -377,7 +378,7 @@ mod tests {
     #[test]
     fn attempt_to_insert_all_into_table_with_incompatible_column_values() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         let result = catalog.insert_all_into("employees", rows![["relop"]]);
@@ -402,7 +403,7 @@ mod tests {
     #[test]
     fn get_by_row_id_from_table() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         let row_id = catalog.insert_into("employees", row![1]).unwrap();
@@ -425,7 +426,7 @@ mod tests {
     #[test]
     fn insert_into_table_and_scan() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         catalog.insert_into("employees", row![1]).unwrap();

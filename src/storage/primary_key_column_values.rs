@@ -37,9 +37,11 @@ impl PrimaryKeyColumnValues {
             values: column_values,
         }
     }
+}
 
+#[cfg(test)]
+impl PrimaryKeyColumnValues {
     /// Returns the column values.
-    #[allow(dead_code)]
     pub(crate) fn values(&self) -> &[ColumnValue] {
         &self.values
     }
@@ -48,14 +50,14 @@ impl PrimaryKeyColumnValues {
 #[cfg(test)]
 mod tests {
     use crate::row;
+    use crate::schema;
     use crate::schema::primary_key::PrimaryKey;
     use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
-    use crate::test_utils::create_schema;
     use crate::types::column_type::ColumnType;
 
     #[test]
     fn create_primary_key_column_values() {
-        let schema = create_schema(&[("first_name", ColumnType::Text), ("id", ColumnType::Int)]);
+        let schema = schema!["first_name" => ColumnType::Text, "id" => ColumnType::Int].unwrap();
         let row = row!["relop", 200];
         let primary_key = PrimaryKey::composite(vec!["first_name", "id"]).unwrap();
 

@@ -39,7 +39,6 @@ impl PrimaryKeyIndex {
     }
 
     /// Retrieves the `RowId` associated with a primary key value.
-    #[allow(dead_code)]
     pub(crate) fn get(&self, key: &PrimaryKeyColumnValues) -> Option<RowId> {
         let index = self.index.read().unwrap();
         index.get(key).cloned()
@@ -72,13 +71,13 @@ impl PrimaryKeyIndex {
 mod tests {
     use super::*;
     use crate::row;
+    use crate::schema;
     use crate::schema::primary_key::PrimaryKey;
-    use crate::test_utils::create_schema;
     use crate::types::column_type::ColumnType;
 
     #[test]
     fn insert_a_single_primary_key_column_value_in_index() {
-        let schema = create_schema(&[("first_name", ColumnType::Text)]);
+        let schema = schema!["first_name" => ColumnType::Text].unwrap();
         let row = row!["relop"];
         let primary_key = PrimaryKey::single("first_name");
 
@@ -96,7 +95,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn attempt_to_add_duplicate_primary_key() {
-        let schema = create_schema(&[("first_name", ColumnType::Text)]);
+        let schema = schema!["first_name" => ColumnType::Text].unwrap();
         let row = row!["relop"];
         let primary_key = PrimaryKey::single("first_name");
 
@@ -115,7 +114,7 @@ mod tests {
 
     #[test]
     fn insert_a_composite_primary_key_column_value_in_index() {
-        let schema = create_schema(&[("first_name", ColumnType::Text), ("id", ColumnType::Int)]);
+        let schema = schema!["first_name" => ColumnType::Text, "id" => ColumnType::Int].unwrap();
         let row = row!["relop", 200];
         let primary_key = PrimaryKey::composite(vec!["first_name", "id"]).unwrap();
 
@@ -132,7 +131,7 @@ mod tests {
 
     #[test]
     fn get_row_id_from_index() {
-        let schema = create_schema(&[("first_name", ColumnType::Text)]);
+        let schema = schema!["first_name" => ColumnType::Text].unwrap();
         let row = row!["relop"];
         let primary_key = PrimaryKey::single("first_name");
 
@@ -149,7 +148,7 @@ mod tests {
 
     #[test]
     fn attempt_to_get_non_existing_index_key() {
-        let schema = create_schema(&[("first_name", ColumnType::Text)]);
+        let schema = schema!["first_name" => ColumnType::Text].unwrap();
         let row = row!["relop"];
         let primary_key = PrimaryKey::single("first_name");
 
@@ -161,7 +160,7 @@ mod tests {
 
     #[test]
     fn should_not_contain_index_key() {
-        let schema = create_schema(&[("first_name", ColumnType::Text)]);
+        let schema = schema!["first_name" => ColumnType::Text].unwrap();
         let row = row!["relop"];
         let primary_key = PrimaryKey::single("first_name");
 
@@ -173,7 +172,7 @@ mod tests {
 
     #[test]
     fn duplicate_primary_key_value() {
-        let schema = create_schema(&[("first_name", ColumnType::Text)]);
+        let schema = schema!["first_name" => ColumnType::Text].unwrap();
         let row = row!["relop"];
         let primary_key = PrimaryKey::single("first_name");
         let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
@@ -188,7 +187,7 @@ mod tests {
 
     #[test]
     fn no_duplicate_primary_key_value() {
-        let schema = create_schema(&[("first_name", ColumnType::Text)]);
+        let schema = schema!["first_name" => ColumnType::Text].unwrap();
         let row = row!["relop"];
         let primary_key = PrimaryKey::single("first_name");
         let index = PrimaryKeyIndex::new();

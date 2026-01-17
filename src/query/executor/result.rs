@@ -58,8 +58,8 @@ mod tests {
     use crate::catalog::table::Table;
     use crate::catalog::table_descriptor::TableDescriptor;
     use crate::query::executor::result_set::{ResultSet, RowViewResult};
+    use crate::schema;
     use crate::schema::Schema;
-    use crate::test_utils::create_schema;
     use crate::types::column_type::ColumnType;
     use std::sync::Arc;
 
@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn query_result_table_description() {
-        let schema = create_schema(&[("id", ColumnType::Int)]);
+        let schema = schema!["id" => ColumnType::Int].unwrap();
 
         let table = Table::new("employees", schema);
         let descriptor = TableDescriptor::new(Arc::new(table));

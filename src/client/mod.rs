@@ -334,7 +334,6 @@ impl Relop {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::assert_next_row;
     use crate::assert_no_more_rows;
     use crate::catalog::error::{CatalogError, InsertError};
     use crate::query::executor::error::ExecutionError;
@@ -342,23 +341,24 @@ mod tests {
     use crate::query::parser::error::ParseError;
     use crate::row;
     use crate::rows;
-    use crate::test_utils::{create_schema, create_schema_with_primary_key, insert_rows};
+    use crate::test_utils::{create_schema_with_primary_key, insert_rows};
     use crate::types::column_type::ColumnType;
+    use crate::{assert_next_row, schema};
 
     #[test]
     fn create_table() {
         let result = Relop::new(Catalog::new())
-            .create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+            .create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
     }
 
     #[test]
     fn attempt_to_create_an_already_created_table() {
         let relop = Relop::new(Catalog::new());
-        let result = relop.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = relop.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
-        let result = relop.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = relop.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_err());
         assert!(matches!(
             result,
@@ -369,7 +369,7 @@ mod tests {
     #[test]
     fn insert_into_table() {
         let relop = Relop::new(Catalog::new());
-        let result = relop.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = relop.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         let row_id = relop.insert_into("employees", row![1]).unwrap();
@@ -406,7 +406,7 @@ mod tests {
     #[test]
     fn insert_all_into_table() {
         let relop = Relop::new(Catalog::new());
-        let result = relop.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = relop.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         let row_ids = relop.insert_all_into("employees", rows![[1], [2]]).unwrap();
@@ -433,7 +433,7 @@ mod tests {
     #[test]
     fn execute_show_tables() {
         let relop = Relop::new(Catalog::new());
-        let result = relop.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = relop.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         let query_result = relop.execute("show tables").unwrap();
@@ -448,7 +448,7 @@ mod tests {
     #[test]
     fn execute_describe_table() {
         let relop = Relop::new(Catalog::new());
-        let result = relop.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = relop.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         let query_result = relop.execute("describe table employees").unwrap();
@@ -497,7 +497,7 @@ mod tests {
     #[test]
     fn execute_select_star() {
         let relop = Relop::new(Catalog::new());
-        let result = relop.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = relop.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         insert_rows(&relop.catalog, "employees", rows![[1], [2]]);
@@ -526,7 +526,7 @@ mod tests {
         let relop = Relop::new(Catalog::new());
         let result = relop.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("rank", ColumnType::Int)]),
+            schema!["id" => ColumnType::Int, "rank" => ColumnType::Int].unwrap(),
         );
         assert!(result.is_ok());
 
@@ -545,7 +545,7 @@ mod tests {
         let relop = Relop::new(Catalog::new());
         let result = relop.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("rank", ColumnType::Int)]),
+            schema!["id" => ColumnType::Int, "rank" => ColumnType::Int].unwrap(),
         );
         assert!(result.is_ok());
 
@@ -561,7 +561,7 @@ mod tests {
     #[test]
     fn execute_select_with_order_by_single_column_ascending() {
         let relop = Relop::new(Catalog::new());
-        let result = relop.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = relop.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         insert_rows(&relop.catalog, "employees", rows![[2], [1]]);
@@ -582,7 +582,7 @@ mod tests {
         let relop = Relop::new(Catalog::new());
         let result = relop.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("rank", ColumnType::Int)]),
+            schema!["id" => ColumnType::Int, "rank" => ColumnType::Int].unwrap(),
         );
         assert!(result.is_ok());
 
@@ -602,7 +602,7 @@ mod tests {
     #[test]
     fn execute_select_star_with_limit() {
         let relop = Relop::new(Catalog::new());
-        let result = relop.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = relop.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         insert_rows(&relop.catalog, "employees", rows![[1], [2], [3]]);
@@ -621,7 +621,7 @@ mod tests {
         let relop = Relop::new(Catalog::new());
         let result = relop.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         assert!(result.is_ok());
 
@@ -647,7 +647,7 @@ mod tests {
         let relop = Relop::new(Catalog::new());
         let result = relop.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         assert!(result.is_ok());
 
@@ -673,7 +673,7 @@ mod tests {
         let relop = Relop::new(Catalog::new());
         let result = relop.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         assert!(result.is_ok());
 
@@ -698,7 +698,7 @@ mod tests {
         let relop = Relop::new(Catalog::new());
         let result = relop.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         assert!(result.is_ok());
 
@@ -723,7 +723,7 @@ mod tests {
         let relop = Relop::new(Catalog::new());
         let result = relop.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         assert!(result.is_ok());
 
@@ -750,7 +750,7 @@ mod tests {
         let relop = Relop::new(Catalog::new());
         let result = relop.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         assert!(result.is_ok());
 

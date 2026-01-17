@@ -100,16 +100,14 @@ mod tests {
     use crate::catalog::error::CatalogError;
     use crate::query::parser::ast::Literal;
     use crate::query::plan::predicate::{LogicalOperator, Predicate};
-    use crate::test_utils::{
-        create_schema, create_schema_with_primary_key, insert_row, insert_rows,
-    };
+    use crate::test_utils::{create_schema_with_primary_key, insert_row, insert_rows};
     use crate::types::column_type::ColumnType;
-    use crate::{asc, assert_next_row, assert_no_more_rows, desc, row, rows};
+    use crate::{asc, assert_next_row, assert_no_more_rows, desc, row, rows, schema};
 
     #[test]
     fn execute_show_tables() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         let executor = Executor::new(&catalog);
@@ -125,7 +123,7 @@ mod tests {
     #[test]
     fn execute_describe_table() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         let executor = Executor::new(&catalog);
@@ -182,7 +180,7 @@ mod tests {
     #[test]
     fn execute_select_star() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         insert_row(&catalog, "employees", row![100]);
@@ -217,7 +215,7 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         assert!(result.is_ok());
 
@@ -242,7 +240,7 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         assert!(result.is_ok());
 
@@ -261,7 +259,7 @@ mod tests {
     #[test]
     fn execute_select_with_where_clause() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         insert_rows(&catalog, "employees", rows![[1], [2]]);
@@ -287,7 +285,7 @@ mod tests {
     #[test]
     fn execute_select_with_order_by_single_column_ascending() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         insert_rows(&catalog, "employees", rows![[200], [100]]);
@@ -310,7 +308,7 @@ mod tests {
     #[test]
     fn execute_select_with_order_by_single_column_descending() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         insert_rows(&catalog, "employees", rows![[100], [200]]);
@@ -335,7 +333,7 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("age", ColumnType::Int)]),
+            schema!["id" => ColumnType::Int, "age" => ColumnType::Int].unwrap(),
         );
         assert!(result.is_ok());
 
@@ -359,7 +357,7 @@ mod tests {
     #[test]
     fn execute_select_star_with_limit() {
         let catalog = Catalog::new();
-        let result = catalog.create_table("employees", create_schema(&[("id", ColumnType::Int)]));
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
         insert_rows(&catalog, "employees", rows![[100], [200]]);
@@ -383,7 +381,7 @@ mod tests {
         let catalog = Catalog::new();
         let result = catalog.create_table(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         assert!(result.is_ok());
 

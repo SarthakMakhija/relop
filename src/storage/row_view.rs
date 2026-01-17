@@ -156,12 +156,12 @@ impl<'a> RowViewComparator<'a> {
 mod tests {
     use super::*;
     use crate::row;
-    use crate::test_utils::create_schema;
+    use crate::schema;
     use crate::types::column_type::ColumnType;
 
     #[test]
     fn column_value() {
-        let schema = create_schema(&[("id", ColumnType::Int)]);
+        let schema = schema!["id" => ColumnType::Int].unwrap();
         let row = row![200];
 
         let visible_positions = vec![0];
@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn attempt_to_get_non_existing_column() {
-        let schema = create_schema(&[("id", ColumnType::Int)]);
+        let schema = schema!["id" => ColumnType::Int].unwrap();
         let row = row![200];
 
         let visible_positions = vec![0];
@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn attempt_to_get_a_column_not_in_visible_position() {
-        let schema = create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]);
+        let schema = schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap();
         let row = row![200, "relop"];
 
         let visible_positions = vec![1];
@@ -194,7 +194,7 @@ mod tests {
     }
     #[test]
     fn project_row_view() {
-        let schema = create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]);
+        let schema = schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap();
 
         let row = row![200, "relop"];
 
@@ -219,14 +219,14 @@ mod tests {
 #[cfg(test)]
 mod row_view_comparator_tests {
     use super::*;
-    use crate::test_utils::create_schema;
+    use crate::schema;
     use crate::types::column_type::ColumnType;
     use crate::{asc, desc, row};
     use std::cmp::Ordering;
 
     #[test]
     fn compare_row_views_on_single_column_ascending() {
-        let schema = create_schema(&[("id", ColumnType::Int)]);
+        let schema = schema!["id" => ColumnType::Int].unwrap();
         let ordering_keys = vec![asc!("id")];
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
 
@@ -242,7 +242,7 @@ mod row_view_comparator_tests {
 
     #[test]
     fn compare_row_views_on_multiple_columns_ascending() {
-        let schema = create_schema(&[("id", ColumnType::Int), ("rank", ColumnType::Int)]);
+        let schema = schema!["id" => ColumnType::Int, "rank" => ColumnType::Int].unwrap();
         let ordering_keys = vec![asc!("id"), asc!("rank")];
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
 
@@ -258,7 +258,7 @@ mod row_view_comparator_tests {
 
     #[test]
     fn compare_row_views_on_multiple_columns_with_same_value_ascending() {
-        let schema = create_schema(&[("id", ColumnType::Int), ("rank", ColumnType::Int)]);
+        let schema = schema!["id" => ColumnType::Int, "rank" => ColumnType::Int].unwrap();
         let ordering_keys = vec![asc!("id"), asc!("rank")];
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
 
@@ -274,7 +274,7 @@ mod row_view_comparator_tests {
 
     #[test]
     fn compare_row_views_on_multiple_columns_with_same_value_and_mixed_directions() {
-        let schema = create_schema(&[("id", ColumnType::Int), ("rank", ColumnType::Int)]);
+        let schema = schema!["id" => ColumnType::Int, "rank" => ColumnType::Int].unwrap();
         let ordering_keys = vec![asc!("id"), desc!("rank")];
         let comparator = RowViewComparator::new(&schema, &ordering_keys).unwrap();
 
@@ -293,7 +293,7 @@ mod row_view_comparator_tests {
 
     #[test]
     fn attempt_compare_row_views_on_with_non_existing_column() {
-        let schema = create_schema(&[("id", ColumnType::Int)]);
+        let schema = schema!["id" => ColumnType::Int].unwrap();
         let ordering_keys = vec![asc!("id"), desc!("rank")];
 
         let result = RowViewComparator::new(&schema, &ordering_keys);

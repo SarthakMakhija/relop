@@ -500,8 +500,8 @@ mod predicate_tests {
     use super::*;
     use crate::query::parser::ast::Literal;
     use crate::row;
+    use crate::schema;
     use crate::storage::row_view::RowView;
-    use crate::test_utils::create_schema;
     use crate::types::column_type::ColumnType;
 
     #[test]
@@ -563,7 +563,7 @@ mod predicate_tests {
 
     #[test]
     fn matches_for_the_row() {
-        let schema = create_schema(&[("age", ColumnType::Int)]);
+        let schema = schema!["age" => ColumnType::Int].unwrap();
         let row = row![30];
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
@@ -574,7 +574,7 @@ mod predicate_tests {
 
     #[test]
     fn does_not_match_for_the_row() {
-        let schema = create_schema(&[("age", ColumnType::Int)]);
+        let schema = schema!["age" => ColumnType::Int].unwrap();
         let row = row![30];
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
@@ -585,7 +585,7 @@ mod predicate_tests {
 
     #[test]
     fn attempt_to_match_predicate_when_the_column_is_not_present_in_the_row() {
-        let schema = create_schema(&[("age", ColumnType::Int)]);
+        let schema = schema!["age" => ColumnType::Int].unwrap();
         let row = row![30];
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
@@ -601,7 +601,7 @@ mod predicate_tests {
 
     #[test]
     fn attempt_to_match_predicate_when_there_is_a_column_type_mismatch() {
-        let schema = create_schema(&[("age", ColumnType::Int)]);
+        let schema = schema!["age" => ColumnType::Int].unwrap();
         let row = row![30];
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
@@ -616,7 +616,7 @@ mod predicate_tests {
 
     #[test]
     fn matches_like_pattern() {
-        let schema = create_schema(&[("name", ColumnType::Text)]);
+        let schema = schema!["name" => ColumnType::Text].unwrap();
         let row = row!["John"];
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
@@ -628,7 +628,7 @@ mod predicate_tests {
 
     #[test]
     fn does_not_match_like_pattern() {
-        let schema = create_schema(&[("name", ColumnType::Text)]);
+        let schema = schema!["name" => ColumnType::Text].unwrap();
         let row = row!["Doe"];
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
@@ -640,7 +640,7 @@ mod predicate_tests {
 
     #[test]
     fn attempt_to_match_predicate_when_there_is_a_column_type_mismatch_with_like() {
-        let schema = create_schema(&[("age", ColumnType::Int)]);
+        let schema = schema!["age" => ColumnType::Int].unwrap();
         let row = row![30];
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
@@ -656,7 +656,7 @@ mod predicate_tests {
 
     #[test]
     fn attempt_to_match_predicate_when_the_column_is_not_present_in_the_row_with_like() {
-        let schema = create_schema(&[("name", ColumnType::Text)]);
+        let schema = schema!["name" => ColumnType::Text].unwrap();
         let row = row!["John"];
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);

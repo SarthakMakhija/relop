@@ -7,19 +7,6 @@ use crate::storage::row_view::RowView;
 use crate::types::column_type::ColumnType;
 use crate::types::column_value::ColumnValue;
 
-/// Creates a new `Schema` with the given columns.
-///
-/// # Arguments
-///
-/// * `columns` - A slice of tuples, where each tuple contains the column name and type.
-pub fn create_schema(columns: &[(&str, ColumnType)]) -> Schema {
-    let mut schema = Schema::new();
-    for (name, col_type) in columns {
-        schema = schema.add_column(name, col_type.clone()).unwrap();
-    }
-    schema
-}
-
 /// Creates a new `Schema` with the given columns and primary key.
 /// # Arguments
 ///

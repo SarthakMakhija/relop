@@ -160,15 +160,16 @@ mod tests {
     use super::*;
     use crate::row;
     use crate::rows;
+    use crate::schema;
     use crate::schema::primary_key::PrimaryKey;
-    use crate::test_utils::{create_schema, create_schema_with_primary_key};
+    use crate::test_utils::create_schema_with_primary_key;
     use crate::types::column_type::ColumnType;
 
     #[test]
     fn insert_row() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int)]),
+            schema!["id" => ColumnType::Int].unwrap(),
         ));
         table_entry.insert(row![100]).unwrap();
 
@@ -218,7 +219,7 @@ mod tests {
     fn insert_rows() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int)]),
+            schema!["id" => ColumnType::Int].unwrap(),
         ));
         let batch = Batch::new(rows![[10], [20]]);
         table_entry.insert_all(batch).unwrap();
@@ -260,7 +261,7 @@ mod tests {
     fn insert_row_and_get_by_row_id() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int)]),
+            schema!["id" => ColumnType::Int].unwrap(),
         ));
         let row_id = table_entry.insert(row![100]).unwrap();
 
@@ -272,7 +273,7 @@ mod tests {
     fn insert_row_and_attempt_to_get_by_non_existent_row_id() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int)]),
+            schema!["id" => ColumnType::Int].unwrap(),
         ));
         table_entry.insert(row![100]).unwrap();
 
@@ -293,7 +294,7 @@ mod tests {
     fn should_not_create_primary_key_index() {
         let table_entry = TableEntry::new(Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int)]),
+            schema!["id" => ColumnType::Int].unwrap(),
         ));
         assert!(!table_entry.has_primary_key_index());
     }

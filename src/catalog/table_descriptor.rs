@@ -88,12 +88,13 @@ impl TableDescriptor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::{create_schema, create_schema_with_primary_key};
+    use crate::schema;
+    use crate::test_utils::create_schema_with_primary_key;
     use crate::types::column_type::ColumnType;
 
     #[test]
     fn table_name() {
-        let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
+        let table = Table::new("employees", schema!["id" => ColumnType::Int].unwrap());
         let table_descriptor = TableDescriptor::new(Arc::new(table));
 
         assert_eq!("employees", table_descriptor.table_name());
@@ -101,7 +102,7 @@ mod tests {
 
     #[test]
     fn column_names() {
-        let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
+        let table = Table::new("employees", schema!["id" => ColumnType::Int].unwrap());
         let table_descriptor = TableDescriptor::new(Arc::new(table));
 
         assert_eq!(vec!["id"], table_descriptor.column_names());

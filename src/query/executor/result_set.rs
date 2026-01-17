@@ -268,15 +268,15 @@ mod tests {
     use crate::query::plan::predicate::LogicalOperator;
 
     use crate::storage::table_store::TableStore;
-    use crate::test_utils::create_schema;
     use crate::types::column_type::ColumnType;
-    use crate::{asc, assert_next_row, assert_no_more_rows, desc, row, rows};
+
+    use crate::{asc, assert_next_row, assert_no_more_rows, desc, row, rows, schema};
 
     #[test]
     fn scan_result_set() {
         let table = Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         let table_store = TableStore::new();
         table_store.insert(row![1, "relop"]);
@@ -292,7 +292,7 @@ mod tests {
 
     #[test]
     fn attempt_to_get_result_set_with_non_existent_column() {
-        let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
+        let table = Table::new("employees", schema!["id" => ColumnType::Int].unwrap());
         let table_store = TableStore::new();
         table_store.insert(row![1]);
 
@@ -307,7 +307,7 @@ mod tests {
     fn projected_result_set() {
         let table = Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         let table_store = TableStore::new();
         table_store.insert(row![1, "relop"]);
@@ -326,7 +326,7 @@ mod tests {
     fn projected_result_set_with_filter() {
         let table = Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         let table_store = TableStore::new();
         table_store.insert(row![1, "relop"]);
@@ -347,7 +347,7 @@ mod tests {
 
     #[test]
     fn attempt_to_get_projected_result_set_with_non_existent_column() {
-        let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
+        let table = Table::new("employees", schema!["id" => ColumnType::Int].unwrap());
         let table_store = TableStore::new();
         table_store.insert(row![1]);
 
@@ -364,7 +364,7 @@ mod tests {
     fn filter_result_set() {
         let table = Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         let table_store = TableStore::new();
         table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
@@ -384,7 +384,7 @@ mod tests {
     fn filter_result_set_with_no_matching_rows() {
         let table = Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         let table_store = TableStore::new();
         table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
@@ -402,7 +402,7 @@ mod tests {
     fn filter_result_set_with_string_comparison() {
         let table = Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         let table_store = TableStore::new();
         table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
@@ -424,7 +424,7 @@ mod tests {
 
     #[test]
     fn ordering_result_set_single_column_ascending() {
-        let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
+        let table = Table::new("employees", schema!["id" => ColumnType::Int].unwrap());
         let table_store = TableStore::new();
         table_store.insert_all(rows![[2], [1]]);
 
@@ -442,7 +442,7 @@ mod tests {
 
     #[test]
     fn ordering_result_set_single_column_descending() {
-        let table = Table::new("employees", create_schema(&[("id", ColumnType::Int)]));
+        let table = Table::new("employees", schema!["id" => ColumnType::Int].unwrap());
         let table_store = TableStore::new();
         table_store.insert_all(rows![[1], [2]]);
 
@@ -462,7 +462,7 @@ mod tests {
     fn ordering_result_set_multiple_columns_ascending() {
         let table = Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("rank", ColumnType::Int)]),
+            schema!["id" => ColumnType::Int, "rank" => ColumnType::Int].unwrap(),
         );
         let table_store = TableStore::new();
         table_store.insert_all(rows![[1, 20], [1, 10]]);
@@ -483,7 +483,7 @@ mod tests {
     fn ordering_result_set_with_limit() {
         let table = Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("rank", ColumnType::Int)]),
+            schema!["id" => ColumnType::Int, "rank" => ColumnType::Int].unwrap(),
         );
         let table_store = TableStore::new();
         table_store.insert_all(rows![[3, 30], [1, 10], [2, 20]]);
@@ -505,7 +505,7 @@ mod tests {
     fn limit_result_set() {
         let table = Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         let table_store = TableStore::new();
         table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
@@ -524,7 +524,7 @@ mod tests {
     fn limit_result_set_given_limit_higher_than_the_available_rows() {
         let table = Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         let table_store = TableStore::new();
         table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
@@ -544,7 +544,7 @@ mod tests {
     fn limit_result_set_with_projection() {
         let table = Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         let table_store = TableStore::new();
         table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
@@ -564,7 +564,7 @@ mod tests {
     fn schema() {
         let table = Table::new(
             "employees",
-            create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]),
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
         let table_store = TableStore::new();
         let table_scan = TableScan::new(Arc::new(table_store));

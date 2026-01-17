@@ -110,14 +110,15 @@ impl From<Vec<Row>> for Batch {
 mod tests {
     use super::*;
     use crate::rows;
+    use crate::schema;
     use crate::schema::error::SchemaError;
-    use crate::test_utils::{create_schema, create_schema_with_primary_key};
+    use crate::test_utils::create_schema_with_primary_key;
     use crate::types::column_type::ColumnType;
     use crate::types::column_value::ColumnValue;
 
     #[test]
     fn batch_with_incompatible_column_count() {
-        let schema = create_schema(&[("id", ColumnType::Int), ("name", ColumnType::Text)]);
+        let schema = schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap();
         let batch = Batch::new(rows![[10]]);
         let result = batch.check_type_compatability(&schema);
 
@@ -129,7 +130,7 @@ mod tests {
 
     #[test]
     fn batch_with_incompatible_column_values() {
-        let schema = create_schema(&[("id", ColumnType::Int)]);
+        let schema = schema!["id" => ColumnType::Int].unwrap();
 
         let batch = Batch::new(rows![["relop"]]);
         let result = batch.check_type_compatability(&schema);
