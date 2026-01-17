@@ -23,16 +23,14 @@ use relop::types::column_type::ColumnType;
 use relop::storage::row::Row;
 use relop::types::column_value::ColumnValue;
 use relop::row;
+use relop::schema;
 
 fn main() {
     // 1. Initialize the system
     let relop = Relop::new(Catalog::new());
 
     // 2. Define Schema and Create Table
-    let schema = Schema::new()
-        .add_column("id", ColumnType::Int).unwrap()
-        .add_column("name", ColumnType::Text).unwrap();
-    
+    let schema = schema!["id" => ColumnType::Int, "name", ColumnType::Text].unwrap();
     relop.create_table("employees", schema).unwrap();
 
     // 3. Insert Data
@@ -59,12 +57,12 @@ The query processing pipeline follows a standard database architecture:
 ### Pipeline Details
 
 1.  **Lexer**: Tokenizes the raw SQL string.
-    *   *Input*: `SELECT id FROM employees`
-    *   *Output*: `[SELECT, IDENT("id"), FROM, IDENT("employees")]`
+  *   *Input*: `SELECT id FROM employees`
+  *   *Output*: `[SELECT, IDENT("id"), FROM, IDENT("employees")]`
 2.  **Parser**: Converts tokens into an **Abstract Syntax Tree (AST)**.
-    *   *Output*: `SelectStatement { projection: ["id"], table: "employees" }`
+  *   *Output*: `SelectStatement { projection: ["id"], table: "employees" }`
 3.  **Logical Planner**: Transforms the AST into a tree of **Logical Operators**.
-    *   *Output*: `Project(Scan("employees"), ["id"])`
+  *   *Output*: `Project(Scan("employees"), ["id"])`
 4.  **Executor**: Traverses the logical plan and constructs a **physical execution pipeline** using `ResultSet` iterators, which pull data on demand.
 
 ## Project Structure
@@ -155,6 +153,6 @@ The SQL subset supported by `relop` is defined in [docs/grammar.ebnf](docs/gramm
 ## References
 
 - [Crafting Interpreters](https://craftinginterpreters.com/contents.html)
-    - Chapters 4,5,6
+  - Chapters 4,5,6
 - [Database design and implementation](https://link.springer.com/book/10.1007/978-3-030-33836-7)
-    - Chapter 10
+  - Chapter 10
