@@ -417,6 +417,28 @@ mod tests {
     }
 
     #[test]
+    fn lex_select_with_where_clause_with_and() {
+        assert_lex!(
+            "SELECT * FROM employees where name like 'rel%' and id = 1",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::Keyword, "where"),
+                (TokenType::Identifier, "name"),
+                (TokenType::Keyword, "like"),
+                (TokenType::StringLiteral, "rel%"),
+                (TokenType::Keyword, "and"),
+                (TokenType::Identifier, "id"),
+                (TokenType::Equal, "="),
+                (TokenType::WholeNumber, "1"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
     fn lex_select_with_where_clause_with_unsupported_operator() {
         let result =
             Lexer::new_with_default_keywords("select * from employees where id ! 10").lex();
