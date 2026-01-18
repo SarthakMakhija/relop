@@ -132,6 +132,7 @@ cargo test
 - `SELECT col1, col2 FROM <table> WHERE col1 != <literal>`
 - `SELECT col1, col2 FROM <table> WHERE col1 != <literal>`
 - `SELECT col1, col2 FROM <table> WHERE col1 like <regular expression>`
+- `SELECT col1, col2 FROM <table> WHERE col1 = <literal> AND col2 = <literal>`
 - `SELECT col1, col2 FROM <table> ORDER by col1`
 - `SELECT col1, col2 FROM <table> ORDER by col1 asc`
 - `SELECT col1, col2 FROM <table> ORDER by col1 asc, col2 desc`
