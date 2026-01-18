@@ -4,6 +4,7 @@ use crate::query::parser::ordering_key::OrderingKey;
 use crate::query::parser::projection::Projection;
 
 /// `Ast` represents the Abstract Syntax Tree for SQL statements.
+#[derive(Debug)]
 pub(crate) enum Ast {
     /// Represents a `SHOW TABLES` statement.
     ShowTables,
@@ -31,6 +32,7 @@ pub(crate) enum Ast {
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum WhereClause {
     Single(Condition),
+    And(Vec<Condition>),
 }
 
 #[derive(Debug, Eq, PartialEq)]

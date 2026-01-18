@@ -113,6 +113,7 @@ impl TryFrom<WhereClause> for Predicate {
             WhereClause::Single(condition) => {
                 Ok(Predicate::Single(LogicalCondition::try_from(condition)?))
             }
+            _ => unimplemented!(),
         }
     }
 }

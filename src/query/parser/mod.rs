@@ -5,7 +5,7 @@ pub(crate) mod projection;
 
 use crate::query::lexer::token::{Token, TokenStream, TokenType};
 use crate::query::lexer::token_cursor::TokenCursor;
-use crate::query::parser::ast::{Ast, BinaryOperator, Literal, WhereClause};
+use crate::query::parser::ast::{Ast, BinaryOperator, Condition, Literal, WhereClause};
 use crate::query::parser::error::ParseError;
 use crate::query::parser::ordering_key::{OrderingDirection, OrderingKey};
 use crate::query::parser::projection::Projection;
@@ -150,20 +150,38 @@ impl Parser {
     fn maybe_where_clause(&mut self) -> Result<Option<WhereClause>, ParseError> {
         let is_where_clause = self.eat_if(|token| token.is_keyword("where"));
         if is_where_clause {
-            let where_clause = self.expect_clause()?;
-            return Ok(Some(where_clause));
+            let conditions = self.expect_conditions()?;
+            return if conditions.len() == 1 {
+                Ok(Some(WhereClause::Single(
+                    conditions.into_iter().next().unwrap(),
+                )))
+            } else {
+                Ok(Some(WhereClause::And(conditions)))
+            };
         }
         Ok(None)
     }
 
-    fn expect_clause(&mut self) -> Result<WhereClause, ParseError> {
+    fn expect_conditions(&mut self) -> Result<Vec<Condition>, ParseError> {
+        let condition = self.expect_condition()?;
+        let mut conditions = Vec::new();
+        conditions.push(condition);
+
+        while self.eat_if(|token| token.matches(TokenType::Keyword, "and")) {
+            let condition = self.expect_condition()?;
+            conditions.push(condition);
+        }
+        Ok(conditions)
+    }
+
+    fn expect_condition(&mut self) -> Result<Condition, ParseError> {
         let column_name = self.expect_identifier()?;
         let operator = self.expect_operator()?;
         let literal = self.expect_literal()?;
 
         match operator {
-            BinaryOperator::Like => Ok(WhereClause::like(&column_name, literal)),
-            _ => Ok(WhereClause::comparison(&column_name, operator, literal)),
+            BinaryOperator::Like => Ok(Condition::like(&column_name, literal)),
+            _ => Ok(Condition::comparison(&column_name, operator, literal)),
         }
     }
 
@@ -1101,6 +1119,117 @@ mod select_where_with_single_comparison_tests {
         let result = parser.parse();
 
         assert!(matches!(result, Err(ParseError::UnexpectedEndOfInput)));
+    }
+}
+
+#[cfg(test)]
+mod select_where_with_and_tests {
+    use super::*;
+    use crate::query::lexer::token::Token;
+
+    #[test]
+    fn parse_select_with_where_with_and_comparison() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("relop", TokenType::StringLiteral));
+        stream.add(Token::new("and", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("2", TokenType::WholeNumber));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(
+            matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
+                if table_name == "employees" &&
+                    projection == Projection::All &&
+                    matches!(&where_clause, Some(WhereClause::And(conditions))
+                        if conditions.len() == 2 &&
+                        conditions[0] == Condition::comparison(
+                            "name",
+                            BinaryOperator::Eq,
+                            Literal::Text("relop".to_string())
+                        ) &&
+                        conditions[1] == Condition::comparison(
+                            "id",
+                            BinaryOperator::Eq,
+                            Literal::Int(2)
+                        )
+                    )
+            )
+        );
+    }
+
+    #[test]
+    fn parse_select_with_where_with_and_comparison_involving_like() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("like", TokenType::Keyword));
+        stream.add(Token::new("rel%", TokenType::StringLiteral));
+        stream.add(Token::new("and", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("2", TokenType::WholeNumber));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(
+            matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
+                if table_name == "employees" &&
+                    projection == Projection::All &&
+                    matches!(&where_clause, Some(WhereClause::And(conditions))
+                        if conditions.len() == 2 &&
+                        conditions[0] == Condition::like(
+                            "name",
+                            Literal::Text("rel%".to_string())
+                        ) &&
+                        conditions[1] == Condition::comparison(
+                            "id",
+                            BinaryOperator::Eq,
+                            Literal::Int(2)
+                        )
+                    )
+            )
+        );
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_no_condition_after_and() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("like", TokenType::Keyword));
+        stream.add(Token::new("rel%", TokenType::StringLiteral));
+        stream.add(Token::new("and", TokenType::Keyword));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(
+            result,
+            Err(ParseError::UnexpectedToken {expected, found}) if expected == "identifier" && found == ";"
+        ))
     }
 }
 
