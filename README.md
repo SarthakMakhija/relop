@@ -114,9 +114,11 @@ cargo test
 
 ## Pending
 
-- **Boolean Logic**: Add support for `AND` and `OR` operators in `WHERE` clauses.
-- **Complex Expressions**: Enable grouping conditions with parentheses `( ... )` to control precedence.
+- **Boolean Logic**: 
+  - [x] Add support for `AND` in `WHERE` clauses.
+  - [ ] Add support for `OR` in `WHERE` clauses.
 - **Compound Predicates**: Allow mixing `AND` and `OR` to define complex filtering criteria.
+- **Complex Expressions**: Enable grouping conditions with parentheses `( ... )` to control precedence.
 
 ## Supported SQL
 
