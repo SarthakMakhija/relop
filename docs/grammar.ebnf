@@ -20,7 +20,7 @@ projection
     | identifier ("," identifier)*
 
 where
-    = "WHERE" clause
+    = "WHERE" clause ("AND" clause)*
 
 clause
     = identifier operator literal
