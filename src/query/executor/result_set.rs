@@ -423,6 +423,67 @@ mod tests {
     }
 
     #[test]
+    fn filter_result_set_with_and_predicate() {
+        let table = Table::new(
+            "employees",
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+        );
+        let table_store = TableStore::new();
+        table_store.insert_all(rows![[1, "relop"], [2, "query"], [3, "relop"]]);
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+
+        let predicate = Predicate::And(vec![
+            crate::query::plan::predicate::LogicalCondition::comparison(
+                "id",
+                LogicalOperator::Greater,
+                Literal::Int(1),
+            ),
+            crate::query::plan::predicate::LogicalCondition::comparison(
+                "name",
+                LogicalOperator::Eq,
+                Literal::Text("relop".to_string()),
+            ),
+        ]);
+        let filter_result_set = FilterResultSet::new(result_set, predicate);
+        let mut iterator = filter_result_set.iterator().unwrap();
+
+        assert_next_row!(iterator.as_mut(), "id" => 3, "name" => "relop");
+        assert_no_more_rows!(iterator.as_mut());
+    }
+
+    #[test]
+    fn filter_result_set_with_and_predicate_no_match() {
+        let table = Table::new(
+            "employees",
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+        );
+        let table_store = TableStore::new();
+        table_store.insert_all(rows![[1, "relop"], [2, "query"], [3, "rust"]]);
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+
+        let predicate = Predicate::And(vec![
+            crate::query::plan::predicate::LogicalCondition::comparison(
+                "id",
+                LogicalOperator::Greater,
+                Literal::Int(1),
+            ),
+            crate::query::plan::predicate::LogicalCondition::comparison(
+                "name",
+                LogicalOperator::Eq,
+                Literal::Text("relop".to_string()),
+            ),
+        ]);
+        let filter_result_set = FilterResultSet::new(result_set, predicate);
+        let mut iterator = filter_result_set.iterator().unwrap();
+
+        assert_no_more_rows!(iterator.as_mut());
+    }
+
+    #[test]
     fn ordering_result_set_single_column_ascending() {
         let table = Table::new("employees", schema!["id" => ColumnType::Int].unwrap());
         let table_store = TableStore::new();
