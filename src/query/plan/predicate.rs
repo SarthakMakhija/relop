@@ -1,5 +1,5 @@
 use crate::query::executor::error::ExecutionError;
-use crate::query::parser::ast::{BinaryOperator, Literal, WhereClause};
+use crate::query::parser::ast::{BinaryOperator, Condition, Literal, WhereClause};
 
 use crate::storage::row_view::RowView;
 use crate::types::column_value::ColumnValue;
@@ -7,6 +7,11 @@ use crate::types::column_value::ColumnValue;
 /// `Predicate` represents a filter condition in a logical plan.
 #[derive(Debug)]
 pub(crate) enum Predicate {
+    Single(LogicalCondition),
+}
+
+#[derive(Debug)]
+pub(crate) enum LogicalCondition {
     /// A comparison predicate (e.g., `age > 30`).
     Comparison {
         /// The column name to compare.
@@ -16,7 +21,6 @@ pub(crate) enum Predicate {
         /// The literal value to compare against.
         literal: Literal,
     },
-    /// A LIKE predicate (e.g., `name LIKE 'Joh%'`).
     Like {
         /// The column name to match against.
         column_name: String,
@@ -25,23 +29,115 @@ pub(crate) enum Predicate {
     },
 }
 
+impl LogicalCondition {
+    /// Creates a new `LogicalCondition::Comparison` variant.
+    ///
+    /// # Arguments
+    ///
+    /// * `column_name` - The name of the column to compare.
+    /// * `operator` - The logical operator to use for comparison.
+    /// * `literal` - The literal value to compare against.
+    pub(crate) fn comparison(
+        column_name: &str,
+        operator: LogicalOperator,
+        literal: Literal,
+    ) -> Self {
+        LogicalCondition::Comparison {
+            column_name: column_name.to_string(),
+            operator,
+            literal,
+        }
+    }
+
+    /// Creates a new `LogicalCondition::Like` variant.
+    ///
+    /// # Arguments
+    ///
+    /// * `column_name` - The name of the column to match against.
+    /// * `regex` - The compiled regular expression pattern.
+    pub(crate) fn like(column_name: &str, regex: regex::Regex) -> Self {
+        LogicalCondition::Like {
+            column_name: column_name.to_string(),
+            regex,
+        }
+    }
+
+    /// Evaluates the condition against a given `RowView`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(true)` - If the row satisfies the condition.
+    /// * `Ok(false)` - If the row does not satisfy the condition.
+    /// * `Err(ExecutionError::UnknownColumn)` - If the column is not found in the row.
+    /// * `Err(ExecutionError::TypeMismatchInComparison)` - If the types do not match.
+    pub(crate) fn matches(&self, row_view: &RowView) -> Result<bool, ExecutionError> {
+        match self {
+            LogicalCondition::Comparison {
+                column_name,
+                operator,
+                literal,
+            } => {
+                let column_value = row_view
+                    .column_value_by(column_name)
+                    .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?;
+
+                operator.apply(column_value, literal)
+            }
+            LogicalCondition::Like { column_name, regex } => {
+                let column_value = row_view
+                    .column_value_by(column_name)
+                    .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?;
+
+                match column_value {
+                    ColumnValue::Text(value) => Ok(regex.is_match(value)),
+                    _ => Err(ExecutionError::TypeMismatchInComparison),
+                }
+            }
+        }
+    }
+}
+
 use crate::query::plan::error::PlanningError;
 
 impl TryFrom<WhereClause> for Predicate {
     type Error = PlanningError;
 
+    /// Converts a `WhereClause` into a `Predicate`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Predicate)` - If the conversion is successful.
+    /// * `Err(PlanningError)` - If the conversion fails (e.g., due to an invalid regex).
     fn try_from(clause: WhereClause) -> Result<Self, Self::Error> {
         match clause {
-            WhereClause::Comparison {
+            WhereClause::Single(condition) => {
+                Ok(Predicate::Single(LogicalCondition::try_from(condition)?))
+            }
+        }
+    }
+}
+
+impl TryFrom<Condition> for LogicalCondition {
+    type Error = PlanningError;
+
+    /// Converts a `Condition` into a `LogicalCondition`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(LogicalCondition)` - If the conversion is successful.
+    /// * `Err(PlanningError)` - If the conversion fails (e.g., due to an invalid regex).
+    fn try_from(condition: Condition) -> Result<Self, Self::Error> {
+        match condition {
+            Condition::Comparison {
                 column_name,
                 operator,
                 literal,
-            } => Ok(Predicate::comparison(
-                &column_name,
-                operator.into(),
+            } => Ok(LogicalCondition::Comparison {
+                column_name,
+                operator: operator.into(),
                 literal,
-            )),
-            WhereClause::Like {
+            }),
+            Condition::Like {
                 column_name,
                 literal,
             } => {
@@ -54,7 +150,7 @@ impl TryFrom<WhereClause> for Predicate {
                     }
                 };
                 let regex = regex::Regex::new(&regex_pattern)?;
-                Ok(Predicate::like(&column_name, regex))
+                Ok(LogicalCondition::Like { column_name, regex })
             }
         }
     }
@@ -67,27 +163,7 @@ impl Predicate {
     /// Returns an `ExecutionError` if the column cannot be found.
     pub(crate) fn matches(&self, row_view: &RowView) -> Result<bool, ExecutionError> {
         match self {
-            Predicate::Comparison {
-                column_name,
-                operator,
-                literal,
-            } => {
-                let column_value = row_view
-                    .column_value_by(column_name)
-                    .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?;
-
-                operator.apply(column_value, literal)
-            }
-            Predicate::Like { column_name, regex } => {
-                let column_value = row_view
-                    .column_value_by(column_name)
-                    .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?;
-
-                match column_value {
-                    ColumnValue::Text(value) => Ok(regex.is_match(value)),
-                    _ => Err(ExecutionError::TypeMismatchInComparison),
-                }
-            }
+            Predicate::Single(condition) => condition.matches(row_view),
         }
     }
 }
@@ -167,11 +243,7 @@ impl Predicate {
         operator: LogicalOperator,
         literal: Literal,
     ) -> Self {
-        Predicate::Comparison {
-            column_name: column_name.to_string(),
-            operator,
-            literal,
-        }
+        Predicate::Single(LogicalCondition::comparison(column_name, operator, literal))
     }
 
     /// Creates a new `Like` predicate.
@@ -181,10 +253,7 @@ impl Predicate {
     /// * `column_name` - The name of the column to match against.
     /// * `pattern` - The compiled regular expression pattern.
     pub(crate) fn like(column_name: &str, pattern: regex::Regex) -> Self {
-        Predicate::Like {
-            column_name: column_name.to_string(),
-            regex: pattern,
-        }
+        Predicate::Single(LogicalCondition::like(column_name, pattern))
     }
 }
 
@@ -509,11 +578,11 @@ mod predicate_tests {
         let predicate = Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(18));
         assert!(matches!(
             predicate,
-            Predicate::Comparison {
+            Predicate::Single(LogicalCondition::Comparison {
                 column_name,
                 operator: LogicalOperator::Greater,
                 literal: Literal::Int(18),
-            } if column_name == "age"
+            }) if column_name == "age"
         ));
     }
 
@@ -523,10 +592,10 @@ mod predicate_tests {
         let predicate = Predicate::like("name", regex);
         assert!(matches!(
             predicate,
-            Predicate::Like {
+            Predicate::Single(LogicalCondition::Like {
                 column_name,
                 regex: _,
-            } if column_name == "name"
+            }) if column_name == "name"
         ));
     }
 
@@ -537,7 +606,7 @@ mod predicate_tests {
         let predicate = Predicate::try_from(clause).unwrap();
         assert!(matches!(
             predicate,
-            Predicate::Comparison {column_name, operator, literal}
+            Predicate::Single(LogicalCondition::Comparison {column_name, operator, literal})
                 if column_name == "age" && operator == LogicalOperator::Greater && literal == Literal::Int(30)
         ));
     }
@@ -557,7 +626,7 @@ mod predicate_tests {
         let result = Predicate::try_from(clause);
         assert!(matches!(
             result,
-            Ok(Predicate::Like { column_name, regex: _ }) if column_name == "name"
+            Ok(Predicate::Single(LogicalCondition::Like { column_name, regex: _ })) if column_name == "name"
         ));
     }
 
@@ -667,6 +736,127 @@ mod predicate_tests {
         assert!(matches!(
             predicate.matches(&row_view),
             Err(ExecutionError::UnknownColumn(col)) if col == "unknown"
+        ));
+    }
+}
+
+#[cfg(test)]
+mod logical_condition_tests {
+    use super::*;
+    use crate::query::parser::ast::Literal;
+    use crate::row;
+    use crate::schema;
+    use crate::storage::row_view::RowView;
+    use crate::types::column_type::ColumnType;
+
+    #[test]
+    fn create_comparison_condition() {
+        let condition =
+            LogicalCondition::comparison("age", LogicalOperator::Greater, Literal::Int(18));
+
+        assert!(matches!(
+            condition,
+            LogicalCondition::Comparison {
+                column_name,
+                operator: LogicalOperator::Greater,
+                literal: Literal::Int(18),
+            } if column_name == "age"
+        ));
+    }
+
+    #[test]
+    fn create_like_condition() {
+        let regex = regex::Regex::new("^J").unwrap();
+        let condition = LogicalCondition::like("name", regex);
+
+        assert!(matches!(
+            condition,
+            LogicalCondition::Like {
+                column_name,
+                regex: _,
+            } if column_name == "name"
+        ));
+    }
+
+    #[test]
+    fn matches_comparison() {
+        let schema = schema!["age" => ColumnType::Int].unwrap();
+        let row = row![30];
+        let visible_positions = vec![0];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let condition = LogicalCondition::comparison("age", LogicalOperator::Eq, Literal::Int(30));
+        assert!(condition.matches(&row_view).unwrap());
+    }
+
+    #[test]
+    fn does_not_match_comparison() {
+        let schema = schema!["age" => ColumnType::Int].unwrap();
+        let row = row![30];
+        let visible_positions = vec![0];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let condition =
+            LogicalCondition::comparison("age", LogicalOperator::Greater, Literal::Int(30));
+        assert!(!condition.matches(&row_view).unwrap());
+    }
+
+    #[test]
+    fn matches_like() {
+        let schema = schema!["name" => ColumnType::Text].unwrap();
+        let row = row!["John"];
+        let visible_positions = vec![0];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let regex = regex::Regex::new("^J").unwrap();
+        let condition = LogicalCondition::like("name", regex);
+        assert!(condition.matches(&row_view).unwrap());
+    }
+
+    #[test]
+    fn does_not_match_like() {
+        let schema = schema!["name" => ColumnType::Text].unwrap();
+        let row = row!["Doe"];
+        let visible_positions = vec![0];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let regex = regex::Regex::new("^J").unwrap();
+        let condition = LogicalCondition::like("name", regex);
+        assert!(!condition.matches(&row_view).unwrap());
+    }
+
+    #[test]
+    fn attempt_to_match_condition_with_non_existing_column() {
+        let schema = schema!["age" => ColumnType::Int].unwrap();
+        let row = row![30];
+        let visible_positions = vec![0];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let condition =
+            LogicalCondition::comparison("height", LogicalOperator::Greater, Literal::Int(170));
+        let result = condition.matches(&row_view);
+
+        assert!(matches!(
+            result,
+            Err(ExecutionError::UnknownColumn(name)) if name == "height"
+        ))
+    }
+
+    #[test]
+    fn attempt_to_match_condition_with_column_type_mismatch() {
+        let schema = schema!["age" => ColumnType::Int].unwrap();
+        let row = row![30];
+        let visible_positions = vec![0];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let condition = LogicalCondition::comparison(
+            "age",
+            LogicalOperator::Eq,
+            Literal::Text("30".to_string()),
+        );
+        assert!(matches!(
+            condition.matches(&row_view),
+            Err(ExecutionError::TypeMismatchInComparison)
         ));
     }
 }

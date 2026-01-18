@@ -30,6 +30,11 @@ pub(crate) enum Ast {
 /// `Where` represents the filtering criteria in a SELECT statement.
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum WhereClause {
+    Single(Condition),
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) enum Condition {
     /// A comparison expression (e.g., `id = 1`, `age > 25`).
     Comparison {
         /// The column name to compare.
@@ -48,22 +53,56 @@ pub(crate) enum WhereClause {
     },
 }
 
-impl WhereClause {
-    /// Creates a new `WhereClause::Comparison` variant.
+impl Condition {
+    /// Creates a new `Condition::Comparison` variant.
+    ///
+    /// # Arguments
+    ///
+    /// * `column_name` - The name of the column to compare.
+    /// * `operator` - The binary operator to use.
+    /// * `literal` - The literal value to compare against.
     pub fn comparison(column_name: &str, operator: BinaryOperator, literal: Literal) -> Self {
-        WhereClause::Comparison {
+        Condition::Comparison {
             column_name: column_name.to_string(),
             operator,
             literal,
         }
     }
 
-    /// Creates a new `WhereClause::Like` variant.
+    /// Creates a new `Condition::Like` variant.
+    ///
+    /// # Arguments
+    ///
+    /// * `column_name` - The name of the column to match.
+    /// * `literal` - The literal pattern to match against.
     pub fn like(column_name: &str, literal: Literal) -> Self {
-        WhereClause::Like {
+        Condition::Like {
             column_name: column_name.to_string(),
             literal,
         }
+    }
+}
+
+impl WhereClause {
+    /// Creates a new `WhereClause` with a single comparison condition.
+    ///
+    /// # Arguments
+    ///
+    /// * `column_name` - The name of the column to compare.
+    /// * `operator` - The binary operator to use.
+    /// * `literal` - The literal value to compare against.
+    pub fn comparison(column_name: &str, operator: BinaryOperator, literal: Literal) -> Self {
+        WhereClause::Single(Condition::comparison(column_name, operator, literal))
+    }
+
+    /// Creates a new `WhereClause` with a single LIKE condition.
+    ///
+    /// # Arguments
+    ///
+    /// * `column_name` - The name of the column to match.
+    /// * `literal` - The literal pattern to match against.
+    pub fn like(column_name: &str, literal: Literal) -> Self {
+        WhereClause::Single(Condition::like(column_name, literal))
     }
 }
 
@@ -262,7 +301,7 @@ mod literal_tests {
 }
 #[cfg(test)]
 mod where_clause_tests {
-    use crate::query::parser::ast::{BinaryOperator, Literal, WhereClause};
+    use crate::query::parser::ast::{BinaryOperator, Condition, Literal, WhereClause};
 
     #[test]
     fn create_comparison() {
@@ -271,11 +310,11 @@ mod where_clause_tests {
 
         assert_eq!(
             where_clause,
-            WhereClause::Comparison {
+            WhereClause::Single(Condition::Comparison {
                 column_name: "age".to_string(),
                 operator: BinaryOperator::Greater,
                 literal: Literal::Int(25),
-            }
+            })
         );
     }
 
@@ -285,7 +324,37 @@ mod where_clause_tests {
 
         assert_eq!(
             where_clause,
-            WhereClause::Like {
+            WhereClause::Single(Condition::Like {
+                column_name: "name".to_string(),
+                literal: Literal::Text("John%".to_string()),
+            })
+        );
+    }
+}
+
+#[cfg(test)]
+mod condition_tests {
+    use crate::query::parser::ast::{BinaryOperator, Condition, Literal};
+
+    #[test]
+    fn create_comparison_condition() {
+        let condition = Condition::comparison("age", BinaryOperator::Greater, Literal::Int(25));
+        assert_eq!(
+            condition,
+            Condition::Comparison {
+                column_name: "age".to_string(),
+                operator: BinaryOperator::Greater,
+                literal: Literal::Int(25),
+            }
+        );
+    }
+
+    #[test]
+    fn create_like_condition() {
+        let condition = Condition::like("name", Literal::Text("John%".to_string()));
+        assert_eq!(
+            condition,
+            Condition::Like {
                 column_name: "name".to_string(),
                 literal: Literal::Text("John%".to_string()),
             }
