@@ -283,6 +283,81 @@ mod tests {
     }
 
     #[test]
+    fn execute_select_with_where_and_clause() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            schema!["id" => ColumnType::Int, "age" => ColumnType::Int].unwrap(),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(&catalog, "employees", rows![[1, 30], [2, 40], [1, 25]]);
+
+        let executor = Executor::new(&catalog);
+        let predicate = Predicate::And(vec![
+            crate::query::plan::predicate::LogicalCondition::comparison(
+                "id",
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            ),
+            crate::query::plan::predicate::LogicalCondition::comparison(
+                "age",
+                LogicalOperator::Greater,
+                Literal::Int(25),
+            ),
+        ]);
+
+        let query_result = executor
+            .execute(LogicalPlan::scan("employees").filter(predicate))
+            .unwrap();
+
+        assert!(query_result.result_set().is_some());
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "id" => 1, "age" => 30);
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_where_and_clause_with_one_of_the_and_does_not_match() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            schema!["id" => ColumnType::Int, "age" => ColumnType::Int].unwrap(),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(&catalog, "employees", rows![[1, 20]]);
+
+        let executor = Executor::new(&catalog);
+        let predicate = Predicate::And(vec![
+            crate::query::plan::predicate::LogicalCondition::comparison(
+                "id",
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            ),
+            crate::query::plan::predicate::LogicalCondition::comparison(
+                "age",
+                LogicalOperator::Greater,
+                Literal::Int(25),
+            ),
+        ]);
+
+        let query_result = executor
+            .execute(LogicalPlan::scan("employees").filter(predicate))
+            .unwrap();
+
+        assert!(query_result.result_set().is_some());
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
     fn execute_select_with_order_by_single_column_ascending() {
         let catalog = Catalog::new();
         let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
