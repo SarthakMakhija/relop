@@ -8,6 +8,7 @@ use crate::types::column_value::ColumnValue;
 #[derive(Debug)]
 pub(crate) enum Predicate {
     Single(LogicalCondition),
+    And(Vec<LogicalCondition>),
 }
 
 #[derive(Debug)]
@@ -113,7 +114,14 @@ impl TryFrom<WhereClause> for Predicate {
             WhereClause::Single(condition) => {
                 Ok(Predicate::Single(LogicalCondition::try_from(condition)?))
             }
-            _ => unimplemented!(),
+            WhereClause::And(conditions) => {
+                let logical_conditions = conditions
+                    .into_iter()
+                    .map(LogicalCondition::try_from)
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                Ok(Predicate::And(logical_conditions))
+            }
         }
     }
 }
@@ -165,6 +173,14 @@ impl Predicate {
     pub(crate) fn matches(&self, row_view: &RowView) -> Result<bool, ExecutionError> {
         match self {
             Predicate::Single(condition) => condition.matches(row_view),
+            Predicate::And(conditions) => {
+                for condition in conditions {
+                    if !condition.matches(row_view)? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
         }
     }
 }
@@ -737,6 +753,101 @@ mod predicate_tests {
         assert!(matches!(
             predicate.matches(&row_view),
             Err(ExecutionError::UnknownColumn(col)) if col == "unknown"
+        ));
+    }
+
+    #[test]
+    fn predicate_from_where_clause_with_and() {
+        let clause = WhereClause::And(vec![
+            Condition::comparison("age", BinaryOperator::Greater, Literal::Int(30)),
+            Condition::comparison(
+                "city",
+                BinaryOperator::Eq,
+                Literal::Text("London".to_string()),
+            ),
+        ]);
+
+        let predicate = Predicate::try_from(clause).unwrap();
+        assert!(matches!(
+            predicate,
+            Predicate::And(conditions)
+                if conditions.len() == 2 &&
+                matches!(&conditions[0], LogicalCondition::Comparison { column_name, operator, literal }
+                    if column_name == "age" && *operator == LogicalOperator::Greater && *literal == Literal::Int(30)) &&
+                matches!(&conditions[1], LogicalCondition::Comparison { column_name, operator, literal }
+                    if column_name == "city" && *operator == LogicalOperator::Eq && *literal == Literal::Text("London".to_string()))
+        ));
+    }
+
+    #[test]
+    fn attempt_to_create_predicate_from_where_clause_with_and_error() {
+        let clause = WhereClause::And(vec![
+            Condition::comparison("age", BinaryOperator::Greater, Literal::Int(30)),
+            Condition::like("city", Literal::Text("[".to_string())),
+        ]);
+
+        let result = Predicate::try_from(clause);
+        assert!(matches!(result, Err(PlanningError::InvalidRegex(_))));
+    }
+
+    #[test]
+    fn matches_for_the_row_with_and() {
+        let schema = schema!["age" => ColumnType::Int, "city" => ColumnType::Text].unwrap();
+        let row = row![35, "London"];
+        let visible_positions = vec![0, 1];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let predicate = Predicate::And(vec![
+            LogicalCondition::comparison("age", LogicalOperator::Greater, Literal::Int(30)),
+            LogicalCondition::comparison(
+                "city",
+                LogicalOperator::Eq,
+                Literal::Text("London".to_string()),
+            ),
+        ]);
+
+        assert!(predicate.matches(&row_view).unwrap());
+    }
+
+    #[test]
+    fn does_not_match_for_the_row_with_and() {
+        let schema = schema!["age" => ColumnType::Int, "city" => ColumnType::Text].unwrap();
+        let row = row![35, "Paris"];
+        let visible_positions = vec![0, 1];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let predicate = Predicate::And(vec![
+            LogicalCondition::comparison("age", LogicalOperator::Greater, Literal::Int(30)),
+            LogicalCondition::comparison(
+                "city",
+                LogicalOperator::Eq,
+                Literal::Text("London".to_string()),
+            ),
+        ]);
+
+        assert!(!predicate.matches(&row_view).unwrap());
+    }
+
+    #[test]
+    fn attempt_to_match_predicate_when_with_and_when_the_column_is_not_present_in_the_row() {
+        let schema = schema!["age" => ColumnType::Int, "city" => ColumnType::Text].unwrap();
+        let row = row![35, "London"];
+        let visible_positions = vec![0, 1];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let predicate = Predicate::And(vec![
+            LogicalCondition::comparison("age", LogicalOperator::Greater, Literal::Int(30)),
+            LogicalCondition::comparison(
+                "country",
+                LogicalOperator::Eq,
+                Literal::Text("UK".to_string()),
+            ),
+        ]);
+
+        let result = predicate.matches(&row_view);
+        assert!(matches!(
+            result,
+            Err(ExecutionError::UnknownColumn(col)) if col == "country"
         ));
     }
 }
