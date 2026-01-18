@@ -559,90 +559,6 @@ mod tests {
     }
 
     #[test]
-    fn execute_select_with_order_by_single_column_ascending() {
-        let relop = Relop::new(Catalog::new());
-        let result = relop.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
-        assert!(result.is_ok());
-
-        insert_rows(&relop.catalog, "employees", rows![[2], [1]]);
-
-        let query_result = relop
-            .execute("select * from employees order by id ASC")
-            .unwrap();
-
-        let result_set = query_result.result_set().unwrap();
-
-        let mut row_iterator = result_set.iterator().unwrap();
-        assert_next_row!(row_iterator.as_mut(), "id" => 1);
-        assert_next_row!(row_iterator.as_mut(), "id" => 2);
-    }
-
-    #[test]
-    fn execute_select_with_order_by_multiple_columns_ascending() {
-        let relop = Relop::new(Catalog::new());
-        let result = relop.create_table(
-            "employees",
-            schema!["id" => ColumnType::Int, "rank" => ColumnType::Int].unwrap(),
-        );
-        assert!(result.is_ok());
-
-        insert_rows(&relop.catalog, "employees", rows![[1, 20], [1, 10]]);
-
-        let query_result = relop
-            .execute("select * from employees order by id ASC, rank DESC")
-            .unwrap();
-
-        let result_set = query_result.result_set().unwrap();
-        let mut row_iterator = result_set.iterator().unwrap();
-
-        assert_next_row!(row_iterator.as_mut(), "id" => 1, "rank" => 20);
-        assert_next_row!(row_iterator.as_mut(), "id" => 1, "rank" => 10);
-    }
-
-    #[test]
-    fn execute_select_star_with_limit() {
-        let relop = Relop::new(Catalog::new());
-        let result = relop.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
-        assert!(result.is_ok());
-
-        insert_rows(&relop.catalog, "employees", rows![[1], [2], [3]]);
-
-        let query_result = relop.execute("select * from employees limit 2").unwrap();
-        let result_set = query_result.result_set().unwrap();
-
-        let mut row_iterator = result_set.iterator().unwrap();
-        assert_next_row!(row_iterator.as_mut(), "id" => 1);
-        assert_next_row!(row_iterator.as_mut(), "id" => 2);
-        assert_no_more_rows!(row_iterator.as_mut());
-    }
-
-    #[test]
-    fn execute_select_with_projection_and_limit() {
-        let relop = Relop::new(Catalog::new());
-        let result = relop.create_table(
-            "employees",
-            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
-        );
-        assert!(result.is_ok());
-
-        insert_rows(
-            &relop.catalog,
-            "employees",
-            rows![[1, "relop"], [2, "query"], [3, "parsing"]],
-        );
-
-        let query_result = relop
-            .execute("select name, id from employees limit 1")
-            .unwrap();
-
-        let result_set = query_result.result_set().unwrap();
-
-        let mut row_iterator = result_set.iterator().unwrap();
-        assert_next_row!(row_iterator.as_mut(), "name" => "relop", "id" => 1);
-        assert_no_more_rows!(row_iterator.as_mut());
-    }
-
-    #[test]
     fn execute_select_star_with_where_clause() {
         let relop = Relop::new(Catalog::new());
         let result = relop.create_table(
@@ -766,6 +682,167 @@ mod tests {
 
         let result_set = query_result.result_set().unwrap();
         let mut row_iterator = result_set.iterator().unwrap();
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_star_with_where_clause_and_match() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"]],
+        );
+
+        let query_result = relop
+            .execute("select * from employees where id = 1 and name = 'relop'")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "id" => 1, "name" => "relop");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_star_with_where_clause_and_returning_a_few_results() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"], [3, "relop"]],
+        );
+
+        let query_result = relop
+            .execute("select * from employees where id >= 1 and name = 'relop' order by id")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "id" => 1, "name" => "relop");
+        assert_next_row!(row_iterator.as_mut(), "id" => 3, "name" => "relop");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_star_with_where_clause_and_no_matching_rows() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"]],
+        );
+
+        let query_result = relop
+            .execute("select * from employees where id = 3 and name = 'rust'")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_order_by_single_column_ascending() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
+        assert!(result.is_ok());
+
+        insert_rows(&relop.catalog, "employees", rows![[2], [1]]);
+
+        let query_result = relop
+            .execute("select * from employees order by id ASC")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+
+        let mut row_iterator = result_set.iterator().unwrap();
+        assert_next_row!(row_iterator.as_mut(), "id" => 1);
+        assert_next_row!(row_iterator.as_mut(), "id" => 2);
+    }
+
+    #[test]
+    fn execute_select_with_order_by_multiple_columns_ascending() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            schema!["id" => ColumnType::Int, "rank" => ColumnType::Int].unwrap(),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(&relop.catalog, "employees", rows![[1, 20], [1, 10]]);
+
+        let query_result = relop
+            .execute("select * from employees order by id ASC, rank DESC")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "id" => 1, "rank" => 20);
+        assert_next_row!(row_iterator.as_mut(), "id" => 1, "rank" => 10);
+    }
+
+    #[test]
+    fn execute_select_star_with_limit() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
+        assert!(result.is_ok());
+
+        insert_rows(&relop.catalog, "employees", rows![[1], [2], [3]]);
+
+        let query_result = relop.execute("select * from employees limit 2").unwrap();
+        let result_set = query_result.result_set().unwrap();
+
+        let mut row_iterator = result_set.iterator().unwrap();
+        assert_next_row!(row_iterator.as_mut(), "id" => 1);
+        assert_next_row!(row_iterator.as_mut(), "id" => 2);
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_projection_and_limit() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"], [3, "parsing"]],
+        );
+
+        let query_result = relop
+            .execute("select name, id from employees limit 1")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+
+        let mut row_iterator = result_set.iterator().unwrap();
+        assert_next_row!(row_iterator.as_mut(), "name" => "relop", "id" => 1);
         assert_no_more_rows!(row_iterator.as_mut());
     }
 }
