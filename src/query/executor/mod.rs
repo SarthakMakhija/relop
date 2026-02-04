@@ -26,12 +26,12 @@ impl<'a> Executor<'a> {
         match logical_plan {
             LogicalPlan::ShowTables => Ok(QueryResult::TableList(self.catalog.show_tables())),
             LogicalPlan::DescribeTable { table_name } => {
-                let table_descriptor = self
+                let table = self
                     .catalog
                     .describe_table(&table_name)
                     .map_err(ExecutionError::Catalog)?;
 
-                Ok(QueryResult::TableDescription(table_descriptor))
+                Ok(QueryResult::TableDescription(table))
             }
             _ => {
                 let result_set = self.execute_select(logical_plan)?;
@@ -132,11 +132,11 @@ mod tests {
             .unwrap();
 
         assert!(query_result.table_descriptor().is_some());
-        let table_descriptor = query_result.table_descriptor().unwrap();
+        let table = query_result.table_descriptor().unwrap();
 
-        assert_eq!("employees", table_descriptor.table_name());
-        assert_eq!(vec!["id"], table_descriptor.column_names());
-        assert!(table_descriptor.primary_key_column_names().is_none())
+        assert_eq!("employees", table.name());
+        assert_eq!(vec!["id"], table.column_names());
+        assert!(table.primary_key_column_names().is_none())
     }
 
     #[test]
@@ -154,14 +154,11 @@ mod tests {
             .unwrap();
 
         assert!(query_result.table_descriptor().is_some());
-        let table_descriptor = query_result.table_descriptor().unwrap();
+        let table = query_result.table_descriptor().unwrap();
 
-        assert_eq!("employees", table_descriptor.table_name());
-        assert_eq!(vec!["id"], table_descriptor.column_names());
-        assert_eq!(
-            vec!["id"],
-            table_descriptor.primary_key_column_names().unwrap()
-        );
+        assert_eq!("employees", table.name());
+        assert_eq!(vec!["id"], table.column_names());
+        assert_eq!(vec!["id"], table.primary_key_column_names().unwrap());
     }
 
     #[test]

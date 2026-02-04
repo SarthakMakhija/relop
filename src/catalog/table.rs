@@ -33,3 +33,16 @@ impl Table {
         &self.schema
     }
 }
+
+#[cfg(test)]
+impl Table {
+    /// Returns the column names.
+    pub(crate) fn column_names(&self) -> Vec<&str> {
+        self.schema.column_names()
+    }
+
+    /// Returns the primary key column names.
+    pub(crate) fn primary_key_column_names(&self) -> Option<&[String]> {
+        self.schema.primary_key_column_names()
+    }
+}

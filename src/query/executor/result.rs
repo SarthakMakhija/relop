@@ -1,12 +1,13 @@
-use crate::catalog::table_descriptor::TableDescriptor;
+use crate::catalog::table::Table;
 use crate::query::executor::result_set::ResultSet;
+use std::sync::Arc;
 
 /// Represents the result of a query execution.
 pub enum QueryResult {
     /// Result of a `SHOW TABLES` query, containing a list of table names.
     TableList(Vec<String>),
     /// Result of a `DESCRIBE TABLE` query, containing the table's schema information.
-    TableDescription(TableDescriptor),
+    TableDescription(Arc<Table>),
     /// Result of a `SELECT *` query without where clause.
     ResultSet(Box<dyn ResultSet>),
 }
@@ -29,11 +30,11 @@ impl QueryResult {
     ///
     /// # Returns
     ///
-    /// * `Some(&TableDescriptor)` - If the result is a `TableDescription`.
+    /// * `Some(&Arc<Table>)` - If the result is a `TableDescription`.
     /// * `None` - Otherwise.
-    pub fn table_descriptor(&self) -> Option<&TableDescriptor> {
+    pub fn table_descriptor(&self) -> Option<&Arc<Table>> {
         match self {
-            QueryResult::TableDescription(table_descriptor) => Some(table_descriptor),
+            QueryResult::TableDescription(table) => Some(table),
             _ => None,
         }
     }
@@ -56,7 +57,6 @@ impl QueryResult {
 mod tests {
     use super::*;
     use crate::catalog::table::Table;
-    use crate::catalog::table_descriptor::TableDescriptor;
     use crate::query::executor::result_set::{ResultSet, RowViewResult};
     use crate::schema;
     use crate::schema::Schema;
@@ -95,12 +95,10 @@ mod tests {
         let schema = schema!["id" => ColumnType::Int].unwrap();
 
         let table = Table::new("employees", schema);
-        let descriptor = TableDescriptor::new(Arc::new(table));
+        let result = QueryResult::TableDescription(Arc::new(table));
 
-        let result = QueryResult::TableDescription(descriptor);
-
-        let retrieved_descriptor = result.table_descriptor().unwrap();
-        assert_eq!(retrieved_descriptor.table_name(), "employees");
+        let retrieved_table = result.table_descriptor().unwrap();
+        assert_eq!(retrieved_table.name(), "employees");
         assert!(result.all_tables().is_none());
         assert!(result.result_set().is_none());
     }

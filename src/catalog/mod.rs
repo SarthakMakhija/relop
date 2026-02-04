@@ -1,6 +1,5 @@
 use crate::catalog::error::{CatalogError, InsertError};
 use crate::catalog::table::Table;
-use crate::catalog::table_descriptor::TableDescriptor;
 use crate::catalog::table_entry::TableEntry;
 use crate::schema::Schema;
 use crate::storage::batch::Batch;
@@ -11,7 +10,6 @@ use std::sync::{Arc, RwLock};
 
 pub mod error;
 pub mod table;
-pub mod table_descriptor;
 pub(crate) mod table_entry;
 pub mod table_scan;
 
@@ -73,9 +71,9 @@ impl Catalog {
     }
 
     /// Returns the descriptor for the specified table.
-    pub(crate) fn describe_table(&self, table_name: &str) -> Result<TableDescriptor, CatalogError> {
+    pub(crate) fn describe_table(&self, table_name: &str) -> Result<Arc<Table>, CatalogError> {
         let table_entry = self.table_entry_or_error(table_name)?;
-        Ok(table_entry.table_descriptor())
+        Ok(table_entry.table())
     }
 
     /// Inserts a single row into the specified table.
@@ -224,8 +222,8 @@ mod tests {
         let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
-        let table_descriptor = catalog.describe_table("employees").unwrap();
-        assert_eq!("employees", table_descriptor.table_name());
+        let table = catalog.describe_table("employees").unwrap();
+        assert_eq!("employees", table.name());
     }
 
     #[test]
@@ -234,8 +232,8 @@ mod tests {
         let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
         assert!(result.is_ok());
 
-        let table_descriptor = catalog.describe_table("employees").unwrap();
-        assert_eq!(vec!["id"], table_descriptor.column_names());
+        let table = catalog.describe_table("employees").unwrap();
+        assert_eq!(vec!["id"], table.column_names());
     }
 
     #[test]
@@ -247,11 +245,8 @@ mod tests {
         );
         assert!(result.is_ok());
 
-        let table_descriptor = catalog.describe_table("employees").unwrap();
-        assert_eq!(
-            vec!["id"],
-            table_descriptor.primary_key_column_names().unwrap()
-        );
+        let table = catalog.describe_table("employees").unwrap();
+        assert_eq!(vec!["id"], table.primary_key_column_names().unwrap());
     }
 
     #[test]

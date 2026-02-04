@@ -285,8 +285,8 @@ impl Relop {
     /// relop.create_table("employees", schema).unwrap();
     ///
     /// let result = relop.execute("describe table employees").unwrap();
-    /// let descriptor = result.table_descriptor().unwrap();
-    /// assert_eq!("employees", descriptor.table_name());
+    /// let table = result.table_descriptor().unwrap();
+    /// assert_eq!("employees", table.name());
     /// ```
     ///
     /// Selecting from a table
@@ -454,11 +454,11 @@ mod tests {
         let query_result = relop.execute("describe table employees").unwrap();
         assert!(query_result.table_descriptor().is_some());
 
-        let table_descriptor = query_result.table_descriptor().unwrap();
+        let table = query_result.table_descriptor().unwrap();
 
-        assert_eq!("employees", table_descriptor.table_name());
-        assert_eq!(vec!["id"], table_descriptor.column_names());
-        assert!(table_descriptor.primary_key_column_names().is_none())
+        assert_eq!("employees", table.name());
+        assert_eq!(vec!["id"], table.column_names());
+        assert!(table.primary_key_column_names().is_none())
     }
 
     #[test]
