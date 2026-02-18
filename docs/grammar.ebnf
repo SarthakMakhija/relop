@@ -20,7 +20,17 @@ projection
     | identifier ("," identifier)*
 
 where
-    = "WHERE" clause ("AND" clause)*
+    = "WHERE" expression ;
+
+## encodes precedence (AND > OR)
+expression
+    = or_expression ;
+
+or_expression
+    = and_expression ("OR" and_expression)* ;
+
+and_expression
+    = clause ("AND" clause)* ;
 
 clause
     = identifier operator literal
