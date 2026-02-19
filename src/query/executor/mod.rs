@@ -291,17 +291,9 @@ mod tests {
         insert_rows(&catalog, "employees", rows![[1, 30], [2, 40], [1, 25]]);
 
         let executor = Executor::new(&catalog);
-        let predicate = Predicate::And(vec![
-            crate::query::plan::predicate::LogicalClause::comparison(
-                "id",
-                LogicalOperator::Eq,
-                Literal::Int(1),
-            ),
-            crate::query::plan::predicate::LogicalClause::comparison(
-                "age",
-                LogicalOperator::Greater,
-                Literal::Int(25),
-            ),
+        let predicate = Predicate::and(vec![
+            Predicate::comparison("id", LogicalOperator::Eq, Literal::Int(1)),
+            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(25)),
         ]);
 
         let query_result = executor
@@ -329,17 +321,9 @@ mod tests {
         insert_rows(&catalog, "employees", rows![[1, 20]]);
 
         let executor = Executor::new(&catalog);
-        let predicate = Predicate::And(vec![
-            crate::query::plan::predicate::LogicalClause::comparison(
-                "id",
-                LogicalOperator::Eq,
-                Literal::Int(1),
-            ),
-            crate::query::plan::predicate::LogicalClause::comparison(
-                "age",
-                LogicalOperator::Greater,
-                Literal::Int(25),
-            ),
+        let predicate = Predicate::and(vec![
+            Predicate::comparison("id", LogicalOperator::Eq, Literal::Int(1)),
+            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(25)),
         ]);
 
         let query_result = executor

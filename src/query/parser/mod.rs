@@ -5,7 +5,7 @@ pub(crate) mod projection;
 
 use crate::query::lexer::token::{Token, TokenStream, TokenType};
 use crate::query::lexer::token_cursor::TokenCursor;
-use crate::query::parser::ast::{Ast, BinaryOperator, Clause, Literal, WhereClause};
+use crate::query::parser::ast::{Ast, BinaryOperator, Clause, Expression, Literal, WhereClause};
 use crate::query::parser::error::ParseError;
 use crate::query::parser::ordering_key::{OrderingDirection, OrderingKey};
 use crate::query::parser::projection::Projection;
@@ -152,26 +152,24 @@ impl Parser {
         if is_where_clause {
             let clauses = self.expect_clauses()?;
             return if clauses.len() == 1 {
-                Ok(Some(WhereClause::Single(
-                    clauses.into_iter().next().unwrap(),
-                )))
+                Ok(Some(WhereClause(clauses.into_iter().next().unwrap())))
             } else {
-                Ok(Some(WhereClause::And(clauses)))
+                Ok(Some(WhereClause::and(clauses)))
             };
         }
         Ok(None)
     }
 
-    fn expect_clauses(&mut self) -> Result<Vec<Clause>, ParseError> {
+    fn expect_clauses(&mut self) -> Result<Vec<Expression>, ParseError> {
         let clause = self.expect_clause()?;
-        let mut clauses = Vec::new();
-        clauses.push(clause);
+        let mut expressions = Vec::new();
+        expressions.push(Expression::single(clause));
 
         while self.eat_if(|token| token.matches(TokenType::Keyword, "and")) {
             let clause = self.expect_clause()?;
-            clauses.push(clause);
+            expressions.push(Expression::single(clause));
         }
-        Ok(clauses)
+        Ok(expressions)
     }
 
     fn expect_clause(&mut self) -> Result<Clause, ParseError> {
@@ -1151,18 +1149,18 @@ mod select_where_with_and_tests {
             matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
                 if table_name == "employees" &&
                     projection == Projection::All &&
-                    matches!(&where_clause, Some(WhereClause::And(clauses))
-                        if clauses.len() == 2 &&
-                        clauses[0] == Clause::comparison(
+                    matches!(&where_clause, Some(WhereClause(Expression::And(expressions)))
+                        if expressions.len() == 2 &&
+                        expressions[0] == Expression::single(Clause::comparison(
                             "name",
                             BinaryOperator::Eq,
                             Literal::Text("relop".to_string())
-                        ) &&
-                        clauses[1] == Clause::comparison(
+                        )) &&
+                        expressions[1] == Expression::single(Clause::comparison(
                             "id",
                             BinaryOperator::Eq,
                             Literal::Int(2)
-                        )
+                        ))
                     )
             )
         );
@@ -1192,17 +1190,17 @@ mod select_where_with_and_tests {
             matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
                 if table_name == "employees" &&
                     projection == Projection::All &&
-                    matches!(&where_clause, Some(WhereClause::And(clauses))
-                        if clauses.len() == 2 &&
-                        clauses[0] == Clause::like(
+                    matches!(&where_clause, Some(WhereClause(Expression::And(expressions)))
+                        if expressions.len() == 2 &&
+                        expressions[0] == Expression::single(Clause::like(
                             "name",
                             Literal::Text("rel%".to_string())
-                        ) &&
-                        clauses[1] == Clause::comparison(
+                        )) &&
+                        expressions[1] == Expression::single(Clause::comparison(
                             "id",
                             BinaryOperator::Eq,
                             Literal::Int(2)
-                        )
+                        ))
                     )
             )
         );

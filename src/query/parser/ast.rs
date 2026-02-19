@@ -28,11 +28,14 @@ pub(crate) enum Ast {
     },
 }
 
-/// `Where` represents the filtering criteria in a SELECT statement.
+/// `WhereClause` represents the filtering criteria in a SELECT statement.
 #[derive(Debug, Eq, PartialEq)]
-pub(crate) enum WhereClause {
+pub(crate) struct WhereClause(pub(crate) Expression);
+
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) enum Expression {
     Single(Clause),
-    And(Vec<Clause>),
+    And(Vec<Expression>),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -53,6 +56,18 @@ pub(crate) enum Clause {
         /// The literal pattern to match against (e.g., "John%").
         literal: Literal,
     },
+}
+
+impl Expression {
+    /// Creates a new `Expression::Single` variant.
+    pub fn single(clause: Clause) -> Self {
+        Expression::Single(clause)
+    }
+
+    /// Creates a new `Expression::And` variant.
+    pub fn and(expressions: Vec<Expression>) -> Self {
+        Expression::And(expressions)
+    }
 }
 
 impl Clause {
@@ -86,25 +101,26 @@ impl Clause {
 }
 
 impl WhereClause {
-    /// Creates a new `WhereClause` with a single comparison clause.
-    ///
-    /// # Arguments
-    ///
-    /// * `column_name` - The name of the column to compare.
-    /// * `operator` - The binary operator to use.
-    /// * `literal` - The literal value to compare against.
+    /// Creates a new `WhereClause` with an AND expression.
+    pub fn and(expressions: Vec<Expression>) -> Self {
+        WhereClause(Expression::and(expressions))
+    }
+}
+
+#[cfg(test)]
+impl WhereClause {
+    /// Creates a new `WhereClause` with a comparison.
     pub fn comparison(column_name: &str, operator: BinaryOperator, literal: Literal) -> Self {
-        WhereClause::Single(Clause::comparison(column_name, operator, literal))
+        WhereClause(Expression::single(Clause::comparison(
+            column_name,
+            operator,
+            literal,
+        )))
     }
 
-    /// Creates a new `WhereClause` with a single LIKE clause.
-    ///
-    /// # Arguments
-    ///
-    /// * `column_name` - The name of the column to match.
-    /// * `literal` - The literal pattern to match against.
+    /// Creates a new `WhereClause` with a LIKE criteria.
     pub fn like(column_name: &str, literal: Literal) -> Self {
-        WhereClause::Single(Clause::like(column_name, literal))
+        WhereClause(Expression::single(Clause::like(column_name, literal)))
     }
 }
 
@@ -303,7 +319,7 @@ mod literal_tests {
 }
 #[cfg(test)]
 mod where_clause_tests {
-    use crate::query::parser::ast::{BinaryOperator, Clause, Literal, WhereClause};
+    use crate::query::parser::ast::{BinaryOperator, Clause, Expression, Literal, WhereClause};
 
     #[test]
     fn create_comparison() {
@@ -312,11 +328,11 @@ mod where_clause_tests {
 
         assert_eq!(
             where_clause,
-            WhereClause::Single(Clause::Comparison {
+            WhereClause(Expression::single(Clause::Comparison {
                 column_name: "age".to_string(),
                 operator: BinaryOperator::Greater,
                 literal: Literal::Int(25),
-            })
+            }))
         );
     }
 
@@ -326,10 +342,10 @@ mod where_clause_tests {
 
         assert_eq!(
             where_clause,
-            WhereClause::Single(Clause::Like {
+            WhereClause(Expression::single(Clause::Like {
                 column_name: "name".to_string(),
                 literal: Literal::Text("John%".to_string()),
-            })
+            }))
         );
     }
 }
