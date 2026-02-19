@@ -8,6 +8,7 @@ use crate::types::column_value::ColumnValue;
 pub(crate) enum Predicate {
     Single(LogicalClause),
     And(Vec<Predicate>),
+    Or(Vec<Predicate>),
 }
 
 #[derive(Debug)]
@@ -126,6 +127,14 @@ impl TryFrom<Expression> for Predicate {
 
                 Ok(Predicate::And(predicates))
             }
+            Expression::Or(expressions) => {
+                let predicates = expressions
+                    .into_iter()
+                    .map(Predicate::try_from)
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                Ok(Predicate::Or(predicates))
+            }
         }
     }
 }
@@ -185,6 +194,14 @@ impl Predicate {
                 }
                 Ok(true)
             }
+            Predicate::Or(predicates) => {
+                for predicate in predicates {
+                    if predicate.matches(row_view)? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
         }
     }
 }
@@ -208,6 +225,12 @@ impl Predicate {
     /// Creates a new `And` predicate.
     pub(crate) fn and(predicates: Vec<Predicate>) -> Self {
         Predicate::And(predicates)
+    }
+
+    /// Creates a new `Or` predicate.
+    #[cfg(test)]
+    pub(crate) fn or(predicates: Vec<Predicate>) -> Self {
+        Predicate::Or(predicates)
     }
 }
 
@@ -887,6 +910,75 @@ mod predicate_tests {
             result,
             Err(ExecutionError::UnknownColumn(col)) if col == "country"
         ));
+    }
+
+    #[test]
+    fn matches_for_the_row_with_or() {
+        let schema = schema!["age" => ColumnType::Int, "city" => ColumnType::Text].unwrap();
+        let row = row![25, "London"];
+        let visible_positions = vec![0, 1];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let predicate = Predicate::or(vec![
+            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30)),
+            Predicate::comparison(
+                "city",
+                LogicalOperator::Eq,
+                Literal::Text("London".to_string()),
+            ),
+        ]);
+
+        assert!(predicate.matches(&row_view).unwrap());
+    }
+
+    #[test]
+    fn does_not_match_for_the_row_with_or() {
+        let schema = schema!["age" => ColumnType::Int, "city" => ColumnType::Text].unwrap();
+        let row = row![25, "Paris"];
+        let visible_positions = vec![0, 1];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let predicate = Predicate::or(vec![
+            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30)),
+            Predicate::comparison(
+                "city",
+                LogicalOperator::Eq,
+                Literal::Text("London".to_string()),
+            ),
+        ]);
+
+        assert!(!predicate.matches(&row_view).unwrap());
+    }
+
+    #[test]
+    fn matches_for_the_row_with_nested_or() {
+        let schema = schema![
+            "age" => ColumnType::Int,
+            "city" => ColumnType::Text,
+            "country" => ColumnType::Text
+        ]
+        .unwrap();
+        let row = row![25, "Paris", "FR"];
+        let visible_positions = vec![0, 1, 2];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let predicate = Predicate::or(vec![
+            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30)),
+            Predicate::or(vec![
+                Predicate::comparison(
+                    "city",
+                    LogicalOperator::Eq,
+                    Literal::Text("London".to_string()),
+                ),
+                Predicate::comparison(
+                    "country",
+                    LogicalOperator::Eq,
+                    Literal::Text("FR".to_string()),
+                ),
+            ]),
+        ]);
+
+        assert!(predicate.matches(&row_view).unwrap());
     }
 }
 

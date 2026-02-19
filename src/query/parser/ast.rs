@@ -36,6 +36,7 @@ pub(crate) struct WhereClause(pub(crate) Expression);
 pub(crate) enum Expression {
     Single(Clause),
     And(Vec<Expression>),
+    Or(Vec<Expression>),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -67,6 +68,11 @@ impl Expression {
     /// Creates a new `Expression::And` variant.
     pub fn and(expressions: Vec<Expression>) -> Self {
         Expression::And(expressions)
+    }
+
+    /// Creates a new `Expression::Or` variant.
+    pub fn or(expressions: Vec<Expression>) -> Self {
+        Expression::Or(expressions)
     }
 }
 
@@ -104,6 +110,11 @@ impl WhereClause {
     /// Creates a new `WhereClause` with an AND expression.
     pub fn and(expressions: Vec<Expression>) -> Self {
         WhereClause(Expression::and(expressions))
+    }
+
+    /// Creates a new `WhereClause` with an AND expression.
+    pub fn or(expressions: Vec<Expression>) -> Self {
+        WhereClause(Expression::or(expressions))
     }
 }
 
@@ -346,6 +357,33 @@ mod where_clause_tests {
                 column_name: "name".to_string(),
                 literal: Literal::Text("John%".to_string()),
             }))
+        );
+    }
+
+    #[test]
+    fn create_or() {
+        let where_clause = WhereClause(Expression::or(vec![
+            Expression::single(Clause::comparison(
+                "age",
+                BinaryOperator::Greater,
+                Literal::Int(25),
+            )),
+            Expression::single(Clause::like("name", Literal::Text("John%".to_string()))),
+        ]));
+
+        assert_eq!(
+            where_clause,
+            WhereClause(Expression::or(vec![
+                Expression::single(Clause::Comparison {
+                    column_name: "age".to_string(),
+                    operator: BinaryOperator::Greater,
+                    literal: Literal::Int(25),
+                }),
+                Expression::single(Clause::Like {
+                    column_name: "name".to_string(),
+                    literal: Literal::Text("John%".to_string()),
+                }),
+            ]))
         );
     }
 }
