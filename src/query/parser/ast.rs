@@ -31,12 +31,12 @@ pub(crate) enum Ast {
 /// `Where` represents the filtering criteria in a SELECT statement.
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum WhereClause {
-    Single(Condition),
-    And(Vec<Condition>),
+    Single(Clause),
+    And(Vec<Clause>),
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub(crate) enum Condition {
+pub(crate) enum Clause {
     /// A comparison expression (e.g., `id = 1`, `age > 25`).
     Comparison {
         /// The column name to compare.
@@ -55,8 +55,8 @@ pub(crate) enum Condition {
     },
 }
 
-impl Condition {
-    /// Creates a new `Condition::Comparison` variant.
+impl Clause {
+    /// Creates a new `Clause::Comparison` variant.
     ///
     /// # Arguments
     ///
@@ -64,21 +64,21 @@ impl Condition {
     /// * `operator` - The binary operator to use.
     /// * `literal` - The literal value to compare against.
     pub fn comparison(column_name: &str, operator: BinaryOperator, literal: Literal) -> Self {
-        Condition::Comparison {
+        Clause::Comparison {
             column_name: column_name.to_string(),
             operator,
             literal,
         }
     }
 
-    /// Creates a new `Condition::Like` variant.
+    /// Creates a new `Clause::Like` variant.
     ///
     /// # Arguments
     ///
     /// * `column_name` - The name of the column to match.
     /// * `literal` - The literal pattern to match against.
     pub fn like(column_name: &str, literal: Literal) -> Self {
-        Condition::Like {
+        Clause::Like {
             column_name: column_name.to_string(),
             literal,
         }
@@ -86,7 +86,7 @@ impl Condition {
 }
 
 impl WhereClause {
-    /// Creates a new `WhereClause` with a single comparison condition.
+    /// Creates a new `WhereClause` with a single comparison clause.
     ///
     /// # Arguments
     ///
@@ -94,17 +94,17 @@ impl WhereClause {
     /// * `operator` - The binary operator to use.
     /// * `literal` - The literal value to compare against.
     pub fn comparison(column_name: &str, operator: BinaryOperator, literal: Literal) -> Self {
-        WhereClause::Single(Condition::comparison(column_name, operator, literal))
+        WhereClause::Single(Clause::comparison(column_name, operator, literal))
     }
 
-    /// Creates a new `WhereClause` with a single LIKE condition.
+    /// Creates a new `WhereClause` with a single LIKE clause.
     ///
     /// # Arguments
     ///
     /// * `column_name` - The name of the column to match.
     /// * `literal` - The literal pattern to match against.
     pub fn like(column_name: &str, literal: Literal) -> Self {
-        WhereClause::Single(Condition::like(column_name, literal))
+        WhereClause::Single(Clause::like(column_name, literal))
     }
 }
 
@@ -303,7 +303,7 @@ mod literal_tests {
 }
 #[cfg(test)]
 mod where_clause_tests {
-    use crate::query::parser::ast::{BinaryOperator, Condition, Literal, WhereClause};
+    use crate::query::parser::ast::{BinaryOperator, Clause, Literal, WhereClause};
 
     #[test]
     fn create_comparison() {
@@ -312,7 +312,7 @@ mod where_clause_tests {
 
         assert_eq!(
             where_clause,
-            WhereClause::Single(Condition::Comparison {
+            WhereClause::Single(Clause::Comparison {
                 column_name: "age".to_string(),
                 operator: BinaryOperator::Greater,
                 literal: Literal::Int(25),
@@ -326,7 +326,7 @@ mod where_clause_tests {
 
         assert_eq!(
             where_clause,
-            WhereClause::Single(Condition::Like {
+            WhereClause::Single(Clause::Like {
                 column_name: "name".to_string(),
                 literal: Literal::Text("John%".to_string()),
             })
@@ -335,15 +335,15 @@ mod where_clause_tests {
 }
 
 #[cfg(test)]
-mod condition_tests {
-    use crate::query::parser::ast::{BinaryOperator, Condition, Literal};
+mod clause_tests {
+    use crate::query::parser::ast::{BinaryOperator, Clause, Literal};
 
     #[test]
-    fn create_comparison_condition() {
-        let condition = Condition::comparison("age", BinaryOperator::Greater, Literal::Int(25));
+    fn create_comparison_clause() {
+        let clause = Clause::comparison("age", BinaryOperator::Greater, Literal::Int(25));
         assert_eq!(
-            condition,
-            Condition::Comparison {
+            clause,
+            Clause::Comparison {
                 column_name: "age".to_string(),
                 operator: BinaryOperator::Greater,
                 literal: Literal::Int(25),
@@ -352,11 +352,11 @@ mod condition_tests {
     }
 
     #[test]
-    fn create_like_condition() {
-        let condition = Condition::like("name", Literal::Text("John%".to_string()));
+    fn create_like_clause() {
+        let clause = Clause::like("name", Literal::Text("John%".to_string()));
         assert_eq!(
-            condition,
-            Condition::Like {
+            clause,
+            Clause::Like {
                 column_name: "name".to_string(),
                 literal: Literal::Text("John%".to_string()),
             }

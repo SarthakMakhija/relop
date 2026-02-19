@@ -435,12 +435,12 @@ mod tests {
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
         let predicate = Predicate::And(vec![
-            crate::query::plan::predicate::LogicalCondition::comparison(
+            crate::query::plan::predicate::LogicalClause::comparison(
                 "id",
                 LogicalOperator::Greater,
                 Literal::Int(1),
             ),
-            crate::query::plan::predicate::LogicalCondition::comparison(
+            crate::query::plan::predicate::LogicalClause::comparison(
                 "name",
                 LogicalOperator::Eq,
                 Literal::Text("relop".to_string()),
@@ -466,12 +466,12 @@ mod tests {
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
         let predicate = Predicate::And(vec![
-            crate::query::plan::predicate::LogicalCondition::comparison(
+            crate::query::plan::predicate::LogicalClause::comparison(
                 "id",
                 LogicalOperator::Greater,
                 Literal::Int(1),
             ),
-            crate::query::plan::predicate::LogicalCondition::comparison(
+            crate::query::plan::predicate::LogicalClause::comparison(
                 "name",
                 LogicalOperator::Eq,
                 Literal::Text("relop".to_string()),

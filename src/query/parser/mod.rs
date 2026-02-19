@@ -5,7 +5,7 @@ pub(crate) mod projection;
 
 use crate::query::lexer::token::{Token, TokenStream, TokenType};
 use crate::query::lexer::token_cursor::TokenCursor;
-use crate::query::parser::ast::{Ast, BinaryOperator, Condition, Literal, WhereClause};
+use crate::query::parser::ast::{Ast, BinaryOperator, Clause, Literal, WhereClause};
 use crate::query::parser::error::ParseError;
 use crate::query::parser::ordering_key::{OrderingDirection, OrderingKey};
 use crate::query::parser::projection::Projection;
@@ -150,38 +150,38 @@ impl Parser {
     fn maybe_where_clause(&mut self) -> Result<Option<WhereClause>, ParseError> {
         let is_where_clause = self.eat_if(|token| token.is_keyword("where"));
         if is_where_clause {
-            let conditions = self.expect_conditions()?;
-            return if conditions.len() == 1 {
+            let clauses = self.expect_clauses()?;
+            return if clauses.len() == 1 {
                 Ok(Some(WhereClause::Single(
-                    conditions.into_iter().next().unwrap(),
+                    clauses.into_iter().next().unwrap(),
                 )))
             } else {
-                Ok(Some(WhereClause::And(conditions)))
+                Ok(Some(WhereClause::And(clauses)))
             };
         }
         Ok(None)
     }
 
-    fn expect_conditions(&mut self) -> Result<Vec<Condition>, ParseError> {
-        let condition = self.expect_condition()?;
-        let mut conditions = Vec::new();
-        conditions.push(condition);
+    fn expect_clauses(&mut self) -> Result<Vec<Clause>, ParseError> {
+        let clause = self.expect_clause()?;
+        let mut clauses = Vec::new();
+        clauses.push(clause);
 
         while self.eat_if(|token| token.matches(TokenType::Keyword, "and")) {
-            let condition = self.expect_condition()?;
-            conditions.push(condition);
+            let clause = self.expect_clause()?;
+            clauses.push(clause);
         }
-        Ok(conditions)
+        Ok(clauses)
     }
 
-    fn expect_condition(&mut self) -> Result<Condition, ParseError> {
+    fn expect_clause(&mut self) -> Result<Clause, ParseError> {
         let column_name = self.expect_identifier()?;
         let operator = self.expect_operator()?;
         let literal = self.expect_literal()?;
 
         match operator {
-            BinaryOperator::Like => Ok(Condition::like(&column_name, literal)),
-            _ => Ok(Condition::comparison(&column_name, operator, literal)),
+            BinaryOperator::Like => Ok(Clause::like(&column_name, literal)),
+            _ => Ok(Clause::comparison(&column_name, operator, literal)),
         }
     }
 
@@ -1151,14 +1151,14 @@ mod select_where_with_and_tests {
             matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
                 if table_name == "employees" &&
                     projection == Projection::All &&
-                    matches!(&where_clause, Some(WhereClause::And(conditions))
-                        if conditions.len() == 2 &&
-                        conditions[0] == Condition::comparison(
+                    matches!(&where_clause, Some(WhereClause::And(clauses))
+                        if clauses.len() == 2 &&
+                        clauses[0] == Clause::comparison(
                             "name",
                             BinaryOperator::Eq,
                             Literal::Text("relop".to_string())
                         ) &&
-                        conditions[1] == Condition::comparison(
+                        clauses[1] == Clause::comparison(
                             "id",
                             BinaryOperator::Eq,
                             Literal::Int(2)
@@ -1192,13 +1192,13 @@ mod select_where_with_and_tests {
             matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
                 if table_name == "employees" &&
                     projection == Projection::All &&
-                    matches!(&where_clause, Some(WhereClause::And(conditions))
-                        if conditions.len() == 2 &&
-                        conditions[0] == Condition::like(
+                    matches!(&where_clause, Some(WhereClause::And(clauses))
+                        if clauses.len() == 2 &&
+                        clauses[0] == Clause::like(
                             "name",
                             Literal::Text("rel%".to_string())
                         ) &&
-                        conditions[1] == Condition::comparison(
+                        clauses[1] == Clause::comparison(
                             "id",
                             BinaryOperator::Eq,
                             Literal::Int(2)
@@ -1209,7 +1209,7 @@ mod select_where_with_and_tests {
     }
 
     #[test]
-    fn attempt_to_parse_select_with_no_condition_after_and() {
+    fn attempt_to_parse_select_with_no_clause_after_and() {
         let mut stream = TokenStream::new();
         stream.add(Token::new("select", TokenType::Keyword));
         stream.add(Token::new("*", TokenType::Star));
