@@ -99,7 +99,7 @@ impl Lexer {
         let mut lexeme = String::new();
 
         while let Some(ch) = self.peek() {
-            if Self::looks_like_an_identifier(ch) {
+            if Self::looks_like_an_identifier(ch) || ch == '.' {
                 let _ = self.advance();
                 lexeme.push(ch);
             } else {
@@ -455,6 +455,42 @@ mod tests {
                 (TokenType::Identifier, "id"),
                 (TokenType::Equal, "="),
                 (TokenType::WholeNumber, "1"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_with_where_clause_with_join() {
+        assert_lex!(
+            "SELECT * FROM employees join orders",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::Keyword, "join"),
+                (TokenType::Identifier, "orders"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_with_where_clause_with_join_and_on() {
+        assert_lex!(
+            "SELECT * FROM employees join orders on employees.id = orders.from",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::Keyword, "join"),
+                (TokenType::Identifier, "orders"),
+                (TokenType::Keyword, "on"),
+                (TokenType::Identifier, "employees.id"),
+                (TokenType::Equal, "="),
+                (TokenType::Identifier, "orders.from"),
                 (TokenType::EndOfStream, ""),
             ]
         )
