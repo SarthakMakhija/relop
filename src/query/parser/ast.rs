@@ -15,8 +15,8 @@ pub(crate) enum Ast {
     },
     /// Represents a `SELECT` statement.
     Select {
-        /// The name of the table to select from.
-        table_name: String,
+        /// The source to select from (table or join).
+        source: TableSource,
         /// The projection (columns or all) to select.
         projection: Projection,
         /// The WHERE filter criteria.
@@ -26,6 +26,22 @@ pub(crate) enum Ast {
         /// The LIMIT (max records) to return.
         limit: Option<usize>,
     },
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) enum TableSource {
+    Table(String),
+    Join {
+        left: Box<TableSource>,
+        right: Box<TableSource>,
+        on: Expression,
+    },
+}
+
+impl TableSource {
+    pub(crate) fn table(name: &str) -> Self {
+        TableSource::Table(name.to_string())
+    }
 }
 
 /// `WhereClause` represents the filtering criteria in a SELECT statement.

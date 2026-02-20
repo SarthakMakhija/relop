@@ -69,12 +69,16 @@ impl LogicalPlanner {
             Ast::ShowTables => Ok(LogicalPlan::ShowTables),
             Ast::DescribeTable { table_name } => Ok(LogicalPlan::DescribeTable { table_name }),
             Ast::Select {
-                table_name,
+                source,
                 projection,
                 where_clause,
                 limit,
                 order_by,
             } => {
+                let table_name = match source {
+                    crate::query::parser::ast::TableSource::Table(name) => name,
+                    _ => unimplemented!("Joins are not supported yet"),
+                };
                 let base_plan = LogicalPlan::Scan { table_name };
                 let base_plan = Self::plan_for_filter(where_clause, base_plan)?;
                 let base_plan = Self::plan_for_projection(projection, base_plan);
@@ -211,7 +215,7 @@ mod tests {
     #[test]
     fn logical_plan_for_select_all() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
-            table_name: "employees".to_string(),
+            source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::All,
             where_clause: None,
             order_by: None,
@@ -227,7 +231,7 @@ mod tests {
     #[test]
     fn logical_plan_for_select_with_projection() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
-            table_name: "employees".to_string(),
+            source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::Columns(vec!["id".to_string()]),
             where_clause: None,
             order_by: None,
@@ -243,7 +247,7 @@ mod tests {
     #[test]
     fn logical_plan_for_select_with_projection_validating_the_base_plan() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
-            table_name: "employees".to_string(),
+            source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::Columns(vec!["id".to_string()]),
             where_clause: None,
             order_by: None,
@@ -260,7 +264,7 @@ mod tests {
     #[test]
     fn logical_plan_for_select_with_where_clause() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
-            table_name: "employees".to_string(),
+            source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::All,
             where_clause: Some(WhereClause::comparison(
                 "age",
@@ -284,7 +288,7 @@ mod tests {
     #[test]
     fn logical_plan_for_select_with_projection_and_where_clause() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
-            table_name: "employees".to_string(),
+            source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::Columns(vec![String::from("id")]),
             where_clause: Some(WhereClause::comparison(
                 "age",
@@ -312,7 +316,7 @@ mod tests {
     #[test]
     fn logical_plan_for_select_with_order_by_ascending() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
-            table_name: "employees".to_string(),
+            source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::All,
             where_clause: None,
             order_by: Some(vec![asc!("id")]),
@@ -329,7 +333,7 @@ mod tests {
     #[test]
     fn logical_plan_for_select_with_order_by_descending() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
-            table_name: "employees".to_string(),
+            source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::All,
             where_clause: None,
             order_by: Some(vec![desc!("id")]),
@@ -346,7 +350,7 @@ mod tests {
     #[test]
     fn logical_plan_for_select_with_order_by_multiple_columns() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
-            table_name: "employees".to_string(),
+            source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::All,
             where_clause: None,
             order_by: Some(vec![asc!("id"), desc!("name")]),
@@ -363,7 +367,7 @@ mod tests {
     #[test]
     fn logical_plan_for_select_all_with_limit_base_plan() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
-            table_name: "employees".to_string(),
+            source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::All,
             where_clause: None,
             order_by: None,
@@ -379,7 +383,7 @@ mod tests {
     #[test]
     fn logical_plan_for_select_all_with_limit_count() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
-            table_name: "employees".to_string(),
+            source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::All,
             where_clause: None,
             order_by: None,
@@ -395,7 +399,7 @@ mod tests {
     #[test]
     fn logical_plan_for_select_with_projection_and_limit() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
-            table_name: "employees".to_string(),
+            source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::Columns(vec![String::from("id")]),
             where_clause: None,
             order_by: None,
@@ -411,7 +415,7 @@ mod tests {
     #[test]
     fn logical_plan_for_select_with_projection_and_limit_validating_the_columns() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
-            table_name: "employees".to_string(),
+            source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::Columns(vec![String::from("id")]),
             where_clause: None,
             order_by: None,
@@ -429,7 +433,7 @@ mod tests {
     #[test]
     fn logical_plan_for_select_with_projection_and_limit_validating_the_base_plan() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
-            table_name: "employees".to_string(),
+            source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::Columns(vec![String::from("id")]),
             where_clause: None,
             order_by: None,
@@ -447,7 +451,7 @@ mod tests {
     #[test]
     fn logical_plan_for_select_with_order_by_and_limit() {
         let logical_plan = LogicalPlanner::plan(Ast::Select {
-            table_name: "employees".to_string(),
+            source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::All,
             where_clause: None,
             order_by: Some(vec![asc!("id"), desc!("name")]),

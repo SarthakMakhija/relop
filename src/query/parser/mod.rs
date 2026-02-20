@@ -87,7 +87,7 @@ impl Parser {
         let _ = self.eat_if(|token| token.is_semicolon());
 
         Ok(Ast::Select {
-            table_name: table_name.to_string(),
+            source: ast::TableSource::table(&table_name),
             projection,
             where_clause,
             order_by,
@@ -579,7 +579,7 @@ mod select_star_tests {
         let ast = parser.parse().unwrap();
 
         assert!(
-            matches!(ast, Ast::Select { table_name, projection, .. } if table_name == "employees" && projection == Projection::All)
+            matches!(ast, Ast::Select { source, projection, .. } if source == ast::TableSource::table("employees") && projection == Projection::All)
         );
     }
 
@@ -597,7 +597,7 @@ mod select_star_tests {
         let ast = parser.parse().unwrap();
 
         assert!(
-            matches!(ast, Ast::Select { table_name, projection, .. } if table_name == "employees" && projection == Projection::All)
+            matches!(ast, Ast::Select { source, projection, .. } if source == ast::TableSource::table("employees") && projection == Projection::All)
         );
     }
 
@@ -731,8 +731,8 @@ mod select_projection_tests {
         let mut parser = Parser::new(stream);
         let ast = parser.parse().unwrap();
 
-        assert!(matches!(ast, Ast::Select { table_name, projection, .. }
-                if table_name == "employees" && projection == Projection::Columns(vec!["name".to_string(), "id".to_string()])));
+        assert!(matches!(ast, Ast::Select { source, projection, .. }
+                if source == ast::TableSource::table("employees") && projection == Projection::Columns(vec!["name".to_string(), "id".to_string()])));
     }
 
     #[test]
@@ -747,8 +747,8 @@ mod select_projection_tests {
         let mut parser = Parser::new(stream);
         let ast = parser.parse().unwrap();
 
-        assert!(matches!(ast, Ast::Select { table_name, projection, .. }
-                if table_name == "employees" && projection == Projection::Columns(vec!["name".to_string()])));
+        assert!(matches!(ast, Ast::Select { source, projection, .. }
+                if source == ast::TableSource::table("employees") && projection == Projection::Columns(vec!["name".to_string()])));
     }
 
     #[test]
@@ -766,8 +766,8 @@ mod select_projection_tests {
         let mut parser = Parser::new(stream);
         let ast = parser.parse().unwrap();
 
-        assert!(matches!(ast, Ast::Select { table_name, projection, .. }
-                if table_name == "employees" && projection == Projection::Columns(vec!["name".to_string(), "id".to_string()])));
+        assert!(matches!(ast, Ast::Select { source, projection, .. }
+                if source == ast::TableSource::table("employees") && projection == Projection::Columns(vec!["name".to_string(), "id".to_string()])));
     }
 
     #[test]
@@ -921,8 +921,8 @@ mod select_where_with_single_comparison_tests {
         let ast = parser.parse().unwrap();
 
         assert!(
-            matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
-                if table_name == "employees" &&
+            matches!(ast, Ast::Select { source, projection, where_clause, .. }
+                if source == ast::TableSource::table("employees") &&
                     projection == Projection::All &&
                     matches!(&where_clause, Some(ref wc)
                         if *wc == WhereClause::comparison(
@@ -953,8 +953,8 @@ mod select_where_with_single_comparison_tests {
         let ast = parser.parse().unwrap();
 
         assert!(
-            matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
-                if table_name == "employees" &&
+            matches!(ast, Ast::Select { source, projection, where_clause, .. }
+                if source == ast::TableSource::table("employees") &&
                     projection == Projection::All &&
                     matches!(&where_clause, Some(ref wc)
                          if *wc == WhereClause::like(
@@ -1146,8 +1146,8 @@ mod select_where_with_and_tests {
         let ast = parser.parse().unwrap();
 
         assert!(
-            matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
-                if table_name == "employees" &&
+            matches!(ast, Ast::Select { source, projection, where_clause, .. }
+                if source == ast::TableSource::table("employees") &&
                     projection == Projection::All &&
                     matches!(&where_clause, Some(WhereClause(Expression::And(expressions)))
                         if expressions.len() == 2 &&
@@ -1187,8 +1187,8 @@ mod select_where_with_and_tests {
         let ast = parser.parse().unwrap();
 
         assert!(
-            matches!(ast, Ast::Select { table_name, projection, where_clause, .. }
-                if table_name == "employees" &&
+            matches!(ast, Ast::Select { source, projection, where_clause, .. }
+                if source == ast::TableSource::table("employees") &&
                     projection == Projection::All &&
                     matches!(&where_clause, Some(WhereClause(Expression::And(expressions)))
                         if expressions.len() == 2 &&
@@ -1253,8 +1253,8 @@ mod select_order_by_tests {
         let ast = parser.parse().unwrap();
 
         assert!(
-            matches!(ast, Ast::Select { table_name, projection, order_by, .. }
-                    if table_name == "employees"
+            matches!(ast, Ast::Select { source, projection, order_by, .. }
+                    if source == ast::TableSource::table("employees")
                         && projection == Projection::Columns(vec!["id".to_string()])
                         && order_by == Some(vec![asc!("id")])
             )
@@ -1278,8 +1278,8 @@ mod select_order_by_tests {
         let ast = parser.parse().unwrap();
 
         assert!(
-            matches!(ast, Ast::Select { table_name, projection, order_by, .. }
-                    if table_name == "employees"
+            matches!(ast, Ast::Select { source, projection, order_by, .. }
+                    if source == ast::TableSource::table("employees")
                         && projection == Projection::Columns(vec!["id".to_string()])
                         && order_by == Some(vec![desc!("id")])
             )
@@ -1304,8 +1304,8 @@ mod select_order_by_tests {
         let ast = parser.parse().unwrap();
 
         assert!(
-            matches!(ast, Ast::Select { table_name, projection, order_by, .. }
-                    if table_name == "employees"
+            matches!(ast, Ast::Select { source, projection, order_by, .. }
+                    if source == ast::TableSource::table("employees")
                         && projection == Projection::Columns(vec!["id".to_string()])
                         && order_by == Some(vec![asc!("id")])
             )
@@ -1385,8 +1385,8 @@ mod select_tests_with_limit {
         let ast = parser.parse().unwrap();
 
         assert!(matches!(ast,
-            Ast::Select { table_name, projection, where_clause: _, order_by: _, limit }
-                if table_name == "employees"
+            Ast::Select { source, projection, where_clause: _, order_by: _, limit }
+                if source == ast::TableSource::table("employees")
                     && projection == Projection::Columns(vec!["name".to_string(), "id".to_string()])
                     && limit == Some(10)
         ));
@@ -1410,8 +1410,8 @@ mod select_tests_with_limit {
         let ast = parser.parse().unwrap();
 
         assert!(matches!(ast,
-            Ast::Select { table_name, projection, where_clause: _, order_by: _, limit }
-                if table_name == "employees"
+            Ast::Select { source, projection, where_clause: _, order_by: _, limit }
+                if source == ast::TableSource::table("employees")
                     && projection == Projection::Columns(vec!["name".to_string(), "id".to_string()])
                     && limit == Some(10)
         ));
