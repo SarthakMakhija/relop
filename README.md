@@ -119,6 +119,8 @@ cargo test
   - [ ] Add support for `OR` in `WHERE` clauses.
   - [ ] Allow mixing `AND` and `OR` to define complex filtering criteria.
   - [ ] Add support for inner join
+    - [x] Add support for inner join with AND
+    - [ ] Add support for inner join with Or
 - **Complex Expressions**: Enable grouping conditions with parentheses `( ... )` to control precedence.
 
 ## Supported SQL
