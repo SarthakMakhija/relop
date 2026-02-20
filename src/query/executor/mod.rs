@@ -89,6 +89,9 @@ impl<'a> Executor<'a> {
                 let result_set = self.execute_select(*base)?;
                 Ok(Box::new(LimitResultSet::new(result_set, count)))
             }
+            LogicalPlan::Join { .. } => {
+                unimplemented!("Joins are not supported yet")
+            }
             _ => panic!("should not be here"),
         }
     }
@@ -292,8 +295,16 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let predicate = Predicate::and(vec![
-            Predicate::comparison(Literal::ColumnReference("id".to_string()), LogicalOperator::Eq, Literal::Int(1)),
-            Predicate::comparison(Literal::ColumnReference("age".to_string()), LogicalOperator::Greater, Literal::Int(25)),
+            Predicate::comparison(
+                Literal::ColumnReference("id".to_string()),
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            ),
+            Predicate::comparison(
+                Literal::ColumnReference("age".to_string()),
+                LogicalOperator::Greater,
+                Literal::Int(25),
+            ),
         ]);
 
         let query_result = executor
@@ -322,8 +333,16 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let predicate = Predicate::and(vec![
-            Predicate::comparison(Literal::ColumnReference("id".to_string()), LogicalOperator::Eq, Literal::Int(1)),
-            Predicate::comparison(Literal::ColumnReference("age".to_string()), LogicalOperator::Greater, Literal::Int(25)),
+            Predicate::comparison(
+                Literal::ColumnReference("id".to_string()),
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            ),
+            Predicate::comparison(
+                Literal::ColumnReference("age".to_string()),
+                LogicalOperator::Greater,
+                Literal::Int(25),
+            ),
         ]);
 
         let query_result = executor

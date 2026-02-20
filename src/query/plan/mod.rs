@@ -21,6 +21,15 @@ pub(crate) enum LogicalPlan {
         /// Name of the table.
         table_name: String,
     },
+    /// Plan to perform a join between two tables.
+    Join {
+        /// The left-hand plan.
+        left: Box<LogicalPlan>,
+        /// The right-hand plan.
+        right: Box<LogicalPlan>,
+        /// The optional ON condition over joined rows.
+        on: Option<Predicate>,
+    },
     /// Plan to project specific columns from a base plan.
     Projection {
         /// The source plan.
@@ -75,15 +84,36 @@ impl LogicalPlanner {
                 limit,
                 order_by,
             } => {
-                let table_name = match source {
-                    crate::query::parser::ast::TableSource::Table(name) => name,
-                    _ => unimplemented!("Joins are not supported yet"),
-                };
-                let base_plan = LogicalPlan::Scan { table_name };
+                let base_plan = Self::plan_for_source(source)?;
                 let base_plan = Self::plan_for_filter(where_clause, base_plan)?;
                 let base_plan = Self::plan_for_projection(projection, base_plan);
                 let base_plan = Self::plan_for_sort(order_by, base_plan);
                 Ok(Self::plan_for_limit(limit, base_plan))
+            }
+        }
+    }
+
+    fn plan_for_source(
+        source: crate::query::parser::ast::TableSource,
+    ) -> Result<LogicalPlan, PlanningError> {
+        match source {
+            crate::query::parser::ast::TableSource::Table(table_name) => {
+                Ok(LogicalPlan::Scan { table_name })
+            }
+            crate::query::parser::ast::TableSource::Join { left, right, on } => {
+                let left_plan = Self::plan_for_source(*left)?;
+                let right_plan = Self::plan_for_source(*right)?;
+
+                let on_predicate = match on {
+                    Some(expression) => Some(Predicate::try_from(expression)?),
+                    None => None,
+                };
+
+                Ok(LogicalPlan::Join {
+                    left: left_plan.boxed(),
+                    right: right_plan.boxed(),
+                    on: on_predicate,
+                })
             }
         }
     }
@@ -464,6 +494,104 @@ mod tests {
                 if count == 10 && matches!(base_plan.as_ref(), LogicalPlan::Sort { base_plan, ordering_keys }
                     if *ordering_keys == vec![asc!("id"), desc!("name")] &&
                         matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+            )
+        ));
+    }
+
+    #[test]
+    fn logical_plan_for_select_with_join() {
+        use crate::query::parser::ast::Clause;
+
+        let logical_plan = LogicalPlanner::plan(Ast::Select {
+            source: crate::query::parser::ast::TableSource::Join {
+                left: Box::new(crate::query::parser::ast::TableSource::table("employees")),
+                right: Box::new(crate::query::parser::ast::TableSource::table("departments")),
+                on: Some(crate::query::parser::ast::Expression::Single(
+                    Clause::Comparison {
+                        lhs: Literal::ColumnReference("employee_id".to_string()),
+                        operator: BinaryOperator::Eq,
+                        rhs: Literal::ColumnReference("department_id".to_string()),
+                    },
+                )),
+            },
+            projection: Projection::All,
+            where_clause: None,
+            order_by: None,
+            limit: None,
+        })
+        .unwrap();
+
+        assert!(matches!(
+            logical_plan,
+            LogicalPlan::Join { left, right, on }
+            if matches!(left.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+            && matches!(right.as_ref(), LogicalPlan::Scan { table_name } if table_name == "departments")
+            && matches!(
+                on.as_ref().unwrap(),
+                Predicate::Single(predicate::LogicalClause::Comparison { lhs, operator, rhs })
+                if matches!(lhs, Literal::ColumnReference(column_name) if column_name == "employee_id")
+                && *operator == LogicalOperator::Eq
+                && matches!(rhs, Literal::ColumnReference(column_name) if column_name == "department_id")
+            )
+        ));
+    }
+
+    #[test]
+    fn logical_plan_for_select_with_multiple_joins() {
+        use crate::query::parser::ast::Clause;
+
+        let logical_plan = LogicalPlanner::plan(Ast::Select {
+            source: crate::query::parser::ast::TableSource::Join {
+                left: Box::new(crate::query::parser::ast::TableSource::Join {
+                    left: Box::new(crate::query::parser::ast::TableSource::table("employees")),
+                    right: Box::new(crate::query::parser::ast::TableSource::table("departments")),
+                    on: Some(crate::query::parser::ast::Expression::Single(
+                        Clause::Comparison {
+                            lhs: Literal::ColumnReference("employee_id".to_string()),
+                            operator: BinaryOperator::Eq,
+                            rhs: Literal::ColumnReference("department_id".to_string()),
+                        },
+                    )),
+                }),
+                right: Box::new(crate::query::parser::ast::TableSource::table("roles")),
+                on: Some(crate::query::parser::ast::Expression::Single(
+                    Clause::Comparison {
+                        lhs: Literal::ColumnReference("role_id".to_string()),
+                        operator: BinaryOperator::Eq,
+                        rhs: Literal::ColumnReference("id".to_string()),
+                    },
+                )),
+            },
+            projection: Projection::All,
+            where_clause: None,
+            order_by: None,
+            limit: None,
+        })
+        .unwrap();
+
+        assert!(matches!(
+            logical_plan,
+            LogicalPlan::Join { left: left_outer, right: right_outer, on: on_outer }
+            if matches!(
+                left_outer.as_ref(),
+                LogicalPlan::Join { left: left_inner, right: right_inner, on: on_inner }
+                if matches!(left_inner.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+                && matches!(right_inner.as_ref(), LogicalPlan::Scan { table_name } if table_name == "departments")
+                && matches!(
+                    on_inner.as_ref().unwrap(),
+                    Predicate::Single(predicate::LogicalClause::Comparison { lhs, operator, rhs })
+                    if matches!(lhs, Literal::ColumnReference(column_name) if column_name == "employee_id")
+                    && *operator == LogicalOperator::Eq
+                    && matches!(rhs, Literal::ColumnReference(column_name) if column_name == "department_id")
+                )
+            )
+            && matches!(right_outer.as_ref(), LogicalPlan::Scan { table_name } if table_name == "roles")
+            && matches!(
+                on_outer.as_ref().unwrap(),
+                Predicate::Single(predicate::LogicalClause::Comparison { lhs, operator, rhs })
+                if matches!(lhs, Literal::ColumnReference(column_name) if column_name == "role_id")
+                && *operator == LogicalOperator::Eq
+                && matches!(rhs, Literal::ColumnReference(column_name) if column_name == "id")
             )
         ));
     }

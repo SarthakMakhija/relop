@@ -669,11 +669,8 @@ mod tests {
         let table_scan = TableScan::new(Arc::new(table_store));
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
 
-        let predicate = Predicate::comparison(
-            Literal::Int(1),
-            LogicalOperator::Eq,
-            Literal::Int(1),
-        );
+        let predicate =
+            Predicate::comparison(Literal::Int(1), LogicalOperator::Eq, Literal::Int(1));
         let filter_result_set = FilterResultSet::new(result_set, predicate);
         let mut iterator = filter_result_set.iterator().unwrap();
 
