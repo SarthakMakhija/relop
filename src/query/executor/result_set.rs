@@ -614,6 +614,30 @@ mod tests {
     }
 
     #[test]
+    fn filter_result_set_with_column_to_column_comparison() {
+        let table = Table::new(
+            "employees",
+            schema!["first_name" => ColumnType::Text, "last_name" => ColumnType::Text].unwrap(),
+        );
+        let table_store = TableStore::new();
+        table_store.insert_all(rows![["relop", "relop"], ["relop", "query"]]);
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+
+        let predicate = Predicate::comparison(
+            "first_name",
+            LogicalOperator::Eq,
+            Literal::ColumnReference("last_name".to_string()),
+        );
+        let filter_result_set = FilterResultSet::new(result_set, predicate);
+        let mut iterator = filter_result_set.iterator().unwrap();
+
+        assert_next_row!(iterator.as_mut(), "first_name" => "relop", "last_name" => "relop");
+        assert_no_more_rows!(iterator.as_mut());
+    }
+
+    #[test]
     fn schema() {
         let table = Table::new(
             "employees",

@@ -1497,3 +1497,38 @@ mod select_tests_with_limit {
         assert!(matches!(result, Err(ParseError::UnexpectedEndOfInput)));
     }
 }
+
+#[cfg(test)]
+mod column_reference_tests {
+    use super::*;
+    use crate::query::lexer::token::Token;
+    use crate::query::parser::ast::{Ast, BinaryOperator, Clause, Expression, Literal};
+
+    #[test]
+    fn parse_select_with_column_to_column_comparison() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("first_name", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("last_name", TokenType::Identifier));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(
+            matches!(ast, Ast::Select { ref source, ref where_clause, .. }
+                if matches!(source, ast::TableSource::Table(ref name) if name == "employees")
+                && matches!(where_clause, Some(WhereClause(Expression::Single(Clause::Comparison { ref column_name, ref operator, ref literal })))
+                    if column_name == "first_name"
+                    && *operator == BinaryOperator::Eq
+                    && matches!(literal, Literal::ColumnReference(ref ref_column_name) if ref_column_name == "last_name")
+                )
+            )
+        );
+    }
+}

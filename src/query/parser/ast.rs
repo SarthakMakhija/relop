@@ -199,6 +199,8 @@ pub(crate) enum Literal {
     Int(i64),
     /// A text string literal.
     Text(String),
+    /// A column reference (e.g. `last_name` in `first_name = last_name` or `employees.first_name`).
+    ColumnReference(String),
 }
 
 impl Literal {
@@ -208,6 +210,7 @@ impl Literal {
     ///
     /// * `Ok(Literal::Text)` - If the token is a string literal.
     /// * `Ok(Literal::Int)` - If the token is a whole number.
+    /// * `Ok(Literal::ColumnReference)` - If the token is an identifier.
     /// * `Err(ParseError::NumericLiteralOutOfRange)` - If the number is too large (should theoretically be handled by lexer, but good for safety).
     /// * `Err(ParseError::UnexpectedToken)` - If the token is not a literal.
     pub(crate) fn from_token(token: &Token) -> Result<Self, ParseError> {
@@ -221,6 +224,9 @@ impl Literal {
                 .map_err(|_| ParseError::NumericLiteralOutOfRange(token.lexeme().to_string()))?;
 
             return Ok(Literal::Int(value));
+        }
+        if token.is_identifier() {
+            return Ok(Literal::ColumnReference(token.lexeme().to_string()));
         }
         Err(ParseError::UnexpectedToken {
             expected: "literal".to_string(),
