@@ -173,13 +173,25 @@ impl Parser {
     }
 
     fn expect_clause(&mut self) -> Result<Clause, ParseError> {
-        let column_name = self.expect_identifier()?;
+        let lhs = self.expect_literal()?;
         let operator = self.expect_operator()?;
-        let literal = self.expect_literal()?;
 
         match operator {
-            BinaryOperator::Like => Ok(Clause::like(&column_name, literal)),
-            _ => Ok(Clause::comparison(&column_name, operator, literal)),
+            BinaryOperator::Like => {
+                if let Literal::ColumnReference(column_name) = lhs {
+                    let rhs = self.expect_literal()?;
+                    Ok(Clause::like(&column_name, rhs))
+                } else {
+                    Err(ParseError::UnexpectedToken {
+                        expected: "column name".to_string(),
+                        found: format!("{:?}", lhs),
+                    })
+                }
+            }
+            _ => {
+                let rhs = self.expect_literal()?;
+                Ok(Clause::comparison(lhs, operator, rhs))
+            }
         }
     }
 
@@ -926,7 +938,7 @@ mod select_where_with_single_comparison_tests {
                     projection == Projection::All &&
                     matches!(&where_clause, Some(ref wc)
                         if *wc == WhereClause::comparison(
-                            "name",
+                            Literal::ColumnReference("name".to_string()),
                             BinaryOperator::Eq,
                             Literal::Text("relop".to_string())
                         )
@@ -1077,7 +1089,7 @@ mod select_where_with_single_comparison_tests {
             Err(ParseError::UnexpectedToken {
                 expected,
                 found,
-            }) if expected == "literal" && found == "select" ));
+            }) if expected == "identifier" && found == "select" ));
     }
 
     #[test]
@@ -1152,12 +1164,12 @@ mod select_where_with_and_tests {
                     matches!(&where_clause, Some(WhereClause(Expression::And(expressions)))
                         if expressions.len() == 2 &&
                         expressions[0] == Expression::single(Clause::comparison(
-                            "name",
+                            Literal::ColumnReference("name".to_string()),
                             BinaryOperator::Eq,
                             Literal::Text("relop".to_string())
                         )) &&
                         expressions[1] == Expression::single(Clause::comparison(
-                            "id",
+                            Literal::ColumnReference("id".to_string()),
                             BinaryOperator::Eq,
                             Literal::Int(2)
                         ))
@@ -1197,13 +1209,58 @@ mod select_where_with_and_tests {
                             Literal::Text("rel%".to_string())
                         )) &&
                         expressions[1] == Expression::single(Clause::comparison(
-                            "id",
+                            Literal::ColumnReference("id".to_string()),
                             BinaryOperator::Eq,
                             Literal::Int(2)
                         ))
                     )
             )
         );
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_where_with_invalid_like() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("like", TokenType::Keyword));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(
+            result,
+            Err(ParseError::UnexpectedToken { expected, found }) if expected == "identifier" && found == ";"
+        ));
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_where_with_like_having_no_column_name() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("1", TokenType::WholeNumber));
+        stream.add(Token::new("like", TokenType::Keyword));
+        stream.add(Token::new("rel%", TokenType::StringLiteral));
+        stream.add(Token::semicolon());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(
+            result,
+            Err(ParseError::UnexpectedToken { expected, found }) if expected == "column name" && found == "Int(1)"
+        ));
     }
 
     #[test]
@@ -1523,10 +1580,10 @@ mod column_reference_tests {
         assert!(
             matches!(ast, Ast::Select { ref source, ref where_clause, .. }
                 if matches!(source, ast::TableSource::Table(ref name) if name == "employees")
-                && matches!(where_clause, Some(WhereClause(Expression::Single(Clause::Comparison { ref column_name, ref operator, ref literal })))
-                    if column_name == "first_name"
+                && matches!(where_clause, Some(WhereClause(Expression::Single(Clause::Comparison { ref lhs, ref operator, ref rhs })))
+                    if matches!(lhs, Literal::ColumnReference(ref name) if name == "first_name")
                     && *operator == BinaryOperator::Eq
-                    && matches!(literal, Literal::ColumnReference(ref ref_column_name) if ref_column_name == "last_name")
+                    && matches!(rhs, Literal::ColumnReference(ref name) if name == "last_name")
                 )
             )
         );

@@ -57,14 +57,14 @@ pub(crate) enum Expression {
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Clause {
-    /// A comparison expression (e.g., `id = 1`, `age > 25`).
+    /// A comparison expression (e.g., `id = 1`, `age > 25`, `1 = 1`).
     Comparison {
-        /// The column name to compare.
-        column_name: String,
+        /// The left-hand side literal.
+        lhs: Literal,
         /// The comparison operator.
         operator: BinaryOperator,
-        /// The literal value to compare against.
-        literal: Literal,
+        /// The right-hand side literal.
+        rhs: Literal,
     },
     /// A LIKE expression (e.g., `name like 'John%'`).
     Like {
@@ -100,12 +100,8 @@ impl Clause {
     /// * `column_name` - The name of the column to compare.
     /// * `operator` - The binary operator to use.
     /// * `literal` - The literal value to compare against.
-    pub fn comparison(column_name: &str, operator: BinaryOperator, literal: Literal) -> Self {
-        Clause::Comparison {
-            column_name: column_name.to_string(),
-            operator,
-            literal,
-        }
+    pub fn comparison(lhs: Literal, operator: BinaryOperator, rhs: Literal) -> Self {
+        Clause::Comparison { lhs, operator, rhs }
     }
 
     /// Creates a new `Clause::Like` variant.
@@ -137,12 +133,8 @@ impl WhereClause {
 #[cfg(test)]
 impl WhereClause {
     /// Creates a new `WhereClause` with a comparison.
-    pub fn comparison(column_name: &str, operator: BinaryOperator, literal: Literal) -> Self {
-        WhereClause(Expression::single(Clause::comparison(
-            column_name,
-            operator,
-            literal,
-        )))
+    pub fn comparison(lhs: Literal, operator: BinaryOperator, rhs: Literal) -> Self {
+        WhereClause(Expression::single(Clause::comparison(lhs, operator, rhs)))
     }
 
     /// Creates a new `WhereClause` with a LIKE criteria.
@@ -229,7 +221,7 @@ impl Literal {
             return Ok(Literal::ColumnReference(token.lexeme().to_string()));
         }
         Err(ParseError::UnexpectedToken {
-            expected: "literal".to_string(),
+            expected: "identifier".to_string(),
             found: token.lexeme().to_string(),
         })
     }
@@ -336,7 +328,7 @@ mod literal_tests {
         let result = Literal::from_token(&token);
         assert!(matches!(
             result,
-            Err(ParseError::UnexpectedToken { expected, found }) if expected == "literal" && found == "select"
+            Err(ParseError::UnexpectedToken { expected, found }) if expected == "identifier" && found == "select"
         ));
     }
 
@@ -356,15 +348,18 @@ mod where_clause_tests {
 
     #[test]
     fn create_comparison() {
-        let where_clause =
-            WhereClause::comparison("age", BinaryOperator::Greater, Literal::Int(25));
+        let where_clause = WhereClause::comparison(
+            Literal::ColumnReference("age".to_string()),
+            BinaryOperator::Greater,
+            Literal::Int(25),
+        );
 
         assert_eq!(
             where_clause,
             WhereClause(Expression::single(Clause::Comparison {
-                column_name: "age".to_string(),
+                lhs: Literal::ColumnReference("age".to_string()),
                 operator: BinaryOperator::Greater,
-                literal: Literal::Int(25),
+                rhs: Literal::Int(25),
             }))
         );
     }
@@ -386,7 +381,7 @@ mod where_clause_tests {
     fn create_or() {
         let where_clause = WhereClause(Expression::or(vec![
             Expression::single(Clause::comparison(
-                "age",
+                Literal::ColumnReference("age".to_string()),
                 BinaryOperator::Greater,
                 Literal::Int(25),
             )),
@@ -397,9 +392,9 @@ mod where_clause_tests {
             where_clause,
             WhereClause(Expression::or(vec![
                 Expression::single(Clause::Comparison {
-                    column_name: "age".to_string(),
+                    lhs: Literal::ColumnReference("age".to_string()),
                     operator: BinaryOperator::Greater,
-                    literal: Literal::Int(25),
+                    rhs: Literal::Int(25),
                 }),
                 Expression::single(Clause::Like {
                     column_name: "name".to_string(),
@@ -416,13 +411,17 @@ mod clause_tests {
 
     #[test]
     fn create_comparison_clause() {
-        let clause = Clause::comparison("age", BinaryOperator::Greater, Literal::Int(25));
+        let clause = Clause::comparison(
+            Literal::ColumnReference("age".to_string()),
+            BinaryOperator::Greater,
+            Literal::Int(25),
+        );
         assert_eq!(
             clause,
             Clause::Comparison {
-                column_name: "age".to_string(),
+                lhs: Literal::ColumnReference("age".to_string()),
                 operator: BinaryOperator::Greater,
-                literal: Literal::Int(25),
+                rhs: Literal::Int(25),
             }
         );
     }

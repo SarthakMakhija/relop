@@ -738,6 +738,32 @@ mod tests {
     }
 
     #[test]
+    fn execute_select_star_with_where_clause_using_literal_comparison() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            schema!["first_name" => ColumnType::Text, "last_name" => ColumnType::Text].unwrap(),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![["microsoft", "microsoft"]],
+        );
+
+        let query_result = relop
+            .execute("select * from employees where 1 = 1")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "first_name" => "microsoft", "last_name" => "microsoft");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
     fn execute_select_star_with_where_clause_and_returning_a_few_results() {
         let relop = Relop::new(Catalog::new());
         let result = relop.create_table(

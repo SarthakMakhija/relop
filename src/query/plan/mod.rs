@@ -267,7 +267,7 @@ mod tests {
             source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::All,
             where_clause: Some(WhereClause::comparison(
-                "age",
+                Literal::ColumnReference("age".to_string()),
                 BinaryOperator::Greater,
                 Literal::Int(30),
             )),
@@ -279,8 +279,8 @@ mod tests {
         assert!(matches!(
             logical_plan,
             LogicalPlan::Filter { base_plan, predicate }
-                if matches!(&predicate, Predicate::Single(predicate::LogicalClause::Comparison {column_name, operator, literal})
-                    if column_name == "age" && *operator == LogicalOperator::Greater && *literal == Literal::Int(30))
+                if matches!(&predicate, Predicate::Single(predicate::LogicalClause::Comparison { ref lhs, ref operator, ref rhs })
+                    if matches!(lhs, Literal::ColumnReference(ref name) if name == "age") && *operator == LogicalOperator::Greater && *rhs == Literal::Int(30))
                         && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
         ));
     }
@@ -291,7 +291,7 @@ mod tests {
             source: crate::query::parser::ast::TableSource::table("employees"),
             projection: Projection::Columns(vec![String::from("id")]),
             where_clause: Some(WhereClause::comparison(
-                "age",
+                Literal::ColumnReference("age".to_string()),
                 BinaryOperator::Greater,
                 Literal::Int(30),
             )),
@@ -306,8 +306,8 @@ mod tests {
                 && matches!(
                 base_plan.as_ref(),
                 LogicalPlan::Filter { base_plan, predicate }
-                if matches!(predicate, Predicate::Single(predicate::LogicalClause::Comparison {column_name, operator, literal})
-                    if column_name == "age" && *operator == LogicalOperator::Greater && *literal == Literal::Int(30))
+                if matches!(predicate, Predicate::Single(predicate::LogicalClause::Comparison { ref lhs, ref operator, ref rhs })
+                    if matches!(lhs, Literal::ColumnReference(ref name) if name == "age") && *operator == LogicalOperator::Greater && *rhs == Literal::Int(30))
                         && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
             )
         ));

@@ -15,12 +15,12 @@ pub(crate) enum Predicate {
 pub(crate) enum LogicalClause {
     /// A comparison clause (e.g., `age > 30`).
     Comparison {
-        /// The column name to compare.
-        column_name: String,
+        /// The left-hand side literal.
+        lhs: Literal,
         /// The logical comparison operator.
         operator: LogicalOperator,
-        /// The literal value to compare against.
-        literal: Literal,
+        /// The right-hand side literal.
+        rhs: Literal,
     },
     Like {
         /// The column name to match against.
@@ -41,17 +41,7 @@ impl LogicalClause {
     /// * `Err(ExecutionError::TypeMismatchInComparison)` - If the types do not match.
     pub(crate) fn matches(&self, row_view: &RowView) -> Result<bool, ExecutionError> {
         match self {
-            LogicalClause::Comparison {
-                column_name,
-                operator,
-                literal,
-            } => {
-                let column_value = row_view
-                    .column_value_by(column_name)
-                    .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?;
-
-                operator.apply(column_value, literal, row_view)
-            }
+            LogicalClause::Comparison { lhs, operator, rhs } => operator.apply(lhs, rhs, row_view),
             LogicalClause::Like { column_name, regex } => {
                 let column_value = row_view
                     .column_value_by(column_name)
@@ -75,16 +65,8 @@ impl LogicalClause {
     /// * `column_name` - The name of the column to compare.
     /// * `operator` - The logical operator to use for comparison.
     /// * `literal` - The literal value to compare against.
-    pub(crate) fn comparison(
-        column_name: &str,
-        operator: LogicalOperator,
-        literal: Literal,
-    ) -> Self {
-        LogicalClause::Comparison {
-            column_name: column_name.to_string(),
-            operator,
-            literal,
-        }
+    pub(crate) fn comparison(lhs: Literal, operator: LogicalOperator, rhs: Literal) -> Self {
+        LogicalClause::Comparison { lhs, operator, rhs }
     }
 
     /// Creates a new `LogicalClause::Like` variant.
@@ -150,14 +132,10 @@ impl TryFrom<Clause> for LogicalClause {
     /// * `Err(PlanningError)` - If the conversion fails (e.g., due to an invalid regex).
     fn try_from(clause: Clause) -> Result<Self, Self::Error> {
         match clause {
-            Clause::Comparison {
-                column_name,
-                operator,
-                literal,
-            } => Ok(LogicalClause::Comparison {
-                column_name,
+            Clause::Comparison { lhs, operator, rhs } => Ok(LogicalClause::Comparison {
+                lhs,
                 operator: operator.into(),
-                literal,
+                rhs,
             }),
             Clause::Like {
                 column_name,
@@ -209,12 +187,8 @@ impl Predicate {
 #[cfg(test)]
 impl Predicate {
     /// Creates a new `Comparison` predicate.
-    pub(crate) fn comparison(
-        column_name: &str,
-        operator: LogicalOperator,
-        literal: Literal,
-    ) -> Self {
-        Predicate::Single(LogicalClause::comparison(column_name, operator, literal))
+    pub(crate) fn comparison(lhs: Literal, operator: LogicalOperator, rhs: Literal) -> Self {
+        Predicate::Single(LogicalClause::comparison(lhs, operator, rhs))
     }
 
     /// Creates a new `Like` predicate.
@@ -273,12 +247,20 @@ impl LogicalOperator {
     /// * `Ok(true)` - If the comparison evaluates to true.
     /// * `Ok(false)` - If the comparison evaluates to false.
     /// * `Err(ExecutionError::TypeMismatchInComparison)` - If the types of the column value and literal do not match.
-    pub fn apply(
+    pub(crate) fn apply(
         &self,
-        lhs_value: &ColumnValue,
+        lhs: &Literal,
         rhs: &Literal,
         row_view: &RowView,
     ) -> Result<bool, ExecutionError> {
+        let lhs_value = match lhs {
+            Literal::Int(value) => ColumnValue::Int(*value),
+            Literal::Text(value) => ColumnValue::Text(value.clone()),
+            Literal::ColumnReference(column_name) => row_view
+                .column_value_by(column_name)
+                .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?
+                .clone(),
+        };
         let rhs_value = match rhs {
             Literal::Int(value) => ColumnValue::Int(*value),
             Literal::Text(value) => ColumnValue::Text(value.clone()),
@@ -287,7 +269,7 @@ impl LogicalOperator {
                 .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?
                 .clone(),
         };
-        match (lhs_value, &rhs_value) {
+        match (&lhs_value, &rhs_value) {
             (ColumnValue::Int(left), ColumnValue::Int(right)) => Ok(match self {
                 LogicalOperator::Eq => left == right,
                 LogicalOperator::NotEq => left != right,
@@ -372,10 +354,9 @@ mod tests {
     fn apply_eq_on_integers_true() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         assert!(LogicalOperator::Eq
-            .apply(&ColumnValue::int(10), &Literal::Int(10), &row_view)
+            .apply(&Literal::Int(10), &Literal::Int(10), &row_view)
             .unwrap());
     }
 
@@ -383,10 +364,9 @@ mod tests {
     fn apply_eq_on_integers_false() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         assert!(!LogicalOperator::Eq
-            .apply(&ColumnValue::int(10), &Literal::Int(5), &row_view)
+            .apply(&Literal::Int(10), &Literal::Int(5), &row_view)
             .unwrap());
     }
 
@@ -394,10 +374,9 @@ mod tests {
     fn apply_not_eq_on_integers_true() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         assert!(LogicalOperator::NotEq
-            .apply(&ColumnValue::int(10), &Literal::Int(5), &row_view)
+            .apply(&Literal::Int(10), &Literal::Int(5), &row_view)
             .unwrap());
     }
 
@@ -405,10 +384,9 @@ mod tests {
     fn apply_not_eq_on_integers_false() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         assert!(!LogicalOperator::NotEq
-            .apply(&ColumnValue::int(10), &Literal::Int(10), &row_view)
+            .apply(&Literal::Int(10), &Literal::Int(10), &row_view)
             .unwrap());
     }
 
@@ -416,10 +394,9 @@ mod tests {
     fn apply_greater_on_integers_true() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         assert!(LogicalOperator::Greater
-            .apply(&ColumnValue::int(10), &Literal::Int(5), &row_view)
+            .apply(&Literal::Int(10), &Literal::Int(5), &row_view)
             .unwrap());
     }
 
@@ -427,10 +404,9 @@ mod tests {
     fn apply_greater_on_integers_false() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         assert!(!LogicalOperator::Greater
-            .apply(&ColumnValue::int(5), &Literal::Int(10), &row_view)
+            .apply(&Literal::Int(5), &Literal::Int(10), &row_view)
             .unwrap());
     }
 
@@ -438,10 +414,9 @@ mod tests {
     fn apply_greater_eq_on_integers_true_greater() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         assert!(LogicalOperator::GreaterEq
-            .apply(&ColumnValue::int(10), &Literal::Int(5), &row_view)
+            .apply(&Literal::Int(10), &Literal::Int(5), &row_view)
             .unwrap());
     }
 
@@ -449,10 +424,9 @@ mod tests {
     fn apply_greater_eq_on_integers_true_eq() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         assert!(LogicalOperator::GreaterEq
-            .apply(&ColumnValue::int(10), &Literal::Int(10), &row_view)
+            .apply(&Literal::Int(10), &Literal::Int(10), &row_view)
             .unwrap());
     }
 
@@ -460,10 +434,9 @@ mod tests {
     fn apply_greater_eq_on_integers_false() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         assert!(!LogicalOperator::GreaterEq
-            .apply(&ColumnValue::int(5), &Literal::Int(10), &row_view)
+            .apply(&Literal::Int(5), &Literal::Int(10), &row_view)
             .unwrap());
     }
 
@@ -471,10 +444,9 @@ mod tests {
     fn apply_lesser_on_integers_true() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         assert!(LogicalOperator::Lesser
-            .apply(&ColumnValue::int(5), &Literal::Int(10), &row_view)
+            .apply(&Literal::Int(5), &Literal::Int(10), &row_view)
             .unwrap());
     }
 
@@ -482,10 +454,9 @@ mod tests {
     fn apply_lesser_on_integers_false() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         assert!(!LogicalOperator::Lesser
-            .apply(&ColumnValue::int(10), &Literal::Int(5), &row_view)
+            .apply(&Literal::Int(10), &Literal::Int(5), &row_view)
             .unwrap());
     }
 
@@ -493,10 +464,9 @@ mod tests {
     fn apply_lesser_eq_on_integers_true_lesser() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         assert!(LogicalOperator::LesserEq
-            .apply(&ColumnValue::int(5), &Literal::Int(10), &row_view)
+            .apply(&Literal::Int(5), &Literal::Int(10), &row_view)
             .unwrap());
     }
 
@@ -504,10 +474,9 @@ mod tests {
     fn apply_lesser_eq_on_integers_true_eq() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         assert!(LogicalOperator::LesserEq
-            .apply(&ColumnValue::int(10), &Literal::Int(10), &row_view)
+            .apply(&Literal::Int(10), &Literal::Int(10), &row_view)
             .unwrap());
     }
 
@@ -515,10 +484,9 @@ mod tests {
     fn apply_lesser_eq_on_integers_false() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         assert!(!LogicalOperator::LesserEq
-            .apply(&ColumnValue::int(10), &Literal::Int(5), &row_view)
+            .apply(&Literal::Int(10), &Literal::Int(5), &row_view)
             .unwrap());
     }
 
@@ -526,14 +494,10 @@ mod tests {
     fn apply_eq_on_strings_true() {
         let schema = crate::schema!["name" => crate::types::column_type::ColumnType::Text].unwrap();
         let visible_positions = vec![0];
-        let row_view = RowView::new(
-            crate::row!["relop"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["relop"], &schema, &visible_positions);
         assert!(LogicalOperator::Eq
             .apply(
-                &ColumnValue::text("relop"),
+                &Literal::Text("relop".to_string()),
                 &Literal::Text("relop".to_string()),
                 &row_view
             )
@@ -544,14 +508,10 @@ mod tests {
     fn apply_eq_on_strings_false() {
         let schema = crate::schema!["name" => crate::types::column_type::ColumnType::Text].unwrap();
         let visible_positions = vec![0];
-        let row_view = RowView::new(
-            crate::row!["relop"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["relop"], &schema, &visible_positions);
         assert!(!LogicalOperator::Eq
             .apply(
-                &ColumnValue::text("relop"),
+                &Literal::Text("relop".to_string()),
                 &Literal::Text("rust".to_string()),
                 &row_view
             )
@@ -562,14 +522,10 @@ mod tests {
     fn apply_not_eq_on_strings_true() {
         let schema = crate::schema!["name" => crate::types::column_type::ColumnType::Text].unwrap();
         let visible_positions = vec![0];
-        let row_view = RowView::new(
-            crate::row!["relop"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["relop"], &schema, &visible_positions);
         assert!(LogicalOperator::NotEq
             .apply(
-                &ColumnValue::text("relop"),
+                &Literal::Text("relop".to_string()),
                 &Literal::Text("rust".to_string()),
                 &row_view
             )
@@ -580,14 +536,10 @@ mod tests {
     fn apply_not_eq_on_strings_false() {
         let schema = crate::schema!["name" => crate::types::column_type::ColumnType::Text].unwrap();
         let visible_positions = vec![0];
-        let row_view = RowView::new(
-            crate::row!["relop"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["relop"], &schema, &visible_positions);
         assert!(!LogicalOperator::NotEq
             .apply(
-                &ColumnValue::text("relop"),
+                &Literal::Text("relop".to_string()),
                 &Literal::Text("relop".to_string()),
                 &row_view
             )
@@ -598,14 +550,10 @@ mod tests {
     fn apply_greater_on_strings_true() {
         let schema = crate::schema!["name" => crate::types::column_type::ColumnType::Text].unwrap();
         let visible_positions = vec![0];
-        let row_view = RowView::new(
-            crate::row!["rust"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["rust"], &schema, &visible_positions);
         assert!(LogicalOperator::Greater
             .apply(
-                &ColumnValue::text("rust"),
+                &Literal::Text("rust".to_string()),
                 &Literal::Text("relop".to_string()),
                 &row_view
             )
@@ -616,14 +564,10 @@ mod tests {
     fn apply_greater_on_strings_false() {
         let schema = crate::schema!["name" => crate::types::column_type::ColumnType::Text].unwrap();
         let visible_positions = vec![0];
-        let row_view = RowView::new(
-            crate::row!["relop"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["relop"], &schema, &visible_positions);
         assert!(!LogicalOperator::Greater
             .apply(
-                &ColumnValue::text("relop"),
+                &Literal::Text("relop".to_string()),
                 &Literal::Text("rust".to_string()),
                 &row_view
             )
@@ -634,14 +578,10 @@ mod tests {
     fn apply_greater_eq_on_strings_true_greater() {
         let schema = crate::schema!["name" => crate::types::column_type::ColumnType::Text].unwrap();
         let visible_positions = vec![0];
-        let row_view = RowView::new(
-            crate::row!["rust"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["rust"], &schema, &visible_positions);
         assert!(LogicalOperator::GreaterEq
             .apply(
-                &ColumnValue::text("rust"),
+                &Literal::Text("rust".to_string()),
                 &Literal::Text("relop".to_string()),
                 &row_view
             )
@@ -652,14 +592,10 @@ mod tests {
     fn apply_greater_eq_on_strings_true_eq() {
         let schema = crate::schema!["name" => crate::types::column_type::ColumnType::Text].unwrap();
         let visible_positions = vec![0];
-        let row_view = RowView::new(
-            crate::row!["relop"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["relop"], &schema, &visible_positions);
         assert!(LogicalOperator::GreaterEq
             .apply(
-                &ColumnValue::text("relop"),
+                &Literal::Text("relop".to_string()),
                 &Literal::Text("relop".to_string()),
                 &row_view
             )
@@ -670,14 +606,10 @@ mod tests {
     fn apply_greater_eq_on_strings_false() {
         let schema = crate::schema!["name" => crate::types::column_type::ColumnType::Text].unwrap();
         let visible_positions = vec![0];
-        let row_view = RowView::new(
-            crate::row!["relop"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["relop"], &schema, &visible_positions);
         assert!(!LogicalOperator::GreaterEq
             .apply(
-                &ColumnValue::text("relop"),
+                &Literal::Text("relop".to_string()),
                 &Literal::Text("rust".to_string()),
                 &row_view
             )
@@ -688,14 +620,10 @@ mod tests {
     fn apply_lesser_on_strings_true() {
         let schema = crate::schema!["name" => crate::types::column_type::ColumnType::Text].unwrap();
         let visible_positions = vec![0];
-        let row_view = RowView::new(
-            crate::row!["relop"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["relop"], &schema, &visible_positions);
         assert!(LogicalOperator::Lesser
             .apply(
-                &ColumnValue::text("relop"),
+                &Literal::Text("relop".to_string()),
                 &Literal::Text("rust".to_string()),
                 &row_view
             )
@@ -706,14 +634,10 @@ mod tests {
     fn apply_lesser_on_strings_false() {
         let schema = crate::schema!["name" => crate::types::column_type::ColumnType::Text].unwrap();
         let visible_positions = vec![0];
-        let row_view = RowView::new(
-            crate::row!["rust"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["rust"], &schema, &visible_positions);
         assert!(!LogicalOperator::Lesser
             .apply(
-                &ColumnValue::text("rust"),
+                &Literal::Text("rust".to_string()),
                 &Literal::Text("relop".to_string()),
                 &row_view
             )
@@ -724,14 +648,10 @@ mod tests {
     fn apply_lesser_eq_on_strings_true_lesser() {
         let schema = crate::schema!["name" => crate::types::column_type::ColumnType::Text].unwrap();
         let visible_positions = vec![0];
-        let row_view = RowView::new(
-            crate::row!["relop"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["relop"], &schema, &visible_positions);
         assert!(LogicalOperator::LesserEq
             .apply(
-                &ColumnValue::text("relop"),
+                &Literal::Text("relop".to_string()),
                 &Literal::Text("rust".to_string()),
                 &row_view
             )
@@ -742,14 +662,10 @@ mod tests {
     fn apply_lesser_eq_on_strings_true_eq() {
         let schema = crate::schema!["name" => crate::types::column_type::ColumnType::Text].unwrap();
         let visible_positions = vec![0];
-        let row_view = RowView::new(
-            crate::row!["relop"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["relop"], &schema, &visible_positions);
         assert!(LogicalOperator::LesserEq
             .apply(
-                &ColumnValue::text("relop"),
+                &Literal::Text("relop".to_string()),
                 &Literal::Text("relop".to_string()),
                 &row_view
             )
@@ -760,14 +676,10 @@ mod tests {
     fn apply_lesser_eq_on_strings_false() {
         let schema = crate::schema!["name" => crate::types::column_type::ColumnType::Text].unwrap();
         let visible_positions = vec![0];
-        let row_view = RowView::new(
-            crate::row!["rust"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["rust"], &schema, &visible_positions);
         assert!(!LogicalOperator::LesserEq
             .apply(
-                &ColumnValue::text("rust"),
+                &Literal::Text("rust".to_string()),
                 &Literal::Text("relop".to_string()),
                 &row_view
             )
@@ -778,12 +690,11 @@ mod tests {
     fn apply_logical_operator_type_mismatch() {
         let schema = crate::schema!["id" => crate::types::column_type::ColumnType::Int].unwrap();
         let visible_positions = vec![0];
-        let row_view =
-            RowView::new(crate::row![10], &schema, &visible_positions);
+        let row_view = RowView::new(crate::row![10], &schema, &visible_positions);
         let operator = LogicalOperator::Eq;
         assert!(matches!(
             operator.apply(
-                &ColumnValue::int(10),
+                &Literal::Int(10),
                 &Literal::Text("10".to_string()),
                 &row_view
             ),
@@ -798,15 +709,11 @@ mod tests {
         ]
         .unwrap();
         let visible_positions = vec![0, 1];
-        let row_view = RowView::new(
-            crate::row!["relop"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["relop"], &schema, &visible_positions);
 
         assert!(LogicalOperator::Eq
             .apply(
-                &ColumnValue::text("relop"),
+                &Literal::ColumnReference("last_name".to_string()),
                 &Literal::ColumnReference("last_name".to_string()),
                 &row_view
             )
@@ -821,15 +728,11 @@ mod tests {
         ]
         .unwrap();
         let visible_positions = vec![0, 1];
-        let row_view = RowView::new(
-            crate::row!["relop", "query"],
-            &schema,
-            &visible_positions,
-        );
+        let row_view = RowView::new(crate::row!["relop", "query"], &schema, &visible_positions);
 
         assert!(!LogicalOperator::Eq
             .apply(
-                &ColumnValue::text("relop"),
+                &Literal::ColumnReference("first_name".to_string()),
                 &Literal::ColumnReference("last_name".to_string()),
                 &row_view
             )
@@ -843,19 +746,22 @@ mod predicate_tests {
     use crate::query::parser::ast::Literal;
     use crate::row;
     use crate::schema;
-    use RowView;
     use crate::types::column_type::ColumnType;
 
     #[test]
     fn create_comparison_predicate() {
-        let predicate = Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(18));
+        let predicate = Predicate::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Greater,
+            Literal::Int(18),
+        );
         assert!(matches!(
             predicate,
             Predicate::Single(LogicalClause::Comparison {
-                column_name,
+                ref lhs,
                 operator: LogicalOperator::Greater,
-                literal: Literal::Int(18),
-            }) if column_name == "age"
+                rhs: Literal::Int(18),
+            }) if matches!(lhs, Literal::ColumnReference(ref name) if name == "age")
         ));
     }
 
@@ -874,13 +780,19 @@ mod predicate_tests {
 
     #[test]
     fn predicate_from_where_clause() {
-        let clause = WhereClause::comparison("age", BinaryOperator::Greater, Literal::Int(30));
+        let clause = WhereClause::comparison(
+            Literal::ColumnReference("age".to_string()),
+            BinaryOperator::Greater,
+            Literal::Int(30),
+        );
 
         let predicate = Predicate::try_from(clause).unwrap();
         assert!(matches!(
             predicate,
-            Predicate::Single(LogicalClause::Comparison {column_name, operator, literal})
-                if column_name == "age" && operator == LogicalOperator::Greater && literal == Literal::Int(30)
+            Predicate::Single(LogicalClause::Comparison { ref lhs, ref operator, ref rhs })
+                if matches!(lhs, Literal::ColumnReference(ref name) if name == "age")
+                && *operator == LogicalOperator::Greater
+                && *rhs == Literal::Int(30)
         ));
     }
 
@@ -910,7 +822,11 @@ mod predicate_tests {
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
-        let predicate = Predicate::comparison("age", LogicalOperator::Eq, Literal::Int(30));
+        let predicate = Predicate::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Eq,
+            Literal::Int(30),
+        );
         assert!(predicate.matches(&row_view).unwrap());
     }
 
@@ -921,7 +837,11 @@ mod predicate_tests {
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
-        let predicate = Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30));
+        let predicate = Predicate::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Greater,
+            Literal::Int(30),
+        );
         assert!(!predicate.matches(&row_view).unwrap());
     }
 
@@ -932,8 +852,11 @@ mod predicate_tests {
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
-        let predicate =
-            Predicate::comparison("height", LogicalOperator::Greater, Literal::Int(170));
+        let predicate = Predicate::comparison(
+            Literal::ColumnReference("height".to_string()),
+            LogicalOperator::Greater,
+            Literal::Int(170),
+        );
         let result = predicate.matches(&row_view);
         assert!(matches!(
             result,
@@ -948,8 +871,11 @@ mod predicate_tests {
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
-        let predicate =
-            Predicate::comparison("age", LogicalOperator::Eq, Literal::Text("30".to_string()));
+        let predicate = Predicate::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Eq,
+            Literal::Text("30".to_string()),
+        );
         assert!(matches!(
             predicate.matches(&row_view),
             Err(ExecutionError::TypeMismatchInComparison)
@@ -1016,12 +942,12 @@ mod predicate_tests {
     fn predicate_from_where_clause_with_and() {
         let clause = WhereClause::and(vec![
             Expression::single(Clause::comparison(
-                "age",
+                Literal::ColumnReference("age".to_string()),
                 BinaryOperator::Greater,
                 Literal::Int(30),
             )),
             Expression::single(Clause::comparison(
-                "city",
+                Literal::ColumnReference("city".to_string()),
                 BinaryOperator::Eq,
                 Literal::Text("London".to_string()),
             )),
@@ -1032,10 +958,10 @@ mod predicate_tests {
             predicate,
             Predicate::And(clauses)
                 if clauses.len() == 2 &&
-                matches!(&clauses[0], Predicate::Single(LogicalClause::Comparison { column_name, operator, literal })
-                    if column_name == "age" && *operator == LogicalOperator::Greater && *literal == Literal::Int(30)) &&
-                matches!(&clauses[1], Predicate::Single(LogicalClause::Comparison { column_name, operator, literal } )
-                    if column_name == "city" && *operator == LogicalOperator::Eq && *literal == Literal::Text("London".to_string()))
+                matches!(&clauses[0], Predicate::Single(LogicalClause::Comparison { ref lhs, ref operator, ref rhs })
+                    if matches!(lhs, Literal::ColumnReference(ref name) if name == "age") && *operator == LogicalOperator::Greater && *rhs == Literal::Int(30)) &&
+                matches!(&clauses[1], Predicate::Single(LogicalClause::Comparison { ref lhs, ref operator, ref rhs } )
+                    if matches!(lhs, Literal::ColumnReference(ref name) if name == "city") && *operator == LogicalOperator::Eq && *rhs == Literal::Text("London".to_string()))
         ));
     }
 
@@ -1043,7 +969,7 @@ mod predicate_tests {
     fn attempt_to_create_predicate_from_where_clause_with_and_error() {
         let clause = WhereClause::and(vec![
             Expression::single(Clause::comparison(
-                "age",
+                Literal::ColumnReference("age".to_string()),
                 BinaryOperator::Greater,
                 Literal::Int(30),
             )),
@@ -1062,9 +988,13 @@ mod predicate_tests {
         let row_view = RowView::new(row, &schema, &visible_positions);
 
         let predicate = Predicate::and(vec![
-            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30)),
             Predicate::comparison(
-                "city",
+                Literal::ColumnReference("age".to_string()),
+                LogicalOperator::Greater,
+                Literal::Int(30),
+            ),
+            Predicate::comparison(
+                Literal::ColumnReference("city".to_string()),
                 LogicalOperator::Eq,
                 Literal::Text("London".to_string()),
             ),
@@ -1086,15 +1016,19 @@ mod predicate_tests {
         let row_view = RowView::new(row, &schema, &visible_positions);
 
         let predicate = Predicate::and(vec![
-            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30)),
+            Predicate::comparison(
+                Literal::ColumnReference("age".to_string()),
+                LogicalOperator::Greater,
+                Literal::Int(30),
+            ),
             Predicate::and(vec![
                 Predicate::comparison(
-                    "city",
+                    Literal::ColumnReference("city".to_string()),
                     LogicalOperator::Eq,
                     Literal::Text("London".to_string()),
                 ),
                 Predicate::comparison(
-                    "country",
+                    Literal::ColumnReference("country".to_string()),
                     LogicalOperator::Eq,
                     Literal::Text("UK".to_string()),
                 ),
@@ -1112,9 +1046,13 @@ mod predicate_tests {
         let row_view = RowView::new(row, &schema, &visible_positions);
 
         let predicate = Predicate::and(vec![
-            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30)),
             Predicate::comparison(
-                "city",
+                Literal::ColumnReference("age".to_string()),
+                LogicalOperator::Greater,
+                Literal::Int(30),
+            ),
+            Predicate::comparison(
+                Literal::ColumnReference("city".to_string()),
                 LogicalOperator::Eq,
                 Literal::Text("London".to_string()),
             ),
@@ -1131,9 +1069,13 @@ mod predicate_tests {
         let row_view = RowView::new(row, &schema, &visible_positions);
 
         let predicate = Predicate::and(vec![
-            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30)),
             Predicate::comparison(
-                "country",
+                Literal::ColumnReference("age".to_string()),
+                LogicalOperator::Greater,
+                Literal::Int(30),
+            ),
+            Predicate::comparison(
+                Literal::ColumnReference("country".to_string()),
                 LogicalOperator::Eq,
                 Literal::Text("UK".to_string()),
             ),
@@ -1154,9 +1096,13 @@ mod predicate_tests {
         let row_view = RowView::new(row, &schema, &visible_positions);
 
         let predicate = Predicate::or(vec![
-            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30)),
             Predicate::comparison(
-                "city",
+                Literal::ColumnReference("age".to_string()),
+                LogicalOperator::Greater,
+                Literal::Int(30),
+            ),
+            Predicate::comparison(
+                Literal::ColumnReference("city".to_string()),
                 LogicalOperator::Eq,
                 Literal::Text("London".to_string()),
             ),
@@ -1173,9 +1119,13 @@ mod predicate_tests {
         let row_view = RowView::new(row, &schema, &visible_positions);
 
         let predicate = Predicate::or(vec![
-            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30)),
             Predicate::comparison(
-                "city",
+                Literal::ColumnReference("age".to_string()),
+                LogicalOperator::Greater,
+                Literal::Int(30),
+            ),
+            Predicate::comparison(
+                Literal::ColumnReference("city".to_string()),
                 LogicalOperator::Eq,
                 Literal::Text("London".to_string()),
             ),
@@ -1197,15 +1147,19 @@ mod predicate_tests {
         let row_view = RowView::new(row, &schema, &visible_positions);
 
         let predicate = Predicate::or(vec![
-            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(30)),
+            Predicate::comparison(
+                Literal::ColumnReference("age".to_string()),
+                LogicalOperator::Greater,
+                Literal::Int(30),
+            ),
             Predicate::or(vec![
                 Predicate::comparison(
-                    "city",
+                    Literal::ColumnReference("city".to_string()),
                     LogicalOperator::Eq,
                     Literal::Text("London".to_string()),
                 ),
                 Predicate::comparison(
-                    "country",
+                    Literal::ColumnReference("country".to_string()),
                     LogicalOperator::Eq,
                     Literal::Text("FR".to_string()),
                 ),
@@ -1227,15 +1181,19 @@ mod logical_clause_tests {
 
     #[test]
     fn create_comparison_clause() {
-        let clause = LogicalClause::comparison("age", LogicalOperator::Greater, Literal::Int(18));
+        let clause = LogicalClause::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Greater,
+            Literal::Int(18),
+        );
 
         assert!(matches!(
             clause,
             LogicalClause::Comparison {
-                column_name,
+                ref lhs,
                 operator: LogicalOperator::Greater,
-                literal: Literal::Int(18),
-            } if column_name == "age"
+                rhs: Literal::Int(18),
+            } if matches!(lhs, Literal::ColumnReference(ref name) if name == "age")
         ));
     }
 
@@ -1260,7 +1218,11 @@ mod logical_clause_tests {
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
-        let clause = LogicalClause::comparison("age", LogicalOperator::Eq, Literal::Int(30));
+        let clause = LogicalClause::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Eq,
+            Literal::Int(30),
+        );
         assert!(clause.matches(&row_view).unwrap());
     }
 
@@ -1271,7 +1233,11 @@ mod logical_clause_tests {
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
-        let clause = LogicalClause::comparison("age", LogicalOperator::Greater, Literal::Int(30));
+        let clause = LogicalClause::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Greater,
+            Literal::Int(30),
+        );
         assert!(!clause.matches(&row_view).unwrap());
     }
 
@@ -1306,8 +1272,11 @@ mod logical_clause_tests {
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
-        let clause =
-            LogicalClause::comparison("height", LogicalOperator::Greater, Literal::Int(170));
+        let clause = LogicalClause::comparison(
+            Literal::ColumnReference("height".to_string()),
+            LogicalOperator::Greater,
+            Literal::Int(170),
+        );
         let result = clause.matches(&row_view);
 
         assert!(matches!(
@@ -1323,11 +1292,29 @@ mod logical_clause_tests {
         let visible_positions = vec![0];
         let row_view = RowView::new(row, &schema, &visible_positions);
 
-        let clause =
-            LogicalClause::comparison("age", LogicalOperator::Eq, Literal::Text("30".to_string()));
+        let clause = LogicalClause::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Eq,
+            Literal::Text("30".to_string()),
+        );
         assert!(matches!(
             clause.matches(&row_view),
             Err(ExecutionError::TypeMismatchInComparison)
         ));
+    }
+
+    #[test]
+    fn matches_for_the_row_with_two_column_references() {
+        let schema = schema!["rank" => ColumnType::Int, "degree" => ColumnType::Int].unwrap();
+        let row = row![30, 30];
+        let visible_positions = vec![0, 1];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let clause = LogicalClause::comparison(
+            Literal::ColumnReference("rank".to_string()),
+            LogicalOperator::Eq,
+            Literal::ColumnReference("degree".to_string()),
+        );
+        assert!(clause.matches(&row_view).unwrap());
     }
 }

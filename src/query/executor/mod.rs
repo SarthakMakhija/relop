@@ -264,7 +264,7 @@ mod tests {
         let executor = Executor::new(&catalog);
         let query_result = executor
             .execute(LogicalPlan::scan("employees").filter(Predicate::comparison(
-                "id",
+                Literal::ColumnReference("id".to_string()),
                 LogicalOperator::Eq,
                 Literal::Int(1),
             )))
@@ -292,8 +292,8 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let predicate = Predicate::and(vec![
-            Predicate::comparison("id", LogicalOperator::Eq, Literal::Int(1)),
-            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(25)),
+            Predicate::comparison(Literal::ColumnReference("id".to_string()), LogicalOperator::Eq, Literal::Int(1)),
+            Predicate::comparison(Literal::ColumnReference("age".to_string()), LogicalOperator::Greater, Literal::Int(25)),
         ]);
 
         let query_result = executor
@@ -322,8 +322,8 @@ mod tests {
 
         let executor = Executor::new(&catalog);
         let predicate = Predicate::and(vec![
-            Predicate::comparison("id", LogicalOperator::Eq, Literal::Int(1)),
-            Predicate::comparison("age", LogicalOperator::Greater, Literal::Int(25)),
+            Predicate::comparison(Literal::ColumnReference("id".to_string()), LogicalOperator::Eq, Literal::Int(1)),
+            Predicate::comparison(Literal::ColumnReference("age".to_string()), LogicalOperator::Greater, Literal::Int(25)),
         ]);
 
         let query_result = executor
