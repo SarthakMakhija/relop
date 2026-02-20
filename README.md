@@ -146,6 +146,8 @@ cargo test
 
 The SQL subset supported by `relop` is defined in [docs/grammar.ebnf](docs/grammar.ebnf).
 
+The implementation details of the Join operator can be found in [docs/joins.md](docs/joins.md).
+
 ## Non-goals
 
 - SQL `INSERT` / `CREATE TABLE` statements (these are handled via the API).
