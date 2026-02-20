@@ -139,6 +139,31 @@ impl Schema {
     }
 
     /// Returns a reference to the primary key, if one is defined.
+    /// Returns a slice of all columns defined in the schema.
+    pub(crate) fn columns(&self) -> &[Column] {
+        &self.columns
+    }
+
+    /// Merges this schema with another schema by combining their columns.
+    /// Prefixes column names if the respective table prefix is provided.
+    pub(crate) fn merge_with_prefixes(
+        &self,
+        left_prefix: Option<&str>,
+        other: &Schema,
+        right_prefix: Option<&str>,
+    ) -> Self {
+        let mut merged_columns = Vec::with_capacity(self.column_count() + other.column_count());
+
+        Self::merge_column_name_with_prefix(left_prefix, &self.columns, &mut merged_columns);
+        Self::merge_column_name_with_prefix(right_prefix, &other.columns, &mut merged_columns);
+
+        Self {
+            columns: merged_columns,
+            primary_key: None,
+        }
+    }
+
+    /// Returns the primary key, if present.
     pub(crate) fn primary_key(&self) -> Option<&PrimaryKey> {
         self.primary_key.as_ref()
     }
@@ -202,6 +227,20 @@ impl Schema {
         self.columns
             .iter()
             .any(|column| column.matches_name(column_name))
+    }
+
+    fn merge_column_name_with_prefix(
+        prefix: Option<&str>,
+        source: &Vec<Column>,
+        columns: &mut Vec<Column>,
+    ) {
+        for column in source {
+            let name = match prefix {
+                Some(prefix) => format!("{}.{}", prefix, column.name()),
+                None => column.name().to_string(),
+            };
+            columns.push(Column::new(name, column.column_type().clone()));
+        }
     }
 }
 
@@ -409,5 +448,72 @@ mod tests {
         schema = schema.add_column("id", ColumnType::Int).unwrap();
 
         assert!(schema.primary_key_column_names().is_none());
+    }
+
+    #[test]
+    fn columns_from_schema() {
+        let mut schema = Schema::new();
+        schema = schema
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+
+        let columns = schema.columns();
+        assert_eq!(2, columns.len());
+        assert_eq!("id", columns[0].name());
+        assert_eq!("name", columns[1].name());
+    }
+
+    #[test]
+    fn merge_schemas_with_prefixes() {
+        let mut left_schema = Schema::new();
+        left_schema = left_schema
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+
+        let mut right_schema = Schema::new();
+        right_schema = right_schema
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap();
+
+        let merged_schema =
+            left_schema.merge_with_prefixes(Some("employees"), &right_schema, Some("departments"));
+
+        assert_eq!(4, merged_schema.column_count());
+
+        let columns = merged_schema.columns();
+        assert_eq!("employees.id", columns[0].name());
+        assert_eq!("employees.name", columns[1].name());
+        assert_eq!("departments.id", columns[2].name());
+        assert_eq!("departments.name", columns[3].name());
+        assert!(merged_schema.primary_key().is_none());
+    }
+
+    #[test]
+    fn merge_schemas_without_one_prefix() {
+        let mut left_schema = Schema::new();
+        left_schema = left_schema
+            .add_column("employees.id", ColumnType::Int)
+            .unwrap()
+            .add_column("employees.name", ColumnType::Text)
+            .unwrap();
+
+        let mut right_schema = Schema::new();
+        right_schema = right_schema.add_column("id", ColumnType::Int).unwrap();
+
+        let merged_schema =
+            left_schema.merge_with_prefixes(None, &right_schema, Some("departments"));
+
+        assert_eq!(3, merged_schema.column_count());
+
+        let columns = merged_schema.columns();
+        assert_eq!("employees.id", columns[0].name());
+        assert_eq!("employees.name", columns[1].name());
+        assert_eq!("departments.id", columns[2].name());
     }
 }
