@@ -40,4 +40,6 @@ pub enum SchemaError {
     },
     /// The column name is ambiguous because it matches multiple columns.
     AmbiguousColumnName(String),
+    /// The table name or alias used as a prefix does not exist in the current scope.
+    TableAliasNotFound(String),
 }

@@ -83,41 +83,47 @@ impl Schema {
 
     /// Returns the position (index) of the column with the given name.
     ///
+    /// This method supports:
+    /// - **Exact Match**: Matching a fully qualified name (e.g., "employees.id").
+    /// - **Suffix Match**: Matching an unqualified name (e.g., "id") against a qualified column name.
+    /// - **Case Insensitivity**: Matching is performed ignoring ASCII case.
+    ///
+    /// # Returns
+    /// - `Ok(Some(index))`: If a single matching column is found.
+    /// - `Ok(None)`: If no match is found, but the name is either unqualified or uses a valid prefix.
+    /// - `Err(SchemaError::AmbiguousColumnName)`: If an unqualified name matches multiple columns.
+    /// - `Err(SchemaError::TableAliasNotFound)`: If a qualified name uses a prefix that does not exist in the schema.
+    ///
     /// # Examples
     ///
     /// ```
     /// use relop::schema::Schema;
     /// use relop::types::column_type::ColumnType;
     ///
-    /// let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
+    /// let schema = Schema::new().add_column("employees.id", ColumnType::Int).unwrap();
+    ///
+    /// // Exact match
+    /// assert_eq!(schema.column_position("employees.id").unwrap(), Some(0));
+    ///
+    /// // Suffix match
     /// assert_eq!(schema.column_position("id").unwrap(), Some(0));
+    ///
+    /// // Case insensitivity
+    /// assert_eq!(schema.column_position("ID").unwrap(), Some(0));
     /// ```
     pub fn column_position(&self, column_name: &str) -> Result<Option<usize>, SchemaError> {
-        let mut matches = self
+        let matches: Vec<usize> = self
             .columns
             .iter()
             .enumerate()
-            .filter_map(|(position, column)| {
-                let stored_name = column.name();
-                if stored_name.eq_ignore_ascii_case(column_name) {
-                    return Some(position);
-                }
-                if !column_name.contains('.') {
-                    if let Some(dot_index) = stored_name.rfind('.') {
-                        let suffix = &stored_name[dot_index + 1..];
-                        if suffix.eq_ignore_ascii_case(column_name) {
-                            return Some(position);
-                        }
-                    }
-                }
-                None
-            })
-            .collect::<Vec<_>>();
+            .filter(|(_, column)| column.is_match(column_name))
+            .map(|(position, _)| position)
+            .collect();
 
         match matches.len() {
-            0 => Ok(None),
-            1 => Ok(Some(matches.remove(0))),
-            _ => Err(SchemaError::AmbiguousColumnName(column_name.to_string())),
+            1 => Ok(Some(matches[0])),
+            n if n > 1 => Err(SchemaError::AmbiguousColumnName(column_name.to_string())),
+            _ => self.validate_prefix(column_name),
         }
     }
 
@@ -254,6 +260,20 @@ impl Schema {
         self.columns
             .iter()
             .any(|column| column.matches_name(column_name))
+    }
+
+    fn validate_prefix(&self, column_name: &str) -> Result<Option<usize>, SchemaError> {
+        if let Some(dot_index) = column_name.rfind('.') {
+            let prefix = &column_name[..dot_index];
+            if !self.has_any_column_with_prefix(prefix) {
+                return Err(SchemaError::TableAliasNotFound(prefix.to_string()));
+            }
+        }
+        Ok(None)
+    }
+
+    fn has_any_column_with_prefix(&self, prefix: &str) -> bool {
+        self.columns.iter().any(|column| column.has_prefix(prefix))
     }
 
     fn merge_column_name_with_prefix(
@@ -595,6 +615,27 @@ mod tests {
             result,
             Err(SchemaError::AmbiguousColumnName(ref column_name)) if column_name == "id"
         ));
+    }
+
+    #[test]
+    fn column_position_with_invalid_prefix_returns_table_alias_not_found() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("employees.id", ColumnType::Int).unwrap();
+
+        let result = schema.column_position("dep.id");
+        assert!(matches!(
+            result,
+            Err(SchemaError::TableAliasNotFound(ref prefix)) if prefix == "dep"
+        ));
+    }
+
+    #[test]
+    fn column_position_with_valid_prefix_but_missing_column_returns_none() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("employees.id", ColumnType::Int).unwrap();
+
+        let result = schema.column_position("employees.age").unwrap();
+        assert!(result.is_none());
     }
 
     #[test]
