@@ -618,7 +618,7 @@ mod tests {
             && right_outer_name.as_deref() == Some("roles")
             && matches!(
                 on_outer.as_ref().unwrap(),
-                Predicate::Single(predicate::LogicalClause::Comparison { lhs, operator, rhs })
+                Predicate::Single(predicate::LogicalClause::Comparison { lhs, operator, .. })
                 if matches!(lhs, Literal::ColumnReference(column_name) if column_name == "role_id")
                 && *operator == LogicalOperator::Eq
             )

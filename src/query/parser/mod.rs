@@ -1620,7 +1620,7 @@ mod select_join_tests {
     use super::*;
     use crate::query::lexer::token::Token;
     use crate::query::parser::ast::{
-        Ast, BinaryOperator, Clause, Expression, Literal, TableSource, WhereClause,
+        Ast, BinaryOperator, Clause, Expression, Literal, TableSource,
     };
 
     #[test]
