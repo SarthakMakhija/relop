@@ -103,7 +103,7 @@ cargo test
   - [x] Order by
   - [x] Show tables
   - [x] Describe table
-  - [ ] Join (__Structural support in place__)
+  - [x] Join
 - [x] **Build a minimal in-memory store**:
   - [x] Tables with schemas
   - [x] Rows stored in memory (SkipMap based)
@@ -118,9 +118,7 @@ cargo test
   - [x] Add support for `AND` in `WHERE` clauses.
   - [ ] Add support for `OR` in `WHERE` clauses.
   - [ ] Allow mixing `AND` and `OR` to define complex filtering criteria.
-  - [ ] Add support for inner join
-    - [x] Add support for inner join with AND
-    - [ ] Add support for inner join with Or
+  - [ ] Add support for inner join with Or
 - **Complex Expressions**: Enable grouping conditions with parentheses `( ... )` to control precedence.
 
 ## Supported SQL
@@ -141,6 +139,10 @@ cargo test
 - `SELECT col1, col2 FROM <table> ORDER by col1 asc, col2 desc LIMIT <n>`
 - `SELECT col1, col2 FROM <table> LIMIT <n>`
 - `SELECT col1, col2 FROM <table> WHERE col1 != <literal> ORDER by col1 asc, col2 desc LIMIT <n>`
+- `SELECT * FROM <table1> JOIN <table2> ON <table1>.col1 = <table2>.col2`
+- `SELECT * FROM <table1> AS t1 JOIN <table2> AS t2 ON t1.col1 = t2.col2`
+- `SELECT * FROM <table1> JOIN <table2> ON <table1>.col1 = <table2>.col2 JOIN <table3> ON <table2>.col2 = <table3>.col3`
+- `SELECT * FROM <table1> JOIN <table2> ON <table1>.col1 = <table2>.col2 AND <table1>.col3 = <literal>`
 - `SHOW TABLES`
 - `DESCRIBE TABLE <table>`
 
