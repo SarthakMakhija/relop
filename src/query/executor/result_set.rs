@@ -43,8 +43,8 @@ pub type RowViewResult<'a> = Result<RowView<'a>, ExecutionError>;
 /// and produces iterators that view all rows in the table.
 pub struct ScanResultsSet {
     table_scan: TableScan,
-    table: Arc<Table>,
     visible_positions: Arc<Vec<usize>>,
+    prefixed_schema: Schema,
 }
 
 impl ScanResultsSet {
@@ -54,12 +54,17 @@ impl ScanResultsSet {
     ///
     /// * `table_scan` - The owner of the table data.
     /// * `table` - The metadata of the table (schema, etc.).
-    pub(crate) fn new(table_scan: TableScan, table: Arc<Table>) -> Self {
-        let column_positions = (0..table.schema_ref().column_count()).collect();
+    /// * `alias` - The optional alias for the table.
+    pub(crate) fn new(table_scan: TableScan, table: Arc<Table>, alias: Option<String>) -> Self {
+        let base_schema = table.schema_ref();
+        let column_positions = (0..base_schema.column_count()).collect();
+        let prefix = alias.unwrap_or_else(|| table.name().to_string());
+        let prefixed_schema = base_schema.with_prefix(&prefix);
+
         Self {
             table_scan,
-            table,
             visible_positions: Arc::new(column_positions),
+            prefixed_schema,
         }
     }
 }
@@ -71,14 +76,14 @@ impl ResultSet for ScanResultsSet {
         Ok(Box::new(self.table_scan.iter().map(move |row| {
             Ok(RowView::new(
                 row,
-                self.table.schema_ref(),
+                &self.prefixed_schema,
                 &self.visible_positions,
             ))
         })))
     }
 
     fn schema(&self) -> &Schema {
-        self.table.schema_ref()
+        &self.prefixed_schema
     }
 }
 
@@ -282,7 +287,7 @@ mod tests {
         table_store.insert(row![1, "relop"]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
+        let result_set = ScanResultsSet::new(table_scan, Arc::new(table), None);
 
         let mut iterator = result_set.iterator().unwrap();
 
@@ -297,7 +302,7 @@ mod tests {
         table_store.insert(row![1]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
+        let result_set = ScanResultsSet::new(table_scan, Arc::new(table), None);
 
         let mut iterator = result_set.iterator().unwrap();
         assert_next_row!(iterator.as_mut(), !"name");
@@ -313,7 +318,7 @@ mod tests {
         table_store.insert(row![1, "relop"]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let projected_result_set = ProjectResultSet::new(result_set, &["name"]).unwrap();
         let mut iterator = projected_result_set.iterator().unwrap();
@@ -332,7 +337,7 @@ mod tests {
         table_store.insert(row![1, "relop"]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let scan_result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let scan_result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
         let filter_result_set = Box::new(FilterResultSet::new(
             scan_result_set,
             Predicate::comparison(
@@ -356,7 +361,7 @@ mod tests {
         table_store.insert(row![1]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let result = ProjectResultSet::new(result_set, &["name"]);
         assert!(
@@ -374,7 +379,7 @@ mod tests {
         table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let predicate = Predicate::comparison(
             Literal::ColumnReference("id".to_string()),
@@ -398,7 +403,7 @@ mod tests {
         table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let predicate = Predicate::comparison(
             Literal::ColumnReference("id".to_string()),
@@ -420,7 +425,7 @@ mod tests {
         table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let predicate = Predicate::comparison(
             Literal::ColumnReference("name".to_string()),
@@ -444,7 +449,7 @@ mod tests {
         table_store.insert_all(rows![[1, "relop"], [2, "query"], [3, "relop"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let predicate = Predicate::and(vec![
             Predicate::comparison(
@@ -475,7 +480,7 @@ mod tests {
         table_store.insert_all(rows![[1, "relop"], [2, "query"], [3, "rust"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let predicate = Predicate::and(vec![
             Predicate::comparison(
@@ -502,7 +507,7 @@ mod tests {
         table_store.insert_all(rows![[2], [1]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let ordering_keys = vec![asc!("id")];
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
@@ -520,7 +525,7 @@ mod tests {
         table_store.insert_all(rows![[1], [2]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let ordering_keys = vec![desc!("id")];
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
@@ -541,7 +546,7 @@ mod tests {
         table_store.insert_all(rows![[1, 20], [1, 10]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let ordering_keys = vec![asc!("id"), asc!("rank")];
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
@@ -562,7 +567,7 @@ mod tests {
         table_store.insert_all(rows![[3, 30], [1, 10], [2, 20]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let ordering_keys = vec![asc!("id")];
         let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
@@ -584,7 +589,7 @@ mod tests {
         table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let limit_result_set = LimitResultSet::new(result_set, 1);
         let mut iterator = limit_result_set.iterator().unwrap();
@@ -603,7 +608,7 @@ mod tests {
         table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let limit_result_set = LimitResultSet::new(result_set, 4);
         let mut iterator = limit_result_set.iterator().unwrap();
@@ -623,7 +628,7 @@ mod tests {
         table_store.insert_all(rows![[1, "relop"], [2, "query"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
         let projected_result_set = ProjectResultSet::new(result_set, &["id"]).unwrap();
 
         let limit_result_set = LimitResultSet::new(Box::new(projected_result_set), 1);
@@ -643,7 +648,7 @@ mod tests {
         table_store.insert_all(rows![["relop", "relop"], ["relop", "query"]]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let predicate = Predicate::comparison(
             Literal::ColumnReference("first_name".to_string()),
@@ -667,7 +672,7 @@ mod tests {
         table_store.insert(row!["relop", "relop"]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table)));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let predicate =
             Predicate::comparison(Literal::Int(1), LogicalOperator::Eq, Literal::Int(1));
@@ -686,8 +691,24 @@ mod tests {
         );
         let table_store = TableStore::new();
         let table_scan = TableScan::new(Arc::new(table_store));
-        let result_set = ScanResultsSet::new(table_scan, Arc::new(table));
+        let result_set = ScanResultsSet::new(table_scan, Arc::new(table), None);
 
-        assert_eq!(result_set.schema().column_names(), vec!["id", "name"]);
+        assert_eq!(
+            result_set.schema().column_names(),
+            vec!["employees.id", "employees.name"]
+        );
+    }
+
+    #[test]
+    fn schema_with_alias() {
+        let table = Table::new(
+            "employees",
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+        );
+        let table_store = TableStore::new();
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = ScanResultsSet::new(table_scan, Arc::new(table), Some("e".to_string()));
+
+        assert_eq!(result_set.schema().column_names(), vec!["e.id", "e.name"]);
     }
 }

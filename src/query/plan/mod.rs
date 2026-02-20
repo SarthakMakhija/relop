@@ -18,8 +18,10 @@ pub(crate) enum LogicalPlan {
     },
     /// Plan to scan a table.
     Scan {
-        /// Name of the table.
+        /// The name of the table to scan.
         table_name: String,
+        /// The optional alias for the table.
+        alias: Option<String>,
     },
     /// Plan to perform a join between two tables.
     Join {
@@ -101,12 +103,16 @@ impl LogicalPlanner {
         source: crate::query::parser::ast::TableSource,
     ) -> Result<(LogicalPlan, Option<String>), PlanningError> {
         match source {
-            crate::query::parser::ast::TableSource::Table(table_name) => Ok((
-                LogicalPlan::Scan {
-                    table_name: table_name.clone(),
-                },
-                Some(table_name),
-            )),
+            crate::query::parser::ast::TableSource::Table { name, alias } => {
+                let plan_name = alias.clone().unwrap_or_else(|| name.clone());
+                Ok((
+                    LogicalPlan::Scan {
+                        table_name: name,
+                        alias,
+                    },
+                    Some(plan_name),
+                ))
+            }
             crate::query::parser::ast::TableSource::Join { left, right, on } => {
                 let (left_plan, left_name) = Self::plan_for_source(*left)?;
                 let (right_plan, right_name) = Self::plan_for_source(*right)?;
@@ -192,6 +198,7 @@ impl LogicalPlan {
     pub(crate) fn scan<T: Into<String>>(table_name: T) -> Self {
         LogicalPlan::Scan {
             table_name: table_name.into(),
+            alias: None,
         }
     }
 
@@ -266,7 +273,7 @@ mod tests {
         .unwrap();
         assert!(matches!(
             logical_plan,
-            LogicalPlan::Scan { table_name } if table_name == "employees"
+            LogicalPlan::Scan { table_name, .. } if table_name == "employees"
         ));
     }
 
@@ -299,7 +306,7 @@ mod tests {
         assert!(matches!(
             logical_plan,
             LogicalPlan::Projection {base_plan, columns: _ }
-                if matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+                if matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees")
         ));
     }
 
@@ -323,7 +330,7 @@ mod tests {
             LogicalPlan::Filter { base_plan, predicate }
                 if matches!(&predicate, Predicate::Single(predicate::LogicalClause::Comparison { ref lhs, ref operator, ref rhs })
                     if matches!(lhs, Literal::ColumnReference(ref name) if name == "age") && *operator == LogicalOperator::Greater && *rhs == Literal::Int(30))
-                        && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+                        && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees")
         ));
     }
 
@@ -350,7 +357,7 @@ mod tests {
                 LogicalPlan::Filter { base_plan, predicate }
                 if matches!(predicate, Predicate::Single(predicate::LogicalClause::Comparison { ref lhs, ref operator, ref rhs })
                     if matches!(lhs, Literal::ColumnReference(ref name) if name == "age") && *operator == LogicalOperator::Greater && *rhs == Literal::Int(30))
-                        && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+                        && matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees")
             )
         ));
     }
@@ -369,7 +376,7 @@ mod tests {
             logical_plan,
             LogicalPlan::Sort {base_plan, ordering_keys }
                 if ordering_keys == vec![asc!("id")] &&
-                    matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees") ));
+                    matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees") ));
     }
 
     #[test]
@@ -386,7 +393,7 @@ mod tests {
             logical_plan,
             LogicalPlan::Sort {base_plan, ordering_keys }
                 if ordering_keys == vec![desc!("id")] &&
-                    matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees") ));
+                    matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees") ));
     }
 
     #[test]
@@ -403,7 +410,7 @@ mod tests {
             logical_plan,
             LogicalPlan::Sort {base_plan, ordering_keys }
                 if ordering_keys == vec![asc!("id"), desc!("name")] &&
-                    matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees") ));
+                    matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees") ));
     }
 
     #[test]
@@ -418,7 +425,7 @@ mod tests {
         .unwrap();
         assert!(matches!(
             logical_plan,
-            LogicalPlan::Limit { base_plan, count: _ } if matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+            LogicalPlan::Limit { base_plan, count: _ } if matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees")
         ));
     }
 
@@ -486,7 +493,7 @@ mod tests {
             logical_plan,
             LogicalPlan::Limit {base_plan, count: _ }
                 if matches!(base_plan.as_ref(), LogicalPlan::Projection { base_plan, columns: _ }
-                    if matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees") )
+                    if matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees") )
         ));
     }
 
@@ -505,7 +512,7 @@ mod tests {
             LogicalPlan::Limit {base_plan, count}
                 if count == 10 && matches!(base_plan.as_ref(), LogicalPlan::Sort { base_plan, ordering_keys }
                     if *ordering_keys == vec![asc!("id"), desc!("name")] &&
-                        matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+                        matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees")
             )
         ));
     }
@@ -536,9 +543,9 @@ mod tests {
         assert!(matches!(
             logical_plan,
             LogicalPlan::Join { left, left_name, right, right_name, on }
-            if matches!(left.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+            if matches!(left.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees")
             && left_name.as_deref() == Some("employees")
-            && matches!(right.as_ref(), LogicalPlan::Scan { table_name } if table_name == "departments")
+            && matches!(right.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "departments")
             && right_name.as_deref() == Some("departments")
             && matches!(
                 on.as_ref().unwrap(),
@@ -601,9 +608,9 @@ mod tests {
                     right_name: right_inner_name,
                     on: on_inner
                 }
-                if matches!(left_inner.as_ref(), LogicalPlan::Scan { table_name } if table_name == "employees")
+                if matches!(left_inner.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees")
                 && left_inner_name.as_deref() == Some("employees")
-                && matches!(right_inner.as_ref(), LogicalPlan::Scan { table_name } if table_name == "departments")
+                && matches!(right_inner.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "departments")
                 && right_inner_name.as_deref() == Some("departments")
                 && matches!(
                     on_inner.as_ref().unwrap(),
@@ -614,7 +621,7 @@ mod tests {
                 )
             )
             && left_outer_name.is_none()
-            && matches!(right_outer.as_ref(), LogicalPlan::Scan { table_name } if table_name == "roles")
+            && matches!(right_outer.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "roles")
             && right_outer_name.as_deref() == Some("roles")
             && matches!(
                 on_outer.as_ref().unwrap(),
@@ -622,6 +629,61 @@ mod tests {
                 if matches!(lhs, Literal::ColumnReference(column_name) if column_name == "role_id")
                 && *operator == LogicalOperator::Eq
             )
+        ));
+    }
+
+    #[test]
+    fn logical_plan_for_select_with_alias() {
+        let logical_plan = LogicalPlanner::plan(Ast::Select {
+            source: crate::query::parser::ast::TableSource::table_with_alias("employees", "e"),
+            projection: Projection::All,
+            where_clause: None,
+            order_by: None,
+            limit: None,
+        })
+        .unwrap();
+        assert!(matches!(
+            logical_plan,
+            LogicalPlan::Scan { table_name, alias } if table_name == "employees" && alias.as_deref() == Some("e")
+        ));
+    }
+
+    #[test]
+    fn logical_plan_for_select_with_join_and_aliases() {
+        use crate::query::parser::ast::Clause;
+
+        let logical_plan = LogicalPlanner::plan(Ast::Select {
+            source: crate::query::parser::ast::TableSource::Join {
+                left: Box::new(crate::query::parser::ast::TableSource::table_with_alias(
+                    "employees",
+                    "e",
+                )),
+                right: Box::new(crate::query::parser::ast::TableSource::table_with_alias(
+                    "departments",
+                    "d",
+                )),
+                on: Some(crate::query::parser::ast::Expression::Single(
+                    Clause::Comparison {
+                        lhs: Literal::ColumnReference("e.id".to_string()),
+                        operator: BinaryOperator::Eq,
+                        rhs: Literal::ColumnReference("d.employee_id".to_string()),
+                    },
+                )),
+            },
+            projection: Projection::All,
+            where_clause: None,
+            order_by: None,
+            limit: None,
+        })
+        .unwrap();
+
+        assert!(matches!(
+            logical_plan,
+            LogicalPlan::Join { left, left_name, right, right_name, .. }
+            if matches!(left.as_ref(), LogicalPlan::Scan { table_name, alias } if table_name == "employees" && alias.as_deref() == Some("e"))
+            && left_name.as_deref() == Some("e")
+            && matches!(right.as_ref(), LogicalPlan::Scan { table_name, alias } if table_name == "departments" && alias.as_deref() == Some("d"))
+            && right_name.as_deref() == Some("d")
         ));
     }
 }

@@ -16,10 +16,10 @@ select
     = "SELECT" projection "FROM" table_source [where] [order] [limit] [";"] ;
 
 table_source
-    = identifier [join_clause]*
+    = identifier ["AS" identifier] [join_clause]*
 
 join_clause
-    = "JOIN" identifier ["ON" expression] 
+    = "JOIN" identifier ["AS" identifier] ["ON" expression]
 
 projection
     = "*"

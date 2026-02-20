@@ -897,4 +897,56 @@ mod tests {
         assert_next_row!(row_iterator.as_mut(), "name" => "relop", "id" => 1);
         assert_no_more_rows!(row_iterator.as_mut());
     }
+
+    #[test]
+    fn execute_select_with_table_alias() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"]],
+        );
+
+        let query_result = relop
+            .execute("select * from employees as emp where emp.id = 1")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "emp.id" => 1, "emp.name" => "relop");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_table_alias_and_qualified_projection() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"]],
+        );
+
+        let query_result = relop
+            .execute("select emp.name from employees as emp where emp.id = 2")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "emp.name" => "query");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
 }

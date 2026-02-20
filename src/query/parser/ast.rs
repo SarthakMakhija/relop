@@ -30,7 +30,10 @@ pub(crate) enum Ast {
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum TableSource {
-    Table(String),
+    Table {
+        name: String,
+        alias: Option<String>,
+    },
     Join {
         left: Box<TableSource>,
         right: Box<TableSource>,
@@ -39,8 +42,20 @@ pub(crate) enum TableSource {
 }
 
 impl TableSource {
+    /// Creates a new `TableSource` with table name.
     pub(crate) fn table(name: &str) -> Self {
-        TableSource::Table(name.to_string())
+        TableSource::Table {
+            name: name.to_string(),
+            alias: None,
+        }
+    }
+
+    /// Creates a new `TableSource` with table name and its alias.
+    pub(crate) fn table_with_alias(name: &str, alias: &str) -> Self {
+        TableSource::Table {
+            name: name.to_string(),
+            alias: Some(alias.to_string()),
+        }
     }
 }
 

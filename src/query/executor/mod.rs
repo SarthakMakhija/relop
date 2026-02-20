@@ -46,14 +46,16 @@ impl<'a> Executor<'a> {
         logical_plan: LogicalPlan,
     ) -> Result<Box<dyn result_set::ResultSet>, ExecutionError> {
         match logical_plan {
-            LogicalPlan::Scan { table_name } => {
+            LogicalPlan::Scan { table_name, alias } => {
                 let (table_entry, table) = self
                     .catalog
                     .scan(table_name.as_ref())
                     .map_err(ExecutionError::Catalog)?;
 
                 let table_scan = table_entry.scan();
-                Ok(Box::new(result_set::ScanResultsSet::new(table_scan, table)))
+                Ok(Box::new(result_set::ScanResultsSet::new(
+                    table_scan, table, alias,
+                )))
             }
             LogicalPlan::Filter {
                 base_plan: base,
@@ -473,6 +475,34 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         assert_next_row!(row_iterator.as_mut(), "id" => 100, "name" => "relop");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_alias() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table(
+            "employees",
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+        );
+        assert!(result.is_ok());
+
+        insert_row(&catalog, "employees", row![100, "relop"]);
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor
+            .execute(LogicalPlan::Scan {
+                table_name: "employees".to_string(),
+                alias: Some("e".to_string()),
+            })
+            .unwrap();
+
+        assert!(query_result.result_set().is_some());
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "e.id" => 100, "e.name" => "relop");
         assert_no_more_rows!(row_iterator.as_mut());
     }
 }

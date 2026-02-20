@@ -2,6 +2,7 @@ use crate::schema::error::SchemaError;
 use std::collections::HashSet;
 
 /// Represents the primary key of a table, which may consist of one or more columns.
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PrimaryKey {
     column_names: Vec<String>,
 }

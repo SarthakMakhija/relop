@@ -172,6 +172,16 @@ impl Schema {
         }
     }
 
+    /// Creates a new `Schema` with a prefix added to all column names.
+    pub(crate) fn with_prefix(&self, prefix: &str) -> Self {
+        let mut columns = Vec::with_capacity(self.columns.len());
+        Self::merge_column_name_with_prefix(Some(prefix), &self.columns, &mut columns);
+        Self {
+            columns,
+            primary_key: self.primary_key.clone(),
+        }
+    }
+
     /// Returns the primary key, if present.
     pub(crate) fn primary_key(&self) -> Option<&PrimaryKey> {
         self.primary_key.as_ref()
@@ -565,5 +575,28 @@ mod tests {
         schema = schema.add_column("employees.id", ColumnType::Int).unwrap();
 
         assert_eq!(schema.column_position("name"), None);
+    }
+
+    #[test]
+    fn schema_with_prefix() {
+        let mut schema = Schema::new();
+        schema = schema
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap()
+            .add_primary_key(PrimaryKey::single("id"))
+            .unwrap();
+
+        let prefixed_schema = schema.with_prefix("e");
+
+        assert_eq!(2, prefixed_schema.column_count());
+        let columns = prefixed_schema.columns();
+        assert_eq!("e.id", columns[0].name());
+        assert_eq!("e.name", columns[1].name());
+        assert_eq!(
+            Some(&PrimaryKey::single("id")),
+            prefixed_schema.primary_key()
+        );
     }
 }

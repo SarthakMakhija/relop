@@ -149,10 +149,16 @@ impl Parser {
 
     fn expect_table_source(&mut self) -> Result<ast::TableSource, ParseError> {
         let left_table = self.expect_identifier()?;
-        let mut source = ast::TableSource::table(&left_table);
+        let left_alias = self.maybe_alias()?;
+        let mut source = if let Some(alias_name) = left_alias {
+            ast::TableSource::table_with_alias(&left_table, &alias_name)
+        } else {
+            ast::TableSource::table(&left_table)
+        };
 
         while self.eat_if(|token| token.is_keyword("join")) {
             let right_table = self.expect_identifier()?;
+            let right_alias = self.maybe_alias()?;
             let mut on = None;
 
             if self.eat_if(|token| token.is_keyword("on")) {
@@ -163,13 +169,25 @@ impl Parser {
                     on = Some(Expression::And(on_expressions));
                 }
             }
+            let right_source = if let Some(alias_name) = right_alias {
+                ast::TableSource::table_with_alias(&right_table, &alias_name)
+            } else {
+                ast::TableSource::table(&right_table)
+            };
             source = ast::TableSource::Join {
                 left: Box::new(source),
-                right: Box::new(ast::TableSource::table(&right_table)),
+                right: Box::new(right_source),
                 on,
             };
         }
         Ok(source)
+    }
+
+    fn maybe_alias(&mut self) -> Result<Option<String>, ParseError> {
+        if self.eat_if(|token| token.is_keyword("as")) {
+            return Ok(Some(self.expect_identifier()?));
+        }
+        Ok(None)
     }
 
     fn maybe_where_clause(&mut self) -> Result<Option<WhereClause>, ParseError> {
@@ -1604,7 +1622,7 @@ mod column_reference_tests {
 
         assert!(
             matches!(ast, Ast::Select { ref source, ref where_clause, .. }
-                if matches!(source, ast::TableSource::Table(ref name) if name == "employees")
+                if matches!(source, ast::TableSource::Table { ref name, .. } if name == "employees")
                 && matches!(where_clause, Some(WhereClause(Expression::Single(Clause::Comparison { ref lhs, ref operator, ref rhs })))
                     if matches!(lhs, Literal::ColumnReference(ref name) if name == "first_name")
                     && *operator == BinaryOperator::Eq
@@ -1647,8 +1665,8 @@ mod select_join_tests {
             if matches!(
                 source,
                 TableSource::Join { left, right, on }
-                if matches!(left.as_ref(), TableSource::Table(name) if name == "employees")
-                && matches!(right.as_ref(), TableSource::Table(name) if name == "departments")
+                if matches!(left.as_ref(), TableSource::Table { name, .. } if name == "employees")
+                && matches!(right.as_ref(), TableSource::Table { name, .. } if name == "departments")
                 && matches!(
                     on,
                     Some(Expression::Single(Clause::Comparison { lhs, operator, rhs }))
@@ -1688,8 +1706,8 @@ mod select_join_tests {
             if matches!(
                 source,
                 TableSource::Join { left, right, on }
-                if matches!(left.as_ref(), TableSource::Table(name) if name == "employees")
-                && matches!(right.as_ref(), TableSource::Table(name) if name == "departments")
+                if matches!(left.as_ref(), TableSource::Table { name, .. } if name == "employees")
+                && matches!(right.as_ref(), TableSource::Table { name, .. } if name == "departments")
                 && matches!(
                     on,
                     Some(Expression::And(expressions))
@@ -1733,8 +1751,8 @@ mod select_join_tests {
             if matches!(
                 source,
                 TableSource::Join { left, right, on }
-                if matches!(left.as_ref(), TableSource::Table(name) if name == "employees")
-                && matches!(right.as_ref(), TableSource::Table(name) if name == "departments")
+                if matches!(left.as_ref(), TableSource::Table { name, .. } if name == "employees")
+                && matches!(right.as_ref(), TableSource::Table { name, .. } if name == "departments")
                 && on.is_none()
             )
         ));
@@ -1798,8 +1816,8 @@ mod select_join_tests {
                 if matches!(
                     left_outer.as_ref(),
                     TableSource::Join { left: left_inner, right: right_inner, on: on_inner }
-                    if matches!(left_inner.as_ref(), TableSource::Table(name) if name == "employees")
-                    && matches!(right_inner.as_ref(), TableSource::Table(name) if name == "departments")
+                    if matches!(left_inner.as_ref(), TableSource::Table { name, .. } if name == "employees")
+                    && matches!(right_inner.as_ref(), TableSource::Table { name, .. } if name == "departments")
                     && matches!(
                         on_inner,
                         Some(Expression::Single(Clause::Comparison { lhs, operator, rhs }))
@@ -1808,7 +1826,7 @@ mod select_join_tests {
                         && matches!(rhs, Literal::ColumnReference(column_name) if column_name == "department_id")
                     )
                 )
-                && matches!(right_outer.as_ref(), TableSource::Table(name) if name == "roles")
+                && matches!(right_outer.as_ref(), TableSource::Table { name, .. } if name == "roles")
                 && matches!(
                     on_outer,
                     Some(Expression::Single(Clause::Comparison { lhs, operator, rhs }))
@@ -1816,6 +1834,91 @@ mod select_join_tests {
                     && *operator == BinaryOperator::Eq
                     && matches!(rhs, Literal::ColumnReference(column_name) if column_name == "id")
                 )
+            )
+        ));
+    }
+}
+#[cfg(test)]
+mod select_with_alias_tests {
+    use super::*;
+    use crate::query::lexer::token::Token;
+    use crate::query::parser::ast::{Ast, TableSource};
+
+    #[test]
+    fn parse_select_with_table_alias() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("as", TokenType::Keyword));
+        stream.add(Token::new("e", TokenType::Identifier));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(
+            ast,
+            Ast::Select { ref source, .. }
+            if matches!(source, TableSource::Table { ref name, ref alias } if name == "employees" && alias.as_deref() == Some("e"))
+        ));
+    }
+
+    #[test]
+    fn parse_select_with_join_and_aliases() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("as", TokenType::Keyword));
+        stream.add(Token::new("e", TokenType::Identifier));
+        stream.add(Token::new("join", TokenType::Keyword));
+        stream.add(Token::new("departments", TokenType::Identifier));
+        stream.add(Token::new("as", TokenType::Keyword));
+        stream.add(Token::new("d", TokenType::Identifier));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(
+            ast,
+            Ast::Select { ref source, .. }
+            if matches!(
+                source,
+                TableSource::Join { left, right, .. }
+                if matches!(left.as_ref(), TableSource::Table { name, alias } if name == "employees" && alias.as_deref() == Some("e"))
+                && matches!(right.as_ref(), TableSource::Table { name, alias } if name == "departments" && alias.as_deref() == Some("d"))
+            )
+        ));
+    }
+
+    #[test]
+    fn parse_select_with_join_left_alias_only() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("as", TokenType::Keyword));
+        stream.add(Token::new("e", TokenType::Identifier));
+        stream.add(Token::new("join", TokenType::Keyword));
+        stream.add(Token::new("departments", TokenType::Identifier));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(
+            ast,
+            Ast::Select { ref source, .. }
+            if matches!(
+                source,
+                TableSource::Join { left, right, .. }
+                if matches!(left.as_ref(), TableSource::Table { name, alias } if name == "employees" && alias.as_deref() == Some("e"))
+                && matches!(right.as_ref(), TableSource::Table { name, alias } if name == "departments" && alias.is_none())
             )
         ));
     }
