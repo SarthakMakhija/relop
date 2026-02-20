@@ -89,6 +89,25 @@ impl<'a> RowView<'a> {
             visible_positions,
         }
     }
+
+    /// Merges this `RowView` with another `RowView` to create a new `Row`.
+    ///
+    /// This is used in join operations where two rows are combined.
+    /// Only the visible values from both row views are merged.
+    pub(crate) fn merge(&self, other: &RowView) -> Row {
+        let mut values =
+            Vec::with_capacity(self.visible_positions.len() + other.visible_positions.len());
+
+        for &pos in self.visible_positions {
+            // SAFETY: visible_positions are validated at construction to be within bounds of the row.
+            values.push(self.row.column_value_at(pos).unwrap().clone());
+        }
+        for &pos in other.visible_positions {
+            // SAFETY: visible_positions are validated at construction to be within bounds of the row.
+            values.push(other.row.column_value_at(pos).unwrap().clone());
+        }
+        Row::filled(values)
+    }
 }
 
 /// A comparator for [`RowView`]s that implements multi-column sorting logic.
@@ -245,6 +264,25 @@ mod tests {
             result,
             Err(schema::error::SchemaError::AmbiguousColumnName(ref column_name)) if column_name == "id"
         ));
+    }
+
+    #[test]
+    fn merge_row_views() {
+        let left_schema = schema!["id" => ColumnType::Int].unwrap();
+        let left_row = row![1];
+        let left_visible = vec![0];
+        let left_view = RowView::new(left_row, &left_schema, &left_visible);
+
+        let right_schema = schema!["name" => ColumnType::Text].unwrap();
+        let right_row = row!["relop"];
+        let right_visible = vec![0];
+        let right_view = RowView::new(right_row, &right_schema, &right_visible);
+
+        let merged_row = left_view.merge(&right_view);
+        assert_eq!(
+            merged_row,
+            Row::filled(vec![ColumnValue::int(1), ColumnValue::text("relop")])
+        );
     }
 }
 
