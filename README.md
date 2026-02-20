@@ -14,7 +14,6 @@ The project intentionally focuses on a **small subset of SQL SELECT** and operat
 
 `relop` provides a `Relop` client to interact with the system. You can define schemas, create tables, insert data, and run SQL queries.
 
-
 ```rust
 use relop::catalog::Catalog;
 use relop::client::Relop;

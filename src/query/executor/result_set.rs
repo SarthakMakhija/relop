@@ -883,20 +883,31 @@ mod tests {
 
     #[test]
     fn join_result_sets_cross_product() {
-        let left_table = Table::new("employees", schema!["id" => ColumnType::Int].unwrap());
-        let left_store = TableStore::new();
-        left_store.insert_all(rows![[1], [2]]);
-        let left_scan = TableScan::new(Arc::new(left_store));
-        let left_result_set = Box::new(ScanResultsSet::new(left_scan, Arc::new(left_table), None));
+        let employees_table = Table::new("employees", schema!["id" => ColumnType::Int].unwrap());
+        let employees_store = TableStore::new();
+        employees_store.insert_all(rows![[1], [2]]);
 
-        let right_table = Table::new("departments", schema!["name" => ColumnType::Text].unwrap());
-        let right_store = TableStore::new();
-        right_store.insert_all(rows![["Engineering"], ["Sales"]]);
-        let right_scan = TableScan::new(Arc::new(right_store));
-        let right_result_set =
-            Box::new(ScanResultsSet::new(right_scan, Arc::new(right_table), None));
+        let employees_scan = TableScan::new(Arc::new(employees_store));
+        let employees_result_set = Box::new(ScanResultsSet::new(
+            employees_scan,
+            Arc::new(employees_table),
+            None,
+        ));
 
-        let join_result_set = NestedLoopJoinResultSet::new(left_result_set, right_result_set, None);
+        let departments_table =
+            Table::new("departments", schema!["name" => ColumnType::Text].unwrap());
+        let departments_store = TableStore::new();
+        departments_store.insert_all(rows![["Engineering"], ["Sales"]]);
+
+        let departments_scan = TableScan::new(Arc::new(departments_store));
+        let departments_result_set = Box::new(ScanResultsSet::new(
+            departments_scan,
+            Arc::new(departments_table),
+            None,
+        ));
+
+        let join_result_set =
+            NestedLoopJoinResultSet::new(employees_result_set, departments_result_set, None);
         let mut iterator = join_result_set.iterator().unwrap();
 
         assert_next_row!(iterator.as_mut(), "employees.id" => 1, "departments.name" => "Engineering");
@@ -908,21 +919,30 @@ mod tests {
 
     #[test]
     fn join_result_sets_inner_join_with_predicate() {
-        let left_table = Table::new("employees", schema!["id" => ColumnType::Int].unwrap());
-        let left_store = TableStore::new();
-        left_store.insert_all(rows![[1], [2]]);
-        let left_scan = TableScan::new(Arc::new(left_store));
-        let left_result_set = Box::new(ScanResultsSet::new(left_scan, Arc::new(left_table), None));
+        let employees_table = Table::new("employees", schema!["id" => ColumnType::Int].unwrap());
+        let employees_store = TableStore::new();
+        employees_store.insert_all(rows![[1], [2]]);
 
-        let right_table = Table::new(
+        let employees_scan = TableScan::new(Arc::new(employees_store));
+        let employees_result_set = Box::new(ScanResultsSet::new(
+            employees_scan,
+            Arc::new(employees_table),
+            None,
+        ));
+
+        let departments_table = Table::new(
             "departments",
             schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
-        let right_store = TableStore::new();
-        right_store.insert_all(rows![[1, "Headquarters"], [3, "Remote"]]);
-        let right_scan = TableScan::new(Arc::new(right_store));
-        let right_result_set =
-            Box::new(ScanResultsSet::new(right_scan, Arc::new(right_table), None));
+        let departments_store = TableStore::new();
+        departments_store.insert_all(rows![[1, "Headquarters"], [3, "Remote"]]);
+
+        let departments_scan = TableScan::new(Arc::new(departments_store));
+        let departments_result_set = Box::new(ScanResultsSet::new(
+            departments_scan,
+            Arc::new(departments_table),
+            None,
+        ));
 
         let on = Predicate::comparison(
             Literal::ColumnReference("employees.id".to_string()),
@@ -931,7 +951,7 @@ mod tests {
         );
 
         let join_result_set =
-            NestedLoopJoinResultSet::new(left_result_set, right_result_set, Some(on));
+            NestedLoopJoinResultSet::new(employees_result_set, departments_result_set, Some(on));
         let mut iterator = join_result_set.iterator().unwrap();
 
         assert_next_row!(iterator.as_mut(), "employees.id" => 1, "departments.id" => 1, "departments.name" => "Headquarters");
@@ -944,6 +964,7 @@ mod tests {
         let employees_table = Table::new("employees", schema!["id" => ColumnType::Int].unwrap());
         let employees_store = TableStore::new();
         employees_store.insert(row![1]);
+
         let employees_result_set = Box::new(ScanResultsSet::new(
             TableScan::new(Arc::new(employees_store)),
             Arc::new(employees_table),
@@ -954,7 +975,8 @@ mod tests {
             Table::new("departments", schema!["id" => ColumnType::Int].unwrap());
         let departments_store = TableStore::new();
         departments_store.insert(row![1]);
-        let departments_rs = Box::new(ScanResultsSet::new(
+
+        let departments_result_set = Box::new(ScanResultsSet::new(
             TableScan::new(Arc::new(departments_store)),
             Arc::new(departments_table),
             Some("dept".to_string()),
@@ -967,14 +989,15 @@ mod tests {
         );
         let inner_join = Box::new(NestedLoopJoinResultSet::new(
             employees_result_set,
-            departments_rs,
+            departments_result_set,
             Some(inner_on),
         ));
 
         let locations_table = Table::new("locations", schema!["id" => ColumnType::Int].unwrap());
         let locations_store = TableStore::new();
         locations_store.insert(row![1]);
-        let locations_rs = Box::new(ScanResultsSet::new(
+
+        let locations_result_set = Box::new(ScanResultsSet::new(
             TableScan::new(Arc::new(locations_store)),
             Arc::new(locations_table),
             Some("loc".to_string()),
@@ -987,7 +1010,7 @@ mod tests {
         );
 
         let join_result_set =
-            NestedLoopJoinResultSet::new(inner_join, locations_rs, Some(outer_on));
+            NestedLoopJoinResultSet::new(inner_join, locations_result_set, Some(outer_on));
         let mut iterator = join_result_set.iterator().unwrap();
 
         assert_next_row!(iterator.as_mut(), "emp.id" => 1, "dept.id" => 1, "loc.id" => 1);
@@ -996,21 +1019,21 @@ mod tests {
 
     #[test]
     fn self_join_with_aliases() {
-        let table = Table::new(
+        let employees_table = Table::new(
             "employees",
             schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
         );
-        let store = Arc::new(TableStore::new());
-        store.insert_all(rows![[101, "Alice"], [102, "Bob"]]);
+        let employees_store = Arc::new(TableStore::new());
+        employees_store.insert_all(rows![[101, "Alice"], [102, "Bob"]]);
 
-        let left_result_set = Box::new(ScanResultsSet::new(
-            TableScan::new(store.clone()),
-            Arc::new(table.clone()),
+        let employees1_result_set = Box::new(ScanResultsSet::new(
+            TableScan::new(employees_store.clone()),
+            Arc::new(employees_table.clone()),
             Some("emp1".to_string()),
         ));
-        let right_result_set = Box::new(ScanResultsSet::new(
-            TableScan::new(store),
-            Arc::new(table),
+        let employees2_result_set = Box::new(ScanResultsSet::new(
+            TableScan::new(employees_store),
+            Arc::new(employees_table),
             Some("emp2".to_string()),
         ));
 
@@ -1021,7 +1044,7 @@ mod tests {
         );
 
         let join_result_set =
-            NestedLoopJoinResultSet::new(left_result_set, right_result_set, Some(on));
+            NestedLoopJoinResultSet::new(employees1_result_set, employees2_result_set, Some(on));
         let mut iterator = join_result_set.iterator().unwrap();
 
         assert_next_row!(iterator.as_mut(), "emp1.id" => 101, "emp2.id" => 101);
