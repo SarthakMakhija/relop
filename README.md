@@ -30,7 +30,7 @@ fn main() {
     let relop = Relop::new(Catalog::new());
 
     // 2. Define Schema and Create Table
-    let schema = schema!["id" => ColumnType::Int, "name", ColumnType::Text].unwrap();
+    let schema = schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap();
     relop.create_table("employees", schema).unwrap();
 
     // 3. Insert Data
@@ -43,7 +43,7 @@ fn main() {
     // 5. Iterate Results
     for row_view_result in result_set.iterator().unwrap() {
       let row_view = row_view_result.unwrap();
-      println!("Found employee: {:?}", row_view.column_value_by("name").unwrap());
+      println!("Found employee: {:?}", row_view.column_value_by("name").unwrap().unwrap());
     }
 }
 ```
