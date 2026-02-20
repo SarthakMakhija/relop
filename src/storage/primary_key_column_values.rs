@@ -22,7 +22,7 @@ impl PrimaryKeyColumnValues {
             .map(|column_name| {
                 //SAFETY: PrimaryKey validates that the column names are present in Schema.
                 //So, unwrap is safe.
-                let position = schema.column_position(column_name).unwrap();
+                let position = schema.column_position(column_name).unwrap().unwrap();
 
                 //SAFETY: During row insertion, the system checks that the order of column values in Row
                 //matches the order defined in Schema.

@@ -147,7 +147,11 @@ impl RowAssertion<'_> {
     ///
     /// Panics if the column does not exist or if the value does not match.
     pub(crate) fn match_column<V: Into<ColumnValue>>(self, column: &str, expected: V) -> Self {
-        let actual = self.0.column_value_by(column).expect("Column not found");
+        let actual = self
+            .0
+            .column_value_by(column)
+            .expect("Column lookup failed")
+            .expect("Column not found");
         assert_eq!(actual, &expected.into(), "Mismatch in column '{}'", column);
         self
     }
@@ -162,7 +166,7 @@ impl RowAssertion<'_> {
     ///
     /// Panics if the column exists (is not `None`).
     pub(crate) fn does_not_have_column(self, column: &str) -> Self {
-        assert!(self.0.column_value_by(column).is_none());
+        assert!(self.0.column_value_by(column).unwrap().is_none());
         self
     }
 }

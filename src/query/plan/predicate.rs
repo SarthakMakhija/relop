@@ -45,6 +45,7 @@ impl LogicalClause {
             LogicalClause::Like { column_name, regex } => {
                 let column_value = row_view
                     .column_value_by(column_name)
+                    .map_err(ExecutionError::Schema)?
                     .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?;
 
                 match column_value {
@@ -258,6 +259,7 @@ impl LogicalOperator {
             Literal::Text(value) => ColumnValue::Text(value.clone()),
             Literal::ColumnReference(column_name) => row_view
                 .column_value_by(column_name)
+                .map_err(ExecutionError::Schema)?
                 .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?
                 .clone(),
         };
@@ -266,6 +268,7 @@ impl LogicalOperator {
             Literal::Text(value) => ColumnValue::Text(value.clone()),
             Literal::ColumnReference(column_name) => row_view
                 .column_value_by(column_name)
+                .map_err(ExecutionError::Schema)?
                 .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?
                 .clone(),
         };
@@ -1176,6 +1179,7 @@ mod logical_clause_tests {
     use crate::query::parser::ast::Literal;
     use crate::row;
     use crate::schema;
+    use crate::schema::Schema;
     use crate::storage::row_view::RowView;
     use crate::types::column_type::ColumnType;
 
@@ -1316,5 +1320,52 @@ mod logical_clause_tests {
             Literal::ColumnReference("degree".to_string()),
         );
         assert!(clause.matches(&row_view).unwrap());
+    }
+
+    #[test]
+    fn matches_for_the_row_with_ambiguous_column_lookup() {
+        let mut schema = Schema::new();
+        schema = schema
+            .add_column("employees.id", ColumnType::Int)
+            .unwrap()
+            .add_column("departments.id", ColumnType::Int)
+            .unwrap();
+        let row = row![1, 2];
+        let visible_positions = vec![0, 1];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let clause = LogicalClause::comparison(
+            Literal::ColumnReference("id".to_string()),
+            LogicalOperator::Eq,
+            Literal::Int(1),
+        );
+        let result = clause.matches(&row_view);
+        assert!(matches!(
+            result,
+            Err(ExecutionError::Schema(schema::error::SchemaError::AmbiguousColumnName(ref column_name))) if column_name == "id"
+        ));
+    }
+
+    #[test]
+    fn matches_for_the_row_with_ambiguous_column_lookup_in_like() {
+        let mut schema = Schema::new();
+        schema = schema
+            .add_column("employees.name", ColumnType::Text)
+            .unwrap()
+            .add_column("departments.name", ColumnType::Text)
+            .unwrap();
+        let row = row!["relop", "engineering"];
+        let visible_positions = vec![0, 1];
+        let row_view = RowView::new(row, &schema, &visible_positions);
+
+        let clause = LogicalClause::Like {
+            column_name: "name".to_string(),
+            regex: regex::Regex::new("relop").unwrap(),
+        };
+        let result = clause.matches(&row_view);
+        assert!(matches!(
+            result,
+            Err(ExecutionError::Schema(schema::error::SchemaError::AmbiguousColumnName(ref column_name))) if column_name == "name"
+        ));
     }
 }

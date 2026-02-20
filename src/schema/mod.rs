@@ -90,13 +90,14 @@ impl Schema {
     /// use relop::types::column_type::ColumnType;
     ///
     /// let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
-    /// assert_eq!(schema.column_position("id"), Some(0));
+    /// assert_eq!(schema.column_position("id").unwrap(), Some(0));
     /// ```
-    pub fn column_position(&self, column_name: &str) -> Option<usize> {
-        self.columns
+    pub fn column_position(&self, column_name: &str) -> Result<Option<usize>, SchemaError> {
+        let mut matches = self
+            .columns
             .iter()
             .enumerate()
-            .find_map(|(position, column)| {
+            .filter_map(|(position, column)| {
                 let stored_name = column.name();
                 if stored_name.eq_ignore_ascii_case(column_name) {
                     return Some(position);
@@ -111,6 +112,13 @@ impl Schema {
                 }
                 None
             })
+            .collect::<Vec<_>>();
+
+        match matches.len() {
+            0 => Ok(None),
+            1 => Ok(Some(matches.remove(0))),
+            _ => Err(SchemaError::AmbiguousColumnName(column_name.to_string())),
+        }
     }
 
     /// Returns the number of columns in the schema.
@@ -382,7 +390,7 @@ mod tests {
             .add_column("name", ColumnType::Text)
             .unwrap();
 
-        let position = schema.column_position("name").unwrap();
+        let position = schema.column_position("name").unwrap().unwrap();
         assert_eq!(1, position)
     }
 
@@ -395,7 +403,7 @@ mod tests {
             .add_column("name", ColumnType::Text)
             .unwrap();
 
-        let position = schema.column_position("age");
+        let position = schema.column_position("age").unwrap();
         assert!(position.is_none());
     }
 
@@ -545,8 +553,8 @@ mod tests {
             .add_column("departments.id", ColumnType::Int)
             .unwrap();
 
-        assert_eq!(schema.column_position("employees.id"), Some(0));
-        assert_eq!(schema.column_position("departments.id"), Some(1));
+        assert_eq!(schema.column_position("employees.id").unwrap(), Some(0));
+        assert_eq!(schema.column_position("departments.id").unwrap(), Some(1));
     }
 
     #[test]
@@ -554,11 +562,11 @@ mod tests {
         let mut schema = Schema::new();
         schema = schema.add_column("employees.id", ColumnType::Int).unwrap();
 
-        assert_eq!(schema.column_position("id"), Some(0));
+        assert_eq!(schema.column_position("id").unwrap(), Some(0));
     }
 
     #[test]
-    fn column_position_with_unqualified_lookup_against_first_qualified_schema() {
+    fn column_position_with_unqualified_lookup_against_multiple_qualified_schemas_fails() {
         let mut schema = Schema::new();
         schema = schema
             .add_column("employees.id", ColumnType::Int)
@@ -566,7 +574,27 @@ mod tests {
             .add_column("departments.id", ColumnType::Int)
             .unwrap();
 
-        assert_eq!(schema.column_position("id"), Some(0));
+        let result = schema.column_position("id");
+        assert!(matches!(
+            result,
+            Err(SchemaError::AmbiguousColumnName(ref column_name)) if column_name == "id"
+        ));
+    }
+
+    #[test]
+    fn column_position_with_ambiguous_name() {
+        let mut schema = Schema::new();
+        schema = schema
+            .add_column("employees.id", ColumnType::Int)
+            .unwrap()
+            .add_column("departments.id", ColumnType::Int)
+            .unwrap();
+
+        let result = schema.column_position("id");
+        assert!(matches!(
+            result,
+            Err(SchemaError::AmbiguousColumnName(ref column_name)) if column_name == "id"
+        ));
     }
 
     #[test]
@@ -574,7 +602,7 @@ mod tests {
         let mut schema = Schema::new();
         schema = schema.add_column("employees.id", ColumnType::Int).unwrap();
 
-        assert_eq!(schema.column_position("name"), None);
+        assert_eq!(schema.column_position("name").unwrap(), None);
     }
 
     #[test]

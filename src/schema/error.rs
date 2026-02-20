@@ -29,7 +29,7 @@ pub enum SchemaError {
         /// The actual number of columns provided.
         actual: usize,
     },
-    /// The type of a column does not match the expected type.
+    /// The type of column does not match the expected type.
     ColumnTypeMismatch {
         /// The name of the column with the type mismatch.
         column: String,
@@ -38,4 +38,6 @@ pub enum SchemaError {
         /// The actual data type encountered.
         actual: ColumnType,
     },
+    /// The column name is ambiguous because it matches multiple columns.
+    AmbiguousColumnName(String),
 }

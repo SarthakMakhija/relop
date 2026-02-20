@@ -120,6 +120,7 @@ impl ProjectResultSet {
             .map(|column_name| {
                 schema
                     .column_position(column_name.as_ref())
+                    .map_err(ExecutionError::Schema)?
                     .ok_or_else(|| ExecutionError::UnknownColumn(column_name.as_ref().to_string()))
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -710,5 +711,28 @@ mod tests {
         let result_set = ScanResultsSet::new(table_scan, Arc::new(table), Some("e".to_string()));
 
         assert_eq!(result_set.schema().column_names(), vec!["e.id", "e.name"]);
+    }
+
+    #[test]
+    fn project_result_set_with_ambiguous_column_fails() {
+        let table_store = TableStore::new();
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let mut schema = Schema::new();
+        schema = schema
+            .add_column("employees.id", ColumnType::Int)
+            .unwrap()
+            .add_column("departments.id", ColumnType::Int)
+            .unwrap();
+
+        let table = Table::new("combined", schema);
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
+
+        let columns = vec!["id".to_string()];
+        let project_result_set = ProjectResultSet::new(result_set, &columns);
+
+        assert!(matches!(
+            project_result_set,
+            Err(ExecutionError::Schema(crate::schema::error::SchemaError::AmbiguousColumnName(ref column_name))) if column_name == "id"
+        ));
     }
 }

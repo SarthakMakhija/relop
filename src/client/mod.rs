@@ -315,7 +315,7 @@ impl Relop {
     ///  let mut iterator = result_set.iterator().unwrap();
     ///
     ///  let row_view = iterator.next().unwrap().unwrap();
-    ///  assert_eq!(&ColumnValue::int(1), row_view.column_value_by("id").unwrap());
+    ///  assert_eq!(&ColumnValue::int(1), row_view.column_value_by("id").unwrap().unwrap());
     /// ```
     pub fn execute(&self, query: &str) -> Result<QueryResult, ClientError> {
         let mut lexer = Lexer::new_with_default_keywords(query);

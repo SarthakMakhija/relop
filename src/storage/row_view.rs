@@ -51,19 +51,25 @@ impl<'a> RowView<'a> {
     ///
     /// # Returns
     ///
-    /// * `Some(&ColumnValue)` if the column exists.
-    /// * `None` if the column name is not part of the table schema.
+    /// * `Ok(Some(&ColumnValue))` if the column exists and is unique.
+    /// * `Ok(None)` if the column name is not part of the table schema or is not in visible positions.
+    /// * `Err(SchemaError::AmbiguousColumnName)` if the unqualified column name matches multiple columns.
     ///
     /// # Notes
     ///
     /// - Column name resolution is case-sensitive.
     /// - This method performs a schema lookup on each call.
-    pub fn column_value_by(&self, column_name: &str) -> Option<&ColumnValue> {
+    pub fn column_value_by(
+        &self,
+        column_name: &str,
+    ) -> Result<Option<&ColumnValue>, crate::schema::error::SchemaError> {
         let column_position = self.schema.column_position(column_name)?;
-        if self.visible_positions.contains(&column_position) {
-            return self.row.column_value_at(column_position);
+        if let Some(position) = column_position {
+            if self.visible_positions.contains(&position) {
+                return Ok(self.row.column_value_at(position));
+            }
         }
-        None
+        Ok(None)
     }
 
     /// Retrieves the value of a column by its index.
@@ -116,6 +122,7 @@ impl<'a> RowViewComparator<'a> {
             .map(|key| {
                 schema
                     .column_position(&key.column)
+                    .map_err(|_| RowViewComparatorError::UnknownColumn(key.column.clone()))?
                     .ok_or_else(|| RowViewComparatorError::UnknownColumn(key.column.clone()))
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -166,7 +173,10 @@ mod tests {
 
         let visible_positions = vec![0];
         let view = RowView::new(row, &schema, &visible_positions);
-        assert_eq!(&ColumnValue::int(200), view.column_value_by("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(200),
+            view.column_value_by("id").unwrap().unwrap()
+        );
     }
 
     #[test]
@@ -176,7 +186,7 @@ mod tests {
 
         let visible_positions = vec![0];
         let view = RowView::new(row, &schema, &visible_positions);
-        assert!(view.column_value_by("name").is_none());
+        assert!(view.column_value_by("name").unwrap().is_none());
     }
 
     #[test]
@@ -186,10 +196,10 @@ mod tests {
 
         let visible_positions = vec![1];
         let view = RowView::new(row, &schema, &visible_positions);
-        assert!(view.column_value_by("id").is_none());
+        assert!(view.column_value_by("id").unwrap().is_none());
         assert_eq!(
             &ColumnValue::text("relop"),
-            view.column_value_by("name").unwrap()
+            view.column_value_by("name").unwrap().unwrap()
         );
     }
     #[test]
@@ -200,19 +210,41 @@ mod tests {
 
         let visible_positions = vec![0, 1];
         let view = RowView::new(row, &schema, &visible_positions);
-        assert_eq!(&ColumnValue::int(200), view.column_value_by("id").unwrap());
+        assert_eq!(
+            &ColumnValue::int(200),
+            view.column_value_by("id").unwrap().unwrap()
+        );
         assert_eq!(
             &ColumnValue::text("relop"),
-            view.column_value_by("name").unwrap()
+            view.column_value_by("name").unwrap().unwrap()
         );
 
         let projection = vec![1];
         let projected_view = view.project(&projection);
-        assert!(projected_view.column_value_by("id").is_none());
+        assert!(projected_view.column_value_by("id").unwrap().is_none());
         assert_eq!(
             &ColumnValue::text("relop"),
-            projected_view.column_value_by("name").unwrap()
+            projected_view.column_value_by("name").unwrap().unwrap()
         );
+    }
+
+    #[test]
+    fn attempt_to_get_ambiguous_column() {
+        let mut schema = Schema::new();
+        schema = schema
+            .add_column("employees.id", ColumnType::Int)
+            .unwrap()
+            .add_column("departments.id", ColumnType::Int)
+            .unwrap();
+        let row = row![1, 2];
+        let visible_positions = vec![0, 1];
+        let view = RowView::new(row, &schema, &visible_positions);
+
+        let result = view.column_value_by("id");
+        assert!(matches!(
+            result,
+            Err(schema::error::SchemaError::AmbiguousColumnName(ref column_name)) if column_name == "id"
+        ));
     }
 }
 

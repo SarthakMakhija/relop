@@ -10,6 +10,8 @@ pub enum ExecutionError {
     UnknownColumn(String),
     /// Error related to mismatch types during execution of comparison operations.
     TypeMismatchInComparison,
+    /// Errors related to schema validation during execution.
+    Schema(crate::schema::error::SchemaError),
 }
 
 impl From<RowViewComparatorError> for ExecutionError {
@@ -17,5 +19,11 @@ impl From<RowViewComparatorError> for ExecutionError {
         match error {
             RowViewComparatorError::UnknownColumn(column) => ExecutionError::UnknownColumn(column),
         }
+    }
+}
+
+impl From<crate::schema::error::SchemaError> for ExecutionError {
+    fn from(error: crate::schema::error::SchemaError) -> Self {
+        ExecutionError::Schema(error)
     }
 }
