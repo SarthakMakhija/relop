@@ -61,7 +61,7 @@ number
     = NUMBER ;
 
 identifier
-    = IDENTIFIER ;
+    = IDENTIFIER ; (* Can contain dots, e.g., table.column *)
 
 literal
     = LITERAL ;

@@ -97,8 +97,17 @@ impl Schema {
             .iter()
             .enumerate()
             .find_map(|(position, column)| {
-                if column.matches_name(column_name) {
+                let stored_name = column.name();
+                if stored_name.eq_ignore_ascii_case(column_name) {
                     return Some(position);
+                }
+                if !column_name.contains('.') {
+                    if let Some(dot_index) = stored_name.rfind('.') {
+                        let suffix = &stored_name[dot_index + 1..];
+                        if suffix.eq_ignore_ascii_case(column_name) {
+                            return Some(position);
+                        }
+                    }
                 }
                 None
             })
@@ -515,5 +524,46 @@ mod tests {
         assert_eq!("employees.id", columns[0].name());
         assert_eq!("employees.name", columns[1].name());
         assert_eq!("departments.id", columns[2].name());
+    }
+
+    #[test]
+    fn column_position_with_qualified_name() {
+        let mut schema = Schema::new();
+        schema = schema
+            .add_column("employees.id", ColumnType::Int)
+            .unwrap()
+            .add_column("departments.id", ColumnType::Int)
+            .unwrap();
+
+        assert_eq!(schema.column_position("employees.id"), Some(0));
+        assert_eq!(schema.column_position("departments.id"), Some(1));
+    }
+
+    #[test]
+    fn column_position_with_unqualified_lookup_against_qualified_schema() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("employees.id", ColumnType::Int).unwrap();
+
+        assert_eq!(schema.column_position("id"), Some(0));
+    }
+
+    #[test]
+    fn column_position_with_unqualified_lookup_against_first_qualified_schema() {
+        let mut schema = Schema::new();
+        schema = schema
+            .add_column("employees.id", ColumnType::Int)
+            .unwrap()
+            .add_column("departments.id", ColumnType::Int)
+            .unwrap();
+
+        assert_eq!(schema.column_position("id"), Some(0));
+    }
+
+    #[test]
+    fn column_position_not_found() {
+        let mut schema = Schema::new();
+        schema = schema.add_column("employees.id", ColumnType::Int).unwrap();
+
+        assert_eq!(schema.column_position("name"), None);
     }
 }
