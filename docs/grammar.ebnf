@@ -13,7 +13,13 @@ describe_table
     = "DESCRIBE" "TABLE" identifier [";"] ;
 
 select
-    = "SELECT" projection "FROM" identifier [where] [order] [limit] [";"] ;
+    = "SELECT" projection "FROM" table_source [where] [order] [limit] [";"] ;
+
+table_source
+    = identifier [join_clause]*
+
+join_clause
+    = "JOIN" identifier ["ON" expression] 
 
 projection
     = "*"
