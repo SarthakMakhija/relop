@@ -80,14 +80,14 @@ impl Parser {
         self.expect_keyword("select")?;
         let projection = self.expect_projection()?;
         self.expect_keyword("from")?;
-        let table_name = self.expect_identifier()?;
+        let source = self.expect_table_source()?;
         let where_clause = self.maybe_where_clause()?;
         let order_by = self.maybe_order_by()?;
         let limit = self.maybe_limit()?;
         let _ = self.eat_if(|token| token.is_semicolon());
 
         Ok(Ast::Select {
-            source: ast::TableSource::table(&table_name),
+            source,
             projection,
             where_clause,
             order_by,
@@ -145,6 +145,31 @@ impl Parser {
             columns.push(column);
         }
         Ok(columns)
+    }
+
+    fn expect_table_source(&mut self) -> Result<ast::TableSource, ParseError> {
+        let left_table = self.expect_identifier()?;
+        let mut source = ast::TableSource::table(&left_table);
+
+        while self.eat_if(|token| token.is_keyword("join")) {
+            let right_table = self.expect_identifier()?;
+            let mut on = None;
+
+            if self.eat_if(|token| token.is_keyword("on")) {
+                let on_expressions = self.expect_clauses()?;
+                if on_expressions.len() == 1 {
+                    on = Some(on_expressions.into_iter().next().unwrap());
+                } else {
+                    on = Some(Expression::And(on_expressions));
+                }
+            }
+            source = ast::TableSource::Join {
+                left: Box::new(source),
+                right: Box::new(ast::TableSource::table(&right_table)),
+                on,
+            };
+        }
+        Ok(source)
     }
 
     fn maybe_where_clause(&mut self) -> Result<Option<WhereClause>, ParseError> {
@@ -1587,5 +1612,211 @@ mod column_reference_tests {
                 )
             )
         );
+    }
+}
+
+#[cfg(test)]
+mod select_join_tests {
+    use super::*;
+    use crate::query::lexer::token::Token;
+    use crate::query::parser::ast::{
+        Ast, BinaryOperator, Clause, Expression, Literal, TableSource, WhereClause,
+    };
+
+    #[test]
+    fn parse_select_with_join() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("join", TokenType::Keyword));
+        stream.add(Token::new("departments", TokenType::Identifier));
+        stream.add(Token::new("on", TokenType::Keyword));
+        stream.add(Token::new("employees.id", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("departments.employee_id", TokenType::Identifier));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(
+            ast,
+            Ast::Select { ref source, .. }
+            if matches!(
+                source,
+                TableSource::Join { left, right, on }
+                if matches!(left.as_ref(), TableSource::Table(name) if name == "employees")
+                && matches!(right.as_ref(), TableSource::Table(name) if name == "departments")
+                && matches!(
+                    on,
+                    Some(Expression::Single(Clause::Comparison { lhs, operator, rhs }))
+                    if matches!(lhs, Literal::ColumnReference(column_name) if column_name == "employees.id")
+                    && *operator == BinaryOperator::Eq
+                    && matches!(rhs, Literal::ColumnReference(column_name) if column_name == "departments.employee_id")
+                )
+            )
+        ));
+    }
+
+    #[test]
+    fn parse_select_with_join_multiple_conditions_in_on() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("join", TokenType::Keyword));
+        stream.add(Token::new("departments", TokenType::Identifier));
+        stream.add(Token::new("on", TokenType::Keyword));
+        stream.add(Token::new("employee_id", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("department_id", TokenType::Identifier));
+        stream.add(Token::new("and", TokenType::Keyword));
+        stream.add(Token::new("status", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("ACTIVE", TokenType::StringLiteral));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(
+            ast,
+            Ast::Select { ref source, .. }
+            if matches!(
+                source,
+                TableSource::Join { left, right, on }
+                if matches!(left.as_ref(), TableSource::Table(name) if name == "employees")
+                && matches!(right.as_ref(), TableSource::Table(name) if name == "departments")
+                && matches!(
+                    on,
+                    Some(Expression::And(expressions))
+                    if expressions.len() == 2
+                    && matches!(
+                        &expressions[0],
+                        Expression::Single(Clause::Comparison { lhs, operator, rhs })
+                        if matches!(lhs, Literal::ColumnReference(column_name) if column_name == "employee_id")
+                        && *operator == BinaryOperator::Eq
+                        && matches!(rhs, Literal::ColumnReference(column_name) if column_name == "department_id")
+                    )
+                    && matches!(
+                        &expressions[1],
+                        Expression::Single(Clause::Comparison { lhs, operator, rhs })
+                        if matches!(lhs, Literal::ColumnReference(column_name) if column_name == "status")
+                        && *operator == BinaryOperator::Eq
+                        && matches!(rhs, Literal::Text(column_name) if column_name == "ACTIVE")
+                    )
+                )
+            )
+        ));
+    }
+
+    #[test]
+    fn parse_select_with_join_but_no_on_clause() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("join", TokenType::Keyword));
+        stream.add(Token::new("departments", TokenType::Identifier));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(
+            ast,
+            Ast::Select { ref source, .. }
+            if matches!(
+                source,
+                TableSource::Join { left, right, on }
+                if matches!(left.as_ref(), TableSource::Table(name) if name == "employees")
+                && matches!(right.as_ref(), TableSource::Table(name) if name == "departments")
+                && on.is_none()
+            )
+        ));
+    }
+
+    #[test]
+    fn attempt_to_parse_select_with_join_but_missing_right_table() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("join", TokenType::Keyword));
+        stream.add(Token::new("on", TokenType::Keyword));
+        stream.add(Token::new("employee_id", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("department_id", TokenType::Identifier));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(matches!(
+            result,
+            Err(ParseError::UnexpectedToken { expected, found })
+            if expected == "identifier" && found == "on"
+        ));
+    }
+
+    #[test]
+    fn parse_select_with_multiple_joins() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("join", TokenType::Keyword));
+        stream.add(Token::new("departments", TokenType::Identifier));
+        stream.add(Token::new("on", TokenType::Keyword));
+        stream.add(Token::new("employee_id", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("department_id", TokenType::Identifier));
+        stream.add(Token::new("join", TokenType::Keyword));
+        stream.add(Token::new("roles", TokenType::Identifier));
+        stream.add(Token::new("on", TokenType::Keyword));
+        stream.add(Token::new("role_id", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("id", TokenType::Identifier));
+
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(
+            ast,
+            Ast::Select { ref source, .. }
+            if matches!(
+                source,
+                TableSource::Join { left: left_outer, right: right_outer, on: on_outer }
+                if matches!(
+                    left_outer.as_ref(),
+                    TableSource::Join { left: left_inner, right: right_inner, on: on_inner }
+                    if matches!(left_inner.as_ref(), TableSource::Table(name) if name == "employees")
+                    && matches!(right_inner.as_ref(), TableSource::Table(name) if name == "departments")
+                    && matches!(
+                        on_inner,
+                        Some(Expression::Single(Clause::Comparison { lhs, operator, rhs }))
+                        if matches!(lhs, Literal::ColumnReference(column_name) if column_name == "employee_id")
+                        && *operator == BinaryOperator::Eq
+                        && matches!(rhs, Literal::ColumnReference(column_name) if column_name == "department_id")
+                    )
+                )
+                && matches!(right_outer.as_ref(), TableSource::Table(name) if name == "roles")
+                && matches!(
+                    on_outer,
+                    Some(Expression::Single(Clause::Comparison { lhs, operator, rhs }))
+                    if matches!(lhs, Literal::ColumnReference(column_name) if column_name == "role_id")
+                    && *operator == BinaryOperator::Eq
+                    && matches!(rhs, Literal::ColumnReference(column_name) if column_name == "id")
+                )
+            )
+        ));
     }
 }

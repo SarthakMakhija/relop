@@ -34,7 +34,7 @@ pub(crate) enum TableSource {
     Join {
         left: Box<TableSource>,
         right: Box<TableSource>,
-        on: Expression,
+        on: Option<Expression>,
     },
 }
 
