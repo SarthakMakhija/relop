@@ -4,6 +4,7 @@ use std::sync::Arc;
 /// Represents a table in the database catalog.
 ///
 /// Holds the table's name and schema.
+#[derive(Clone)]
 pub struct Table {
     name: String,
     schema: Arc<Schema>,

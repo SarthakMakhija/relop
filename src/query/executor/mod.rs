@@ -57,6 +57,17 @@ impl<'a> Executor<'a> {
                     table_scan, table, alias,
                 )))
             }
+            LogicalPlan::Join {
+                left, right, on, ..
+            } => {
+                let left_result_set = self.execute_select(*left)?;
+                let right_result_set = self.execute_select(*right)?;
+                Ok(Box::new(result_set::NestedLoopJoinResultSet::new(
+                    left_result_set,
+                    right_result_set,
+                    on,
+                )))
+            }
             LogicalPlan::Filter {
                 base_plan: base,
                 predicate,
@@ -90,9 +101,6 @@ impl<'a> Executor<'a> {
             } => {
                 let result_set = self.execute_select(*base)?;
                 Ok(Box::new(LimitResultSet::new(result_set, count)))
-            }
-            LogicalPlan::Join { .. } => {
-                unimplemented!("Joins are not supported yet")
             }
             _ => panic!("should not be here"),
         }
@@ -503,6 +511,138 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         assert_next_row!(row_iterator.as_mut(), "e.id" => 100, "e.name" => "relop");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_join_of_two_tables() {
+        let catalog = Catalog::new();
+        catalog
+            .create_table("employees", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+        catalog
+            .create_table("departments", schema!["name" => ColumnType::Text].unwrap())
+            .unwrap();
+
+        insert_rows(&catalog, "employees", rows![[1], [2]]);
+        insert_rows(
+            &catalog,
+            "departments",
+            rows![["Engineering"], ["Marketing"]],
+        );
+
+        let executor = Executor::new(&catalog);
+        let query_result = executor
+            .execute(LogicalPlan::Join {
+                left: LogicalPlan::scan("employees").boxed(),
+                left_name: Some("employees".to_string()),
+                right: LogicalPlan::scan("departments").boxed(),
+                right_name: Some("departments".to_string()),
+                on: None,
+            })
+            .unwrap();
+
+        let mut row_iterator = query_result.result_set().unwrap().iterator().unwrap();
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 1, "departments.name" => "Engineering");
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 1, "departments.name" => "Marketing");
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 2, "departments.name" => "Engineering");
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 2, "departments.name" => "Marketing");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_join_of_three_tables_with_aliases() {
+        let catalog = Catalog::new();
+        catalog
+            .create_table("employees", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+        catalog
+            .create_table("departments", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+        catalog
+            .create_table("locations", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+
+        insert_rows(&catalog, "employees", rows![[1]]);
+        insert_rows(&catalog, "departments", rows![[1]]);
+        insert_rows(&catalog, "locations", rows![[1]]);
+
+        let executor = Executor::new(&catalog);
+        let inner_join = LogicalPlan::Join {
+            left: LogicalPlan::Scan {
+                table_name: "employees".to_string(),
+                alias: Some("e".to_string()),
+            }
+            .boxed(),
+            left_name: Some("e".to_string()),
+            right: LogicalPlan::Scan {
+                table_name: "departments".to_string(),
+                alias: Some("d".to_string()),
+            }
+            .boxed(),
+            right_name: Some("d".to_string()),
+            on: Some(Predicate::comparison(
+                Literal::ColumnReference("e.id".to_string()),
+                LogicalOperator::Eq,
+                Literal::ColumnReference("d.id".to_string()),
+            )),
+        };
+
+        let outer_join = LogicalPlan::Join {
+            left: inner_join.boxed(),
+            left_name: None,
+            right: LogicalPlan::Scan {
+                table_name: "locations".to_string(),
+                alias: Some("l".to_string()),
+            }
+            .boxed(),
+            right_name: Some("l".to_string()),
+            on: Some(Predicate::comparison(
+                Literal::ColumnReference("d.id".to_string()),
+                LogicalOperator::Eq,
+                Literal::ColumnReference("l.id".to_string()),
+            )),
+        };
+
+        let query_result = executor.execute(outer_join).unwrap();
+        let mut row_iterator = query_result.result_set().unwrap().iterator().unwrap();
+        assert_next_row!(row_iterator.as_mut(), "e.id" => 1, "d.id" => 1, "l.id" => 1);
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_self_join_with_aliases() {
+        let catalog = Catalog::new();
+        catalog
+            .create_table("employees", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+        insert_rows(&catalog, "employees", rows![[1], [2]]);
+
+        let executor = Executor::new(&catalog);
+        let join_plan = LogicalPlan::Join {
+            left: LogicalPlan::Scan {
+                table_name: "employees".to_string(),
+                alias: Some("emp1".to_string()),
+            }
+            .boxed(),
+            left_name: Some("emp1".to_string()),
+            right: LogicalPlan::Scan {
+                table_name: "employees".to_string(),
+                alias: Some("emp2".to_string()),
+            }
+            .boxed(),
+            right_name: Some("emp2".to_string()),
+            on: Some(Predicate::comparison(
+                Literal::ColumnReference("emp1.id".to_string()),
+                LogicalOperator::Eq,
+                Literal::ColumnReference("emp2.id".to_string()),
+            )),
+        };
+
+        let query_result = executor.execute(join_plan).unwrap();
+        let mut row_iterator = query_result.result_set().unwrap().iterator().unwrap();
+        assert_next_row!(row_iterator.as_mut(), "emp1.id" => 1, "emp2.id" => 1);
+        assert_next_row!(row_iterator.as_mut(), "emp1.id" => 2, "emp2.id" => 2);
         assert_no_more_rows!(row_iterator.as_mut());
     }
 }

@@ -585,6 +585,29 @@ mod tests {
     }
 
     #[test]
+    fn execute_select_star_with_where_clause_no_results() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"]],
+        );
+
+        let query_result = relop
+            .execute("select * from employees where id = 100")
+            .unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
     fn execute_select_star_with_where_clause_greater_than() {
         let relop = Relop::new(Catalog::new());
         let result = relop.create_table(
@@ -947,6 +970,252 @@ mod tests {
         let mut row_iterator = result_set.iterator().unwrap();
 
         assert_next_row!(row_iterator.as_mut(), "emp.name" => "query");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+}
+
+#[cfg(test)]
+mod join_tests {
+    use super::*;
+    use crate::assert_no_more_rows;
+    use crate::row;
+    use crate::rows;
+    use crate::types::column_type::ColumnType;
+    use crate::{assert_next_row, schema};
+
+    #[test]
+    fn execute_select_with_join() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table("employees", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+
+        relop
+            .create_table(
+                "departments",
+                schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+
+        relop.insert_all_into("employees", rows![[1], [2]]).unwrap();
+        relop
+            .insert_all_into("departments", rows![[1, "Engineering"], [3, "Marketing"]])
+            .unwrap();
+
+        let query_result = relop
+            .execute("select * from employees join departments on employees.id = departments.id")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 1, "departments.id" => 1, "departments.name" => "Engineering");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_multi_table_join() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table("employees", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+        relop
+            .create_table("departments", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+        relop
+            .create_table("locations", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+
+        relop.insert_all_into("employees", rows![[1], [2]]).unwrap();
+        relop
+            .insert_all_into("departments", rows![[1], [3]])
+            .unwrap();
+        relop.insert_all_into("locations", rows![[1], [4]]).unwrap();
+
+        let query_result = relop
+            .execute("select employees.id from employees join departments on employees.id = departments.id join locations on departments.id = locations.id")
+            .unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 1);
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_self_join_and_aliases() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+        relop
+            .insert_all_into("employees", rows![[1, "Relop"], [2, "Query"]])
+            .unwrap();
+
+        let query_result = relop
+            .execute(
+                "select e1.name, e2.name from employees as e1 join employees as e2 on e1.id = e2.id order by e1.id",
+            )
+            .unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "e1.name" => "Relop", "e2.name" => "Relop");
+        assert_next_row!(row_iterator.as_mut(), "e1.name" => "Query", "e2.name" => "Query");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_join_and_projection() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+        relop
+            .create_table(
+                "departments",
+                schema!["id" => ColumnType::Int, "dept_name" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+
+        relop.insert_into("employees", row![1, "Alice"]).unwrap();
+        relop
+            .insert_into("departments", row![1, "Engineering"])
+            .unwrap();
+
+        let query_result = relop
+            .execute("select employees.name, departments.dept_name from employees join departments on employees.id = departments.id")
+            .unwrap();
+        let mut row_iterator = query_result.result_set().unwrap().iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "employees.name" => "Alice", "departments.dept_name" => "Engineering");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_join_and_where() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "dept_id" => ColumnType::Int].unwrap(),
+            )
+            .unwrap();
+        relop
+            .create_table(
+                "departments",
+                schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+
+        relop
+            .insert_all_into("employees", rows![[1, 10], [2, 20]])
+            .unwrap();
+        relop
+            .insert_all_into("departments", rows![[10, "Sales"], [20, "HR"]])
+            .unwrap();
+
+        let query_result = relop
+            .execute("select departments.name from employees join departments on employees.dept_id = departments.id where employees.id = 2")
+            .unwrap();
+        let mut row_iterator = query_result.result_set().unwrap().iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "departments.name" => "HR");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_join_and_order_by() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table("employees", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+        relop
+            .create_table(
+                "departments",
+                schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+
+        relop.insert_all_into("employees", rows![[1], [2]]).unwrap();
+        relop
+            .insert_all_into("departments", rows![[1, "Dev"], [2, "Ops"]])
+            .unwrap();
+
+        let query_result = relop
+            .execute("select departments.name from employees join departments on employees.id = departments.id order by departments.name DESC")
+            .unwrap();
+        let mut row_iterator = query_result.result_set().unwrap().iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "departments.name" => "Ops");
+        assert_next_row!(row_iterator.as_mut(), "departments.name" => "Dev");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_join_on_with_and() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "active" => ColumnType::Int].unwrap(),
+            )
+            .unwrap();
+        relop
+            .create_table("departments", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+
+        relop
+            .insert_all_into("employees", rows![[1, 1], [2, 0]])
+            .unwrap();
+        relop
+            .insert_all_into("departments", rows![[1], [2]])
+            .unwrap();
+
+        let query_result = relop
+            .execute("select employees.id from employees join departments on employees.id = departments.id and employees.active = 1")
+            .unwrap();
+        let mut row_iterator = query_result.result_set().unwrap().iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 1);
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_join_on_and_where() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "active" => ColumnType::Int].unwrap(),
+            )
+            .unwrap();
+        relop
+            .create_table(
+                "departments",
+                schema!["id" => ColumnType::Int, "loc" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+
+        relop
+            .insert_all_into("employees", rows![[1, 1], [2, 1]])
+            .unwrap();
+        relop
+            .insert_all_into("departments", rows![[1, "NY"], [2, "SF"]])
+            .unwrap();
+
+        let query_result = relop
+            .execute("select employees.id from employees join departments on employees.id = departments.id and employees.active = 1 where departments.loc = 'SF'")
+            .unwrap();
+        let mut row_iterator = query_result.result_set().unwrap().iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 2);
         assert_no_more_rows!(row_iterator.as_mut());
     }
 }
