@@ -60,7 +60,7 @@ The query processing pipeline follows a standard database architecture:
   *   *Input*: `SELECT id FROM employees`
   *   *Output*: `[SELECT, IDENT("id"), FROM, IDENT("employees")]`
 2.  **Parser**: Converts tokens into an **Abstract Syntax Tree (AST)**.
-  *   *Output*: `SelectStatement { projection: ["id"], table: "employees" }`
+  *   *Output*: `Select { source: Table("employees"), projection: Columns(["id"]), ... }`
 3.  **Logical Planner**: Transforms the AST into a tree of **Logical Operators**.
   *   *Output*: `Project(Scan("employees"), ["id"])`
 4.  **Executor**: Traverses the logical plan and constructs a **physical execution pipeline** using `ResultSet` iterators, which pull data on demand.
@@ -97,13 +97,13 @@ cargo test
   - [ ] <kbd>Evolving</kbd> Operator-based execution
 - [ ] **Implement core relational operators**:
   - [x] Scan
-  - [ ] Filter (__WIP__)
+  - [x] Filter
   - [x] Projection
   - [x] Limit
   - [x] Order by
   - [x] Show tables
   - [x] Describe table
-  - [ ] Join (maybe)
+  - [ ] Join (__Structural support in place__)
 - [x] **Build a minimal in-memory store**:
   - [x] Tables with schemas
   - [x] Rows stored in memory (SkipMap based)
@@ -118,6 +118,7 @@ cargo test
   - [x] Add support for `AND` in `WHERE` clauses.
   - [ ] Add support for `OR` in `WHERE` clauses.
   - [ ] Allow mixing `AND` and `OR` to define complex filtering criteria.
+  - [ ] Add support for inner join
 - **Complex Expressions**: Enable grouping conditions with parentheses `( ... )` to control precedence.
 
 ## Supported SQL
@@ -129,7 +130,6 @@ cargo test
 - `SELECT col1, col2 FROM <table> WHERE col1 >= <literal>`
 - `SELECT col1, col2 FROM <table> WHERE col1 < <literal>`
 - `SELECT col1, col2 FROM <table> WHERE col1 <= <literal>`
-- `SELECT col1, col2 FROM <table> WHERE col1 != <literal>`
 - `SELECT col1, col2 FROM <table> WHERE col1 != <literal>`
 - `SELECT col1, col2 FROM <table> WHERE col1 like <regular expression>`
 - `SELECT col1, col2 FROM <table> WHERE col1 = <literal> AND col2 = <literal>`
