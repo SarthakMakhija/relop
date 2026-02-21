@@ -36,7 +36,11 @@ or_expression
     = and_expression ("OR" and_expression)* ;
 
 and_expression
-    = clause ("AND" clause)* ;
+    = primary_expression ("AND" primary_expression)* ;
+
+primary_expression
+    = clause
+    | "(" expression ")" ;
 
 clause
     = identifier operator literal
