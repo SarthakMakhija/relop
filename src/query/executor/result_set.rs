@@ -744,6 +744,23 @@ mod tests {
     }
 
     #[test]
+    fn ordering_result_set_with_error_during_buffering() {
+        let schema = Arc::new(schema!["id" => ColumnType::Int].unwrap());
+        let result_set = Box::new(ErrorResultSet {
+            schema: schema.clone(),
+        });
+
+        let ordering_keys = vec![asc!("id")];
+        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
+        let result = ordering_result_set.iterator();
+
+        assert!(matches!(
+            result,
+            Err(ExecutionError::TypeMismatchInComparison)
+        ));
+    }
+
+    #[test]
     fn limit_result_set() {
         let table = Table::new(
             "employees",
