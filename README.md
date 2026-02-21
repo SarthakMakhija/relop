@@ -131,28 +131,35 @@ cargo test
 
 ## Supported SQL
 
-- `SELECT * FROM <table>`
-- `SELECT col1, col2 FROM <table>`
-- `SELECT col1, col2 FROM <table> WHERE col1 = <literal>`
-- `SELECT col1, col2 FROM <table> WHERE col1 > <literal>`
-- `SELECT col1, col2 FROM <table> WHERE col1 >= <literal>`
-- `SELECT col1, col2 FROM <table> WHERE col1 < <literal>`
-- `SELECT col1, col2 FROM <table> WHERE col1 <= <literal>`
-- `SELECT col1, col2 FROM <table> WHERE col1 != <literal>`
-- `SELECT col1, col2 FROM <table> WHERE col1 like <regular expression>`
-- `SELECT col1, col2 FROM <table> WHERE col1 = <literal> AND col2 = <literal>`
-- `SELECT col1, col2 FROM <table> ORDER by col1`
-- `SELECT col1, col2 FROM <table> ORDER by col1 asc`
-- `SELECT col1, col2 FROM <table> ORDER by col1 asc, col2 desc`
-- `SELECT col1, col2 FROM <table> ORDER by col1 asc, col2 desc LIMIT <n>`
-- `SELECT col1, col2 FROM <table> LIMIT <n>`
-- `SELECT col1, col2 FROM <table> WHERE col1 != <literal> ORDER by col1 asc, col2 desc LIMIT <n>`
-- `SELECT * FROM <table1> JOIN <table2> ON <table1>.col1 = <table2>.col2`
-- `SELECT * FROM <table1> AS t1 JOIN <table2> AS t2 ON t1.col1 = t2.col2`
-- `SELECT * FROM <table1> JOIN <table2> ON <table1>.col1 = <table2>.col2 JOIN <table3> ON <table2>.col2 = <table3>.col3`
-- `SELECT * FROM <table1> JOIN <table2> ON <table1>.col1 = <table2>.col2 AND <table1>.col3 = <literal>`
-- `SHOW TABLES`
-- `DESCRIBE TABLE <table>`
+**relop** supports a curated subset of SQL `SELECT` statements, focusing on core relational operations.
+
+### Basic Selection
+*   `SELECT * FROM <table>`
+*   `SELECT col1, col2 FROM <table>`
+
+### Filtering (`WHERE`)
+*   **Comparison**: `=`, `!=`, `>`, `>=`, `<`, `<=`
+*   **Logical**: `cond1 AND cond2` (Multi-condition support)
+*   **Pattern Matching**: `col LIKE <regular_expression>`
+
+### Aggregation & Shaping
+*   **Ordering**: `ORDER BY col1 [ASC|DESC], col2 [ASC|DESC]`
+*   **Limiting**: `LIMIT <n>`
+*   **Combined**: `WHERE ... ORDER BY ... LIMIT ...`
+
+### Joins
+*   **Inner Join**: Join tables based on matching columns.
+    `SELECT * FROM users JOIN orders ON users.id = orders.user_id`
+*   **Table Aliases**: Use short names to simplify queries.
+    `SELECT * FROM users AS u JOIN orders AS o ON u.id = o.user_id`
+*   **Multi-way Joins**: Link three or more tables together.
+    `SELECT * FROM users JOIN orders ON users.id = orders.user_id JOIN line_items ON orders.id = line_items.order_id`
+*   **Join with Filters**: Combine join conditions with additional filters.
+    `SELECT * FROM users JOIN orders ON users.id = orders.user_id AND orders.status = 'shipped'`
+
+### System Commands
+*   `SHOW TABLES`: List all tables in the catalog.
+*   `DESCRIBE TABLE <table>`: View column names and types for a specific table.
 
 ## Grammar
 
