@@ -64,16 +64,24 @@ The query processing pipeline follows a standard database architecture:
   *   *Output*: `Project(Scan("employees"), ["id"])`
 4.  **Executor**: Traverses the logical plan and constructs a **physical execution pipeline** using `ResultSet` iterators, which pull data on demand.
 
-## Project Structure
+## Source Code Navigation
 
-The codebase is organized into modular components:
+For those looking to dive into the implementation, here is a guide to the key components:
 
-*   `src/catalog`: Manages table metadata.
-*   `src/client`: The public API (`Relop`) for interacting with the database.
-*   `src/query`: The query processing engine (`Lexer`, `Parser`, `AST`, `Planner`, `Executor`).
-*   `src/schema`: Logical definitions for schemas, columns, and primary keys.
-*   `src/storage`: Physical storage engine (`Row`, `Batch`, `TableStore`) and execution views (`ResultSet`).
-*   `src/types`: Type system definitions (`ColumnType`, `ColumnValue`).
+*   🚪 **Entrypoint**: [`Relop`](src/client/mod.rs) is the primary interface for interacting with the system.
+*   📦 **Storage Engine**:
+    *   [`Row`](src/storage/row.rs): Core data representation at rest.
+    *   [`Batch`](src/storage/batch.rs): Efficient handling of data in-flight.
+    *   [`TableStore`](src/storage/table_store.rs): The core storage mechanism for tables.
+*   📂 **Metadata & Catalog**:
+    *   [`Catalog`](src/catalog/mod.rs): Manages table definitions, entries, and metadata.
+    *   [`Schema`](src/schema/mod.rs): Definitions for columns, types, and primary keys.
+*   🔍 **Query Processing**:
+    *   [`Lexer`](src/query/lexer/mod.rs): Tokenizes SQL queries into a stream of tokens.
+    *   [`Parser`](src/query/parser/mod.rs): Converts tokens into an Abstract Syntax Tree (AST).
+    *   [`Logical Planner`](src/query/plan/mod.rs): Transforms the AST into a tree of logical operators.
+    *   [`Executor`](src/query/executor/mod.rs): Traverses the logical plan and constructs a physical execution pipeline.
+    *   [`ResultSet`](src/query/executor/result_set.rs): An iterator-based interface for consuming query results.
 
 ## Testing
 
