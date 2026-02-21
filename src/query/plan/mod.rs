@@ -27,12 +27,8 @@ pub(crate) enum LogicalPlan {
     Join {
         /// The left-hand plan.
         left: Box<LogicalPlan>,
-        /// The optional name/alias for the left-hand plan.
-        left_name: Option<String>,
         /// The right-hand plan.
         right: Box<LogicalPlan>,
-        /// The optional name/alias for the right-hand plan.
-        right_name: Option<String>,
         /// The optional ON condition over joined rows.
         on: Option<Predicate>,
     },
@@ -90,7 +86,7 @@ impl LogicalPlanner {
                 limit,
                 order_by,
             } => {
-                let (base_plan, _) = Self::plan_for_source(source)?;
+                let base_plan = Self::plan_for_source(source)?;
                 let base_plan = Self::plan_for_filter(where_clause, base_plan)?;
                 let base_plan = Self::plan_for_projection(projection, base_plan);
                 let base_plan = Self::plan_for_sort(order_by, base_plan);
@@ -101,37 +97,28 @@ impl LogicalPlanner {
 
     fn plan_for_source(
         source: crate::query::parser::ast::TableSource,
-    ) -> Result<(LogicalPlan, Option<String>), PlanningError> {
+    ) -> Result<LogicalPlan, PlanningError> {
         match source {
             crate::query::parser::ast::TableSource::Table { name, alias } => {
-                let plan_name = alias.clone().unwrap_or_else(|| name.clone());
-                Ok((
-                    LogicalPlan::Scan {
-                        table_name: name,
-                        alias,
-                    },
-                    Some(plan_name),
-                ))
+                Ok(LogicalPlan::Scan {
+                    table_name: name,
+                    alias,
+                })
             }
             crate::query::parser::ast::TableSource::Join { left, right, on } => {
-                let (left_plan, left_name) = Self::plan_for_source(*left)?;
-                let (right_plan, right_name) = Self::plan_for_source(*right)?;
+                let left_plan = Self::plan_for_source(*left)?;
+                let right_plan = Self::plan_for_source(*right)?;
 
                 let on_predicate = match on {
                     Some(expression) => Some(Predicate::try_from(expression)?),
                     None => None,
                 };
 
-                Ok((
-                    LogicalPlan::Join {
-                        left: left_plan.boxed(),
-                        left_name,
-                        right: right_plan.boxed(),
-                        right_name,
-                        on: on_predicate,
-                    },
-                    None,
-                ))
+                Ok(LogicalPlan::Join {
+                    left: left_plan.boxed(),
+                    right: right_plan.boxed(),
+                    on: on_predicate,
+                })
             }
         }
     }
@@ -542,11 +529,9 @@ mod tests {
 
         assert!(matches!(
             logical_plan,
-            LogicalPlan::Join { left, left_name, right, right_name, on }
+            LogicalPlan::Join { left, right, on }
             if matches!(left.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees")
-            && left_name.as_deref() == Some("employees")
             && matches!(right.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "departments")
-            && right_name.as_deref() == Some("departments")
             && matches!(
                 on.as_ref().unwrap(),
                 Predicate::Single(predicate::LogicalClause::Comparison { lhs, operator, rhs })
@@ -594,24 +579,18 @@ mod tests {
             logical_plan,
             LogicalPlan::Join {
                 left: left_outer,
-                left_name: left_outer_name,
                 right: right_outer,
-                right_name: right_outer_name,
                 on: on_outer
             }
             if matches!(
                 left_outer.as_ref(),
                 LogicalPlan::Join {
                     left: left_inner,
-                    left_name: left_inner_name,
                     right: right_inner,
-                    right_name: right_inner_name,
                     on: on_inner
                 }
                 if matches!(left_inner.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees")
-                && left_inner_name.as_deref() == Some("employees")
                 && matches!(right_inner.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "departments")
-                && right_inner_name.as_deref() == Some("departments")
                 && matches!(
                     on_inner.as_ref().unwrap(),
                     Predicate::Single(predicate::LogicalClause::Comparison { lhs, operator, rhs })
@@ -620,9 +599,7 @@ mod tests {
                     && matches!(rhs, Literal::ColumnReference(column_name) if column_name == "department_id")
                 )
             )
-            && left_outer_name.is_none()
             && matches!(right_outer.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "roles")
-            && right_outer_name.as_deref() == Some("roles")
             && matches!(
                 on_outer.as_ref().unwrap(),
                 Predicate::Single(predicate::LogicalClause::Comparison { lhs, operator, .. })
@@ -679,11 +656,9 @@ mod tests {
 
         assert!(matches!(
             logical_plan,
-            LogicalPlan::Join { left, left_name, right, right_name, .. }
+            LogicalPlan::Join { left, right, .. }
             if matches!(left.as_ref(), LogicalPlan::Scan { table_name, alias } if table_name == "employees" && alias.as_deref() == Some("e"))
-            && left_name.as_deref() == Some("e")
             && matches!(right.as_ref(), LogicalPlan::Scan { table_name, alias } if table_name == "departments" && alias.as_deref() == Some("d"))
-            && right_name.as_deref() == Some("d")
         ));
     }
 }

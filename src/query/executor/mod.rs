@@ -57,9 +57,7 @@ impl<'a> Executor<'a> {
                     table_scan, table, alias,
                 )))
             }
-            LogicalPlan::Join {
-                left, right, on, ..
-            } => {
+            LogicalPlan::Join { left, right, on } => {
                 let left_result_set = self.execute_select(*left)?;
                 let right_result_set = self.execute_select(*right)?;
                 Ok(Box::new(result_set::NestedLoopJoinResultSet::new(
@@ -535,9 +533,7 @@ mod tests {
         let query_result = executor
             .execute(LogicalPlan::Join {
                 left: LogicalPlan::scan("employees").boxed(),
-                left_name: Some("employees".to_string()),
                 right: LogicalPlan::scan("departments").boxed(),
-                right_name: Some("departments".to_string()),
                 on: None,
             })
             .unwrap();
@@ -574,13 +570,11 @@ mod tests {
                 alias: Some("e".to_string()),
             }
             .boxed(),
-            left_name: Some("e".to_string()),
             right: LogicalPlan::Scan {
                 table_name: "departments".to_string(),
                 alias: Some("d".to_string()),
             }
             .boxed(),
-            right_name: Some("d".to_string()),
             on: Some(Predicate::comparison(
                 Literal::ColumnReference("e.id".to_string()),
                 LogicalOperator::Eq,
@@ -590,13 +584,11 @@ mod tests {
 
         let outer_join = LogicalPlan::Join {
             left: inner_join.boxed(),
-            left_name: None,
             right: LogicalPlan::Scan {
                 table_name: "locations".to_string(),
                 alias: Some("l".to_string()),
             }
             .boxed(),
-            right_name: Some("l".to_string()),
             on: Some(Predicate::comparison(
                 Literal::ColumnReference("d.id".to_string()),
                 LogicalOperator::Eq,
@@ -625,13 +617,11 @@ mod tests {
                 alias: Some("emp1".to_string()),
             }
             .boxed(),
-            left_name: Some("emp1".to_string()),
             right: LogicalPlan::Scan {
                 table_name: "employees".to_string(),
                 alias: Some("emp2".to_string()),
             }
             .boxed(),
-            right_name: Some("emp2".to_string()),
             on: Some(Predicate::comparison(
                 Literal::ColumnReference("emp1.id".to_string()),
                 LogicalOperator::Eq,
