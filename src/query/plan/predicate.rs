@@ -118,6 +118,9 @@ impl TryFrom<Expression> for Predicate {
 
                 Ok(Predicate::Or(predicates))
             }
+            Expression::Grouped(_) => {
+                unimplemented!("Grouped expressions are not yet supported in the planner")
+            }
         }
     }
 }

@@ -215,11 +215,11 @@ impl Parser {
     }
 
     fn expect_and_expression(&mut self) -> Result<Expression, ParseError> {
-        let expr = Expression::single(self.expect_clause()?);
+        let expr = self.expect_primary_expression()?;
         let mut expressions = vec![expr];
 
         while self.eat_if(|token| token.is_keyword("and")) {
-            expressions.push(Expression::single(self.expect_clause()?));
+            expressions.push(self.expect_primary_expression()?);
         }
 
         if expressions.len() > 1 {
@@ -227,6 +227,25 @@ impl Parser {
         } else {
             // SAFETY: `expressions` is guaranteed to have at least one element
             Ok(expressions.into_iter().next().unwrap())
+        }
+    }
+
+    fn expect_primary_expression(&mut self) -> Result<Expression, ParseError> {
+        if self.eat_if(|token| token.is_left_parentheses()) {
+            let expr = self.expect_expression()?;
+            if !self.eat_if(|token| token.is_right_parentheses()) {
+                return Err(ParseError::UnexpectedToken {
+                    expected: ")".to_string(),
+                    found: self
+                        .cursor
+                        .peek()
+                        .map(|token| token.lexeme().to_string())
+                        .unwrap_or_else(|| "EOF".to_string()),
+                });
+            }
+            Ok(Expression::grouped(expr))
+        } else {
+            Ok(Expression::single(self.expect_clause()?))
         }
     }
 
@@ -2173,6 +2192,122 @@ mod select_with_alias_tests {
                 if matches!(left.as_ref(), TableSource::Table { name, alias } if name == "employees" && alias.as_deref() == Some("e"))
                 && matches!(right.as_ref(), TableSource::Table { name, alias } if name == "departments" && alias.is_none())
             )
+        ));
+    }
+}
+
+#[cfg(test)]
+mod parentheses_tests {
+    use super::*;
+    use crate::query::lexer::token::Token;
+    use crate::query::parser::ast::{Clause, Expression, Literal};
+
+    #[test]
+    fn parse_expression_with_parentheses() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::left_parentheses());
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("1", TokenType::WholeNumber));
+        stream.add(Token::right_parentheses());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let expr = parser.expect_expression().unwrap();
+
+        assert_eq!(
+            expr,
+            Expression::grouped(Expression::single(Clause::comparison(
+                Literal::ColumnReference("id".to_string()),
+                BinaryOperator::Eq,
+                Literal::Int(1)
+            )))
+        );
+    }
+
+    #[test]
+    fn parse_complex_expression_with_parentheses() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::left_parentheses());
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("1", TokenType::WholeNumber));
+        stream.add(Token::new("or", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("2", TokenType::WholeNumber));
+        stream.add(Token::right_parentheses());
+        stream.add(Token::new("and", TokenType::Keyword));
+        stream.add(Token::new("active", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("1", TokenType::WholeNumber));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let expr = parser.expect_expression().unwrap();
+
+        let expected = Expression::and(vec![
+            Expression::grouped(Expression::or(vec![
+                Expression::single(Clause::comparison(
+                    Literal::ColumnReference("id".to_string()),
+                    BinaryOperator::Eq,
+                    Literal::Int(1),
+                )),
+                Expression::single(Clause::comparison(
+                    Literal::ColumnReference("id".to_string()),
+                    BinaryOperator::Eq,
+                    Literal::Int(2),
+                )),
+            ])),
+            Expression::single(Clause::comparison(
+                Literal::ColumnReference("active".to_string()),
+                BinaryOperator::Eq,
+                Literal::Int(1),
+            )),
+        ]);
+        assert_eq!(expr, expected);
+    }
+
+    #[test]
+    fn parse_nested_parentheses() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::left_parentheses());
+        stream.add(Token::left_parentheses());
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("1", TokenType::WholeNumber));
+        stream.add(Token::right_parentheses());
+        stream.add(Token::right_parentheses());
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let expr = parser.expect_expression().unwrap();
+
+        let expected =
+            Expression::grouped(Expression::grouped(Expression::single(Clause::comparison(
+                Literal::ColumnReference("id".to_string()),
+                BinaryOperator::Eq,
+                Literal::Int(1),
+            ))));
+        assert_eq!(expr, expected);
+    }
+
+    #[test]
+    fn parse_expression_with_unclosed_parentheses_error() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::left_parentheses());
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("1", TokenType::WholeNumber));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.expect_expression();
+
+        assert!(matches!(
+            result,
+            Err(ParseError::UnexpectedToken { ref expected, ref found })
+            if expected == ")" && found == ""
         ));
     }
 }

@@ -68,6 +68,7 @@ pub(crate) enum Expression {
     Single(Clause),
     And(Vec<Expression>),
     Or(Vec<Expression>),
+    Grouped(Box<Expression>),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -104,6 +105,11 @@ impl Expression {
     /// Creates a new `Expression::Or` variant.
     pub fn or(expressions: Vec<Expression>) -> Self {
         Expression::Or(expressions)
+    }
+
+    /// Creates a new `Expression::Grouped` variant.
+    pub fn grouped(expression: Expression) -> Self {
+        Expression::Grouped(Box::new(expression))
     }
 }
 
