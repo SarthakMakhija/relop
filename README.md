@@ -134,7 +134,10 @@ cargo test
 
 ### Filtering (`WHERE`)
 *   **Comparison**: `=`, `!=`, `>`, `>=`, `<`, `<=`
-*   **Logical**: `cond1 AND cond2` (Multi-condition support)
+*   **Logical**: `AND`, `OR`
+    *   `cond1 AND cond2` (Multi-condition support)
+    *   `cond1 OR cond2`
+    *   **Precedence**: `AND` binds tighter than `OR` (`A OR B AND C` is `A OR (B AND C)`).
 *   **Pattern Matching**: `col LIKE <regular_expression>`
 
 ### Aggregation & Shaping
