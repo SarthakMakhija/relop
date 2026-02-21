@@ -850,7 +850,9 @@ mod tests {
     #[test]
     fn filter_result_set_with_error() {
         let schema = schema!["id" => ColumnType::Int].unwrap();
-        let result_set = Box::new(ErrorResultSet { schema: Arc::new(schema) });
+        let result_set = Box::new(ErrorResultSet {
+            schema: Arc::new(schema),
+        });
 
         let predicate = Predicate::comparison(
             Literal::ColumnReference("id".to_string()),
@@ -1095,9 +1097,7 @@ mod tests {
         let table = Arc::new(Table::new("right", schema));
         let schema = table.schema();
 
-        let left = Box::new(ErrorResultSet {
-            schema
-        });
+        let left = Box::new(ErrorResultSet { schema });
         let right = Box::new(ScanResultsSet::new(
             TableScan::new(Arc::new(TableStore::new())),
             table,
@@ -1129,6 +1129,50 @@ mod tests {
         let right = Box::new(InitErrorResultSet { schema });
 
         let join = NestedLoopJoinResultSet::new(left, right, None);
+        let mut iterator = join.iterator().unwrap();
+
+        assert!(matches!(
+            iterator.next(),
+            Some(Err(ExecutionError::TypeMismatchInComparison))
+        ));
+    }
+
+    #[test]
+    fn join_result_set_with_error_in_predicate() {
+        let employees_table = Arc::new(Table::new(
+            "employees",
+            schema!["id" => ColumnType::Int].unwrap(),
+        ));
+        let employees_store = Arc::new(TableStore::new());
+        employees_store.insert(row![1]);
+
+        let left = Box::new(ScanResultsSet::new(
+            TableScan::new(employees_store.clone()),
+            employees_table.clone(),
+            None,
+        ));
+
+        let departments_table = Arc::new(Table::new(
+            "departments",
+            schema!["id" => ColumnType::Int].unwrap(),
+        ));
+        let departments_store = Arc::new(TableStore::new());
+        departments_store.insert(row![1]);
+
+        let right = Box::new(ScanResultsSet::new(
+            TableScan::new(departments_store),
+            departments_table.clone(),
+            None,
+        ));
+
+        // Predicate that will error out on comparison
+        let on = Predicate::comparison(
+            Literal::ColumnReference("employees.id".to_string()),
+            LogicalOperator::Eq,
+            Literal::Text("error".to_string()),
+        );
+
+        let join = NestedLoopJoinResultSet::new(left, right, Some(on));
         let mut iterator = join.iterator().unwrap();
 
         assert!(matches!(
