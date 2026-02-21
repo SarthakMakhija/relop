@@ -2310,4 +2310,27 @@ mod parentheses_tests {
             if expected == ")" && found.is_empty()
         ));
     }
+
+    #[test]
+    fn parse_unclosed_parentheses_in_complex_expression() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::left_parentheses());
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("1", TokenType::WholeNumber));
+        stream.add(Token::new("or", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::equal());
+        stream.add(Token::new("2", TokenType::WholeNumber));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.expect_expression();
+
+        assert!(matches!(
+            result,
+            Err(ParseError::UnexpectedToken { ref expected, ref found })
+            if expected == ")" && found.is_empty()
+        ));
+    }
 }
