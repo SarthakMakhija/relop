@@ -1155,6 +1155,66 @@ mod tests {
     }
 
     #[test]
+    fn join_result_set_with_error_in_right_iterator_next() {
+        let left_schema = schema!["id" => ColumnType::Int].unwrap();
+        let left_store = TableStore::new();
+        left_store.insert(row![1]);
+        let left = Box::new(ScanResultsSet::new(
+            TableScan::new(Arc::new(left_store)),
+            Arc::new(Table::new("left", left_schema)),
+            None,
+        ));
+
+        let right_schema = Arc::new(schema!["id" => ColumnType::Int].unwrap());
+        let right = Box::new(ErrorResultSet {
+            schema: right_schema,
+        });
+
+        let join = NestedLoopJoinResultSet::new(left, right, None);
+        let mut iterator = join.iterator().unwrap();
+
+        // Right iterator.next() returns Err
+        let result = iterator.next().unwrap();
+        assert!(matches!(
+            result,
+            Err(ExecutionError::TypeMismatchInComparison)
+        ));
+    }
+
+    #[test]
+    fn join_result_set_with_error_in_right_iterator_reset() {
+        let left_schema = schema!["id" => ColumnType::Int].unwrap();
+        let left_store = TableStore::new();
+        left_store.insert_all(rows![[1], [2]]);
+        let left = Box::new(ScanResultsSet::new(
+            TableScan::new(Arc::new(left_store)),
+            Arc::new(Table::new("left", left_schema)),
+            None,
+        ));
+
+        let right_schema = Arc::new(schema!["id" => ColumnType::Int].unwrap());
+        let right_positions = (0..right_schema.column_count()).collect();
+        let right = Box::new(JoinResetErrorResultSet {
+            schema: right_schema,
+            visible_positions: Arc::new(right_positions),
+            call_count: std::sync::atomic::AtomicUsize::new(0),
+        });
+
+        // Cross join (no predicate)
+        let join = NestedLoopJoinResultSet::new(left, right, None);
+        let mut iterator = join.iterator().unwrap();
+
+        let first = iterator.next().unwrap();
+        assert!(first.is_ok());
+
+        let second = iterator.next().unwrap();
+        assert!(matches!(
+            second,
+            Err(ExecutionError::TypeMismatchInComparison)
+        ));
+    }
+
+    #[test]
     fn join_result_set_with_error_in_right_iterator_initialization() {
         let schema = schema!["id" => ColumnType::Int].unwrap();
         let table = Arc::new(Table::new("left", schema));
@@ -1245,6 +1305,35 @@ mod tests {
     impl ResultSet for InitErrorResultSet {
         fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowViewResult> + '_>, ExecutionError> {
             Err(ExecutionError::TypeMismatchInComparison)
+        }
+
+        fn schema(&self) -> &Schema {
+            &self.schema
+        }
+    }
+
+    struct JoinResetErrorResultSet {
+        schema: Arc<Schema>,
+        visible_positions: Arc<Vec<usize>>,
+        call_count: std::sync::atomic::AtomicUsize,
+    }
+
+    impl ResultSet for JoinResetErrorResultSet {
+        fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowViewResult> + '_>, ExecutionError> {
+            let count = self
+                .call_count
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if count == 0 {
+                // First call succeeds with one row
+                Ok(Box::new(std::iter::once(Ok(RowView::new(
+                    row![1],
+                    &self.schema,
+                    &self.visible_positions,
+                )))))
+            } else {
+                // Subsequent calls fail
+                Err(ExecutionError::TypeMismatchInComparison)
+            }
         }
 
         fn schema(&self) -> &Schema {
