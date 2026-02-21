@@ -1169,6 +1169,96 @@ mod conjunction_tests {
 }
 
 #[cfg(test)]
+mod parentheses_tests {
+    use crate::catalog::Catalog;
+    use crate::client::Relop;
+    use crate::types::column_type::ColumnType;
+    use crate::{assert_next_row, assert_no_more_rows, rows, schema};
+
+    #[test]
+    fn execute_select_with_parentheses_1() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "name" => ColumnType::Text, "city" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+
+        relop
+            .insert_all_into(
+                "employees",
+                rows![
+                    [1, "Alice", "London"],
+                    [2, "Bob", "Paris"],
+                    [3, "Charlie", "London"]
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop
+            .execute("select * from employees where (name = 'Alice' or name = 'Bob') and city = 'London'")
+            .unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "id" => 1, "name" => "Alice");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_parentheses_2() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "name" => ColumnType::Text, "city" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+
+        relop
+            .insert_all_into(
+                "employees",
+                rows![
+                    [1, "Alice", "London"],
+                    [2, "Bob", "Paris"],
+                    [3, "Charlie", "London"]
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop
+            .execute("select * from employees where (name = 'Alice' or name = 'Bob') and (city = 'London' or city = 'Paris') order by id")
+            .unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "id" => 1, "name" => "Alice");
+        assert_next_row!(row_iterator.as_mut(), "id" => 2, "name" => "Bob");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_nested_parentheses() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table("employees", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+
+        relop.insert_all_into("employees", rows![[1]]).unwrap();
+
+        let query_result = relop
+            .execute("select * from employees where ((id = 1))")
+            .unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "id" => 1);
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+}
+
+#[cfg(test)]
 mod join_tests {
     use super::*;
     use crate::assert_no_more_rows;

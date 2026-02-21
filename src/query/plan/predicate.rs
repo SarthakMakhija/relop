@@ -118,9 +118,7 @@ impl TryFrom<Expression> for Predicate {
 
                 Ok(Predicate::Or(predicates))
             }
-            Expression::Grouped(_) => {
-                unimplemented!("Grouped expressions are not yet supported in the planner")
-            }
+            Expression::Grouped(expression) => Predicate::try_from(*expression),
         }
     }
 }
@@ -793,6 +791,43 @@ mod predicate_tests {
         );
 
         let predicate = Predicate::try_from(clause).unwrap();
+        assert!(matches!(
+            predicate,
+            Predicate::Single(LogicalClause::Comparison { ref lhs, ref operator, ref rhs })
+                if matches!(lhs, Literal::ColumnReference(ref name) if name == "age")
+                && *operator == LogicalOperator::Greater
+                && *rhs == Literal::Int(30)
+        ));
+    }
+
+    #[test]
+    fn predicate_from_grouped_expression() {
+        let expr = Expression::grouped(Expression::single(Clause::comparison(
+            Literal::ColumnReference("age".to_string()),
+            BinaryOperator::Greater,
+            Literal::Int(30),
+        )));
+
+        let predicate = Predicate::try_from(expr).unwrap();
+        assert!(matches!(
+            predicate,
+            Predicate::Single(LogicalClause::Comparison { ref lhs, ref operator, ref rhs })
+                if matches!(lhs, Literal::ColumnReference(ref name) if name == "age")
+                && *operator == LogicalOperator::Greater
+                && *rhs == Literal::Int(30)
+        ));
+    }
+
+    #[test]
+    fn predicate_from_nested_grouped_expression() {
+        let expr =
+            Expression::grouped(Expression::grouped(Expression::single(Clause::comparison(
+                Literal::ColumnReference("age".to_string()),
+                BinaryOperator::Greater,
+                Literal::Int(30),
+            ))));
+
+        let predicate = Predicate::try_from(expr).unwrap();
         assert!(matches!(
             predicate,
             Predicate::Single(LogicalClause::Comparison { ref lhs, ref operator, ref rhs })
