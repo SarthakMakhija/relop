@@ -75,7 +75,7 @@ For those looking to dive into the implementation, here is a guide to the key co
     *   [`TableStore`](src/storage/table_store.rs): The core storage mechanism for tables.
 *   📂 **Metadata & Catalog**:
     *   [`Catalog`](src/catalog/mod.rs): Manages table definitions, entries, and metadata.
-    *   [`Schema`](src/schema/mod.rs): Definitions for columns, types, and primary keys.
+    *   [`Schema`](src/schema/mod.rs): Definitions for columns and types.
 *   🔍 **Query Processing**:
     *   [`Lexer`](src/query/lexer/mod.rs): Tokenizes SQL queries into a stream of tokens.
     *   [`Parser`](src/query/parser/mod.rs): Converts tokens into an Abstract Syntax Tree (AST).
@@ -118,7 +118,6 @@ cargo test
   - [x] Insert rows via API
   - [x] Row lookup via IDs
   - [x] Sequential table scan
-  - [x] Primary key index
 
 ## Supported SQL
 
