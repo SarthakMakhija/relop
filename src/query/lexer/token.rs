@@ -25,6 +25,10 @@ pub(crate) enum TokenType {
     Star,
     /// A comma `,`, used for separating items in a list.
     Comma,
+    /// A left parentheses, `(`.
+    LeftParentheses,
+    /// A right parentheses, `)`.
+    RightParentheses,
     /// A whole number (e.g.; 100, 120)
     WholeNumber,
     /// A string literal (e.g.; 'relop')
@@ -104,6 +108,16 @@ impl Token {
         Token::new(",", TokenType::Comma)
     }
 
+    /// Creates a left parentheses token `(`.
+    pub(crate) fn left_parentheses() -> Token {
+        Token::new("(", TokenType::LeftParentheses)
+    }
+
+    /// Creates a right parentheses token `)`.
+    pub(crate) fn right_parentheses() -> Token {
+        Token::new(")", TokenType::RightParentheses)
+    }
+
     /// Returns the string representation of the token.
     pub(crate) fn lexeme(&self) -> &str {
         &self.lexeme
@@ -127,6 +141,16 @@ impl Token {
     /// Checks if the token is a comma `,`.
     pub(crate) fn is_comma(&self) -> bool {
         self.lexeme == "," && self.token_type == TokenType::Comma
+    }
+
+    /// Checks if the token is left parentheses `(`.
+    pub(crate) fn is_left_parentheses(&self) -> bool {
+        self.lexeme == "(" && self.token_type == TokenType::LeftParentheses
+    }
+
+    /// Checks if the token is right parentheses `)`.
+    pub(crate) fn is_right_parentheses(&self) -> bool {
+        self.lexeme == ")" && self.token_type == TokenType::RightParentheses
     }
 
     /// Checks if the token represents the end of the stream.
@@ -261,6 +285,20 @@ mod token_tests {
     }
 
     #[test]
+    fn left_parentheses_token() {
+        let token = Token::left_parentheses();
+        assert_eq!("(", token.lexeme());
+        assert_eq!(TokenType::LeftParentheses, token.token_type());
+    }
+
+    #[test]
+    fn right_parentheses_token() {
+        let token = Token::right_parentheses();
+        assert_eq!(")", token.lexeme());
+        assert_eq!(TokenType::RightParentheses, token.token_type());
+    }
+
+    #[test]
     fn equal_token() {
         let token = Token::equal();
         assert_eq!("=", token.lexeme());
@@ -387,6 +425,30 @@ mod token_tests {
     fn is_not_a_comma_token() {
         let token = Token::new("select", TokenType::Keyword);
         assert!(!token.is_comma());
+    }
+
+    #[test]
+    fn is_left_parentheses_token() {
+        let token = Token::new("(", TokenType::LeftParentheses);
+        assert!(token.is_left_parentheses());
+    }
+
+    #[test]
+    fn is_not_left_parentheses_token() {
+        let token = Token::new("select", TokenType::Keyword);
+        assert!(!token.is_left_parentheses());
+    }
+
+    #[test]
+    fn is_right_parentheses_token() {
+        let token = Token::new(")", TokenType::RightParentheses);
+        assert!(token.is_right_parentheses());
+    }
+
+    #[test]
+    fn is_not_right_parentheses_token() {
+        let token = Token::new("select", TokenType::Keyword);
+        assert!(!token.is_right_parentheses());
     }
 
     #[test]

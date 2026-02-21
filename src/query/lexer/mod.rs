@@ -58,6 +58,8 @@ impl Lexer {
                 ';' => self.capture_token(&mut stream, Token::semicolon()),
                 '*' => self.capture_token(&mut stream, Token::star()),
                 ',' => self.capture_token(&mut stream, Token::comma()),
+                '(' => self.capture_token(&mut stream, Token::left_parentheses()),
+                ')' => self.capture_token(&mut stream, Token::right_parentheses()),
                 '\'' => stream.add(self.string()?),
                 '=' => self.capture_token(&mut stream, Token::equal()),
                 '>' | '<' | '!' => stream.add(self.comparison_operator()?),
@@ -583,6 +585,26 @@ mod tests {
                 (TokenType::Identifier, "employees"),
                 (TokenType::Keyword, "limit"),
                 (TokenType::WholeNumber, "10"),
+                (TokenType::EndOfStream, ""),
+            ]
+        )
+    }
+
+    #[test]
+    fn lex_select_with_parentheses() {
+        assert_lex!(
+            "SELECT * FROM employees where (name like 'rel%')",
+            [
+                (TokenType::Keyword, "SELECT"),
+                (TokenType::Star, "*"),
+                (TokenType::Keyword, "FROM"),
+                (TokenType::Identifier, "employees"),
+                (TokenType::Keyword, "where"),
+                (TokenType::LeftParentheses, "("),
+                (TokenType::Identifier, "name"),
+                (TokenType::Keyword, "like"),
+                (TokenType::StringLiteral, "rel%"),
+                (TokenType::RightParentheses, ")"),
                 (TokenType::EndOfStream, ""),
             ]
         )
