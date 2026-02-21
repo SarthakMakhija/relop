@@ -830,6 +830,25 @@ mod tests {
     }
 
     #[test]
+    fn filter_result_set_with_error() {
+        let schema = schema!["id" => ColumnType::Int].unwrap();
+        let result_set = Box::new(ErrorResultSet { schema });
+
+        let predicate = Predicate::comparison(
+            Literal::ColumnReference("id".to_string()),
+            LogicalOperator::Eq,
+            Literal::Int(1),
+        );
+        let filter_result_set = FilterResultSet::new(result_set, predicate);
+        let mut iterator = filter_result_set.iterator().unwrap();
+
+        assert!(matches!(
+            iterator.next(),
+            Some(Err(ExecutionError::TypeMismatchInComparison))
+        ));
+    }
+
+    #[test]
     fn schema() {
         let table = Table::new(
             "employees",
@@ -1050,5 +1069,21 @@ mod tests {
         assert_next_row!(iterator.as_mut(), "emp1.id" => 101, "emp2.id" => 101);
         assert_next_row!(iterator.as_mut(), "emp1.id" => 102, "emp2.id" => 102);
         assert_no_more_rows!(iterator.as_mut());
+    }
+
+    struct ErrorResultSet {
+        schema: Schema,
+    }
+
+    impl ResultSet for ErrorResultSet {
+        fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowViewResult> + '_>, ExecutionError> {
+            Ok(Box::new(std::iter::once(Err(
+                ExecutionError::TypeMismatchInComparison,
+            ))))
+        }
+
+        fn schema(&self) -> &Schema {
+            &self.schema
+        }
     }
 }
