@@ -151,7 +151,6 @@ mod tests {
     use crate::rows;
     use crate::schema;
     use crate::schema::error::SchemaError;
-    use crate::test_utils::create_schema_with_primary_key;
     use crate::types::column_type::ColumnType;
 
     #[test]
@@ -160,31 +159,6 @@ mod tests {
         let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
 
         assert!(result.is_ok());
-    }
-
-    #[test]
-    fn create_table_without_a_primary_key_index() {
-        let catalog = Catalog::new();
-        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
-
-        assert!(result.is_ok());
-
-        let table_entry = catalog.table_entry("employees").unwrap();
-        assert!(!table_entry.has_primary_key_index());
-    }
-
-    #[test]
-    fn create_table_with_a_primary_key_index() {
-        let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
-        );
-
-        assert!(result.is_ok());
-
-        let table_entry = catalog.table_entry("employees").unwrap();
-        assert!(table_entry.has_primary_key_index());
     }
 
     #[test]
@@ -234,19 +208,6 @@ mod tests {
 
         let table = catalog.describe_table("employees").unwrap();
         assert_eq!(vec!["id"], table.column_names());
-    }
-
-    #[test]
-    fn describe_table_with_primary_key_column_names() {
-        let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
-        );
-        assert!(result.is_ok());
-
-        let table = catalog.describe_table("employees").unwrap();
-        assert_eq!(vec!["id"], table.primary_key_column_names().unwrap());
     }
 
     #[test]
@@ -447,39 +408,5 @@ mod tests {
         assert!(
             matches!(result, Err(CatalogError::TableDoesNotExist(ref table_name)) if table_name == "employees")
         );
-    }
-}
-
-#[cfg(test)]
-mod table_insert_and_index_tests {
-    use crate::catalog::Catalog;
-    use crate::row;
-    use crate::schema::primary_key::PrimaryKey;
-    use crate::storage::primary_key_column_values::PrimaryKeyColumnValues;
-    use crate::test_utils::create_schema_with_primary_key;
-    use crate::types::column_type::ColumnType;
-
-    #[test]
-    fn insert_into_table_with_primary_key() {
-        let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
-        );
-        assert!(result.is_ok());
-
-        catalog.insert_into("employees", row![1]).unwrap();
-
-        let row = row![1];
-        let schema = create_schema_with_primary_key(&[("id", ColumnType::Int)], "id");
-
-        let primary_key = PrimaryKey::single("id");
-        let primary_key_column_values = PrimaryKeyColumnValues::new(&row, &primary_key, &schema);
-
-        let table_entry = catalog.table_entry("employees").unwrap();
-        let primary_key_index = table_entry.primary_key_index().unwrap();
-        let row_id = primary_key_index.get(&primary_key_column_values);
-
-        assert!(row_id.is_some());
     }
 }

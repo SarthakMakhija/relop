@@ -12,16 +12,8 @@ use crate::types::column_type::ColumnType;
 /// ```
 #[derive(Debug, PartialEq)]
 pub enum SchemaError {
-    /// A primary key column name is duplicated.
-    DuplicatePrimaryKeyColumnName(String),
     /// A column name is duplicated in the table definition.
     DuplicateColumnName(String),
-    /// The specified primary key column was not found in the table columns.
-    PrimaryKeyColumnNotFound(String),
-    /// A primary key has already been defined for this table.
-    PrimaryKeyAlreadyDefined,
-    /// No columns specified for the primary key.
-    EmptyPrimaryKeyColumns,
     /// The number of columns does not match the expected count.
     ColumnCountMismatch {
         /// The expected number of columns.

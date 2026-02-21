@@ -1,17 +1,14 @@
 pub mod column;
 pub mod error;
-pub mod primary_key;
 
 use crate::schema::column::Column;
 use crate::schema::error::SchemaError;
-use crate::schema::primary_key::PrimaryKey;
 use crate::types::column_type::ColumnType;
 use crate::types::column_value::ColumnValue;
 
-/// Represents the schema of a table, defining its columns and optional primary key.
+/// Represents the schema of a table, defining its columns.
 pub struct Schema {
     columns: Vec<Column>,
-    primary_key: Option<PrimaryKey>,
 }
 
 impl Default for Schema {
@@ -33,7 +30,6 @@ impl Schema {
     pub fn new() -> Self {
         Self {
             columns: Vec::new(),
-            primary_key: None,
         }
     }
 
@@ -55,29 +51,6 @@ impl Schema {
         self.ensure_column_not_already_defined(name)?;
 
         self.columns.push(Column::new(name, column_type));
-        Ok(self)
-    }
-
-    /// Adds a primary key to the schema.
-    ///
-    /// Returns an error if a primary key is already defined, or if the primary key columns do not exist.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use relop::schema::Schema;
-    /// use relop::schema::primary_key::PrimaryKey;
-    /// use relop::types::column_type::ColumnType;
-    ///
-    /// let schema = Schema::new()
-    ///     .add_column("id", ColumnType::Int).unwrap()
-    ///     .add_primary_key(PrimaryKey::single("id")).unwrap();
-    /// ```
-    pub fn add_primary_key(mut self, primary_key: PrimaryKey) -> Result<Self, SchemaError> {
-        self.ensure_primary_key_not_already_defined()?;
-        self.ensure_primary_key_columns_exist(&primary_key)?;
-
-        self.primary_key = Some(primary_key);
         Ok(self)
     }
 
@@ -142,25 +115,6 @@ impl Schema {
         self.columns.len()
     }
 
-    /// Checks if the schema has a primary key defined.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use relop::schema::Schema;
-    /// use relop::schema::primary_key::PrimaryKey;
-    /// use relop::types::column_type::ColumnType;
-    ///
-    /// let schema = Schema::new().add_column("id", ColumnType::Int).unwrap();
-    /// assert!(!schema.has_primary_key());
-    ///
-    /// let schema = schema.add_primary_key(PrimaryKey::single("id")).unwrap();
-    /// assert!(schema.has_primary_key());
-    /// ```
-    pub fn has_primary_key(&self) -> bool {
-        self.primary_key.is_some()
-    }
-
     /// Returns a reference to the primary key, if one is defined.
     /// Returns a slice of all columns defined in the schema.
     pub(crate) fn columns(&self) -> &[Column] {
@@ -182,7 +136,6 @@ impl Schema {
 
         Self {
             columns: merged_columns,
-            primary_key: None,
         }
     }
 
@@ -190,15 +143,7 @@ impl Schema {
     pub(crate) fn with_prefix(&self, prefix: &str) -> Self {
         let mut columns = Vec::with_capacity(self.columns.len());
         Self::merge_column_name_with_prefix(Some(prefix), &self.columns, &mut columns);
-        Self {
-            columns,
-            primary_key: self.primary_key.clone(),
-        }
-    }
-
-    /// Returns the primary key, if present.
-    pub(crate) fn primary_key(&self) -> Option<&PrimaryKey> {
-        self.primary_key.as_ref()
+        Self { columns }
     }
 
     /// Checks if the provided values are compatible with the schema's column types.
@@ -231,27 +176,6 @@ impl Schema {
     fn ensure_column_not_already_defined(&self, name: &str) -> Result<(), SchemaError> {
         if self.has_column(name) {
             return Err(SchemaError::DuplicateColumnName(name.to_string()));
-        }
-        Ok(())
-    }
-
-    fn ensure_primary_key_not_already_defined(&self) -> Result<(), SchemaError> {
-        if self.primary_key.is_some() {
-            return Err(SchemaError::PrimaryKeyAlreadyDefined);
-        }
-        Ok(())
-    }
-
-    fn ensure_primary_key_columns_exist(
-        &self,
-        primary_key: &PrimaryKey,
-    ) -> Result<(), SchemaError> {
-        for primary_key_column_name in primary_key.column_names() {
-            if !self.has_column(primary_key_column_name) {
-                return Err(SchemaError::PrimaryKeyColumnNotFound(
-                    primary_key_column_name.to_string(),
-                ));
-            }
         }
         Ok(())
     }
@@ -300,13 +224,6 @@ impl Schema {
     pub(crate) fn column_names(&self) -> Vec<&str> {
         self.columns.iter().map(|column| column.name()).collect()
     }
-
-    pub(crate) fn primary_key_column_names(&self) -> Option<&[String]> {
-        if self.has_primary_key() {
-            return Some(self.primary_key.as_ref().unwrap().column_names());
-        }
-        None
-    }
 }
 
 #[cfg(test)]
@@ -352,53 +269,6 @@ mod tests {
         let column = schema.get_column(1);
 
         assert!(column.is_none());
-    }
-
-    #[test]
-    fn add_primary_key_to_schema() {
-        let mut schema = Schema::new();
-        schema = schema.add_column("id", ColumnType::Int).unwrap();
-
-        schema = schema.add_primary_key(PrimaryKey::single("id")).unwrap();
-        assert!(schema.primary_key.is_some());
-    }
-
-    #[test]
-    fn has_primary_key() {
-        let mut schema = Schema::new();
-        schema = schema.add_column("id", ColumnType::Int).unwrap();
-
-        schema = schema.add_primary_key(PrimaryKey::single("id")).unwrap();
-        assert!(schema.has_primary_key());
-    }
-
-    #[test]
-    fn does_not_have_primary_key() {
-        let mut schema = Schema::new();
-        schema = schema.add_column("id", ColumnType::Int).unwrap();
-
-        assert!(!schema.has_primary_key());
-    }
-
-    #[test]
-    fn attempt_to_add_primary_key_to_schema_which_already_has_a_primary_key() {
-        let mut schema = Schema::new();
-        schema = schema.add_column("id", ColumnType::Int).unwrap();
-        schema = schema.add_primary_key(PrimaryKey::single("id")).unwrap();
-
-        let result = schema.add_primary_key(PrimaryKey::single("id"));
-        assert!(matches!(result, Err(SchemaError::PrimaryKeyAlreadyDefined)))
-    }
-
-    #[test]
-    fn attempt_to_add_primary_key_to_schema_with_a_column_that_does_not_exist_in_schema() {
-        let schema = Schema::new();
-        let result = schema.add_primary_key(PrimaryKey::single("id"));
-
-        assert!(matches!(
-            result,
-            Err(SchemaError::PrimaryKeyColumnNotFound(ref column_name)) if column_name == "id"
-        ));
     }
 
     #[test]
@@ -478,26 +348,6 @@ mod tests {
     }
 
     #[test]
-    fn primary_key_column_names() {
-        let mut schema = Schema::new();
-        schema = schema
-            .add_column("id", ColumnType::Int)
-            .unwrap()
-            .add_primary_key(PrimaryKey::single("id"))
-            .unwrap();
-
-        assert_eq!(vec!["id"], schema.primary_key_column_names().unwrap());
-    }
-
-    #[test]
-    fn primary_key_column_names_given_no_primary_key() {
-        let mut schema = Schema::new();
-        schema = schema.add_column("id", ColumnType::Int).unwrap();
-
-        assert!(schema.primary_key_column_names().is_none());
-    }
-
-    #[test]
     fn columns_from_schema() {
         let mut schema = Schema::new();
         schema = schema
@@ -538,7 +388,6 @@ mod tests {
         assert_eq!("employees.name", columns[1].name());
         assert_eq!("departments.id", columns[2].name());
         assert_eq!("departments.name", columns[3].name());
-        assert!(merged_schema.primary_key().is_none());
     }
 
     #[test]
@@ -639,22 +488,12 @@ mod tests {
     }
 
     #[test]
-    fn column_position_not_found() {
-        let mut schema = Schema::new();
-        schema = schema.add_column("employees.id", ColumnType::Int).unwrap();
-
-        assert_eq!(schema.column_position("name").unwrap(), None);
-    }
-
-    #[test]
     fn schema_with_prefix() {
         let mut schema = Schema::new();
         schema = schema
             .add_column("id", ColumnType::Int)
             .unwrap()
             .add_column("name", ColumnType::Text)
-            .unwrap()
-            .add_primary_key(PrimaryKey::single("id"))
             .unwrap();
 
         let prefixed_schema = schema.with_prefix("e");
@@ -663,9 +502,5 @@ mod tests {
         let columns = prefixed_schema.columns();
         assert_eq!("e.id", columns[0].name());
         assert_eq!("e.name", columns[1].name());
-        assert_eq!(
-            Some(&PrimaryKey::single("id")),
-            prefixed_schema.primary_key()
-        );
     }
 }

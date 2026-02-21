@@ -16,6 +16,4 @@ pub enum InsertError {
     Catalog(CatalogError),
     /// Errors related to schema validation (e.g., type mismatch).
     Schema(SchemaError),
-    /// Indicates that the insertion would violate a primary key constraint.
-    DuplicatePrimaryKey,
 }

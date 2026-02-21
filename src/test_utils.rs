@@ -1,26 +1,8 @@
 use crate::catalog::Catalog;
 use crate::query::executor::error::ExecutionError;
-use crate::schema::primary_key::PrimaryKey;
-use crate::schema::Schema;
 use crate::storage::row::Row;
 use crate::storage::row_view::RowView;
-use crate::types::column_type::ColumnType;
 use crate::types::column_value::ColumnValue;
-
-/// Creates a new `Schema` with the given columns and primary key.
-/// # Arguments
-///
-/// * `columns` - A slice of tuples, where each tuple contains the column name and type.
-/// * `primary_key` - Primary key column name.
-pub fn create_schema_with_primary_key(columns: &[(&str, ColumnType)], primary_key: &str) -> Schema {
-    let mut schema = Schema::new();
-    for (name, col_type) in columns {
-        schema = schema.add_column(name, col_type.clone()).unwrap();
-    }
-    schema
-        .add_primary_key(PrimaryKey::single(primary_key))
-        .unwrap()
-}
 
 /// Inserts a single row into the specified table, unwrapping the result.
 pub fn insert_row(catalog: &Catalog, table_name: &str, row: Row) {

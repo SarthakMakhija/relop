@@ -111,7 +111,7 @@ mod tests {
     use crate::catalog::error::CatalogError;
     use crate::query::parser::ast::Literal;
     use crate::query::plan::predicate::{LogicalOperator, Predicate};
-    use crate::test_utils::{create_schema_with_primary_key, insert_row, insert_rows};
+    use crate::test_utils::{insert_row, insert_rows};
     use crate::types::column_type::ColumnType;
     use crate::{asc, assert_next_row, assert_no_more_rows, desc, row, rows, schema};
 
@@ -147,29 +147,6 @@ mod tests {
 
         assert_eq!("employees", table.name());
         assert_eq!(vec!["id"], table.column_names());
-        assert!(table.primary_key_column_names().is_none())
-    }
-
-    #[test]
-    fn execute_describe_table_with_primary_key() {
-        let catalog = Catalog::new();
-        let result = catalog.create_table(
-            "employees",
-            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
-        );
-        assert!(result.is_ok());
-
-        let executor = Executor::new(&catalog);
-        let query_result = executor
-            .execute(LogicalPlan::describe_table("employees"))
-            .unwrap();
-
-        assert!(query_result.table_descriptor().is_some());
-        let table = query_result.table_descriptor().unwrap();
-
-        assert_eq!("employees", table.name());
-        assert_eq!(vec!["id"], table.column_names());
-        assert_eq!(vec!["id"], table.primary_key_column_names().unwrap());
     }
 
     #[test]

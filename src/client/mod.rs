@@ -82,24 +82,6 @@ impl Relop {
     ///
     /// relop.create_table("employees", schema).unwrap();
     /// ```
-    ///
-    /// Creating a table with a primary key:
-    ///
-    /// ```
-    /// use relop::catalog::Catalog;
-    /// use relop::client::Relop;
-    /// use relop::schema::{Schema, primary_key::PrimaryKey};
-    /// use relop::types::column_type::ColumnType;
-    ///
-    /// let relop = Relop::new(Catalog::new());
-    /// let schema = Schema::new()
-    ///     .add_column("id", ColumnType::Int)
-    ///     .unwrap()
-    ///     .add_primary_key(PrimaryKey::single("id"))
-    ///     .unwrap();
-    ///
-    /// relop.create_table("employees", schema).unwrap();
-    /// ```
     pub fn create_table<N: Into<String>>(
         &self,
         table_name: N,
@@ -129,7 +111,6 @@ impl Relop {
     /// - The table doesn't exist (wrapped in [`ClientError::Insert`])
     /// - The row's column count doesn't match the table schema (wrapped in [`ClientError::Insert`])
     /// - The row's column types don't match the table schema (wrapped in [`ClientError::Insert`])
-    /// - The row violates a primary key constraint (duplicate primary key, wrapped in [`ClientError::Insert`])
     ///
     /// # Examples
     ///
@@ -177,7 +158,6 @@ impl Relop {
     /// - The table doesn't exist (wrapped in [`ClientError::Insert`])
     /// - Any row's column count doesn't match the table schema (wrapped in [`ClientError::Insert`])
     /// - Any row's column types don't match the table schema (wrapped in [`ClientError::Insert`])
-    /// - There are duplicate primary keys within the batch (wrapped in [`ClientError::Insert`])
     ///
     /// # Examples
     ///
@@ -335,13 +315,13 @@ impl Relop {
 mod tests {
     use super::*;
     use crate::assert_no_more_rows;
-    use crate::catalog::error::{CatalogError, InsertError};
+    use crate::catalog::error::CatalogError;
     use crate::query::executor::error::ExecutionError;
     use crate::query::lexer::error::LexError;
     use crate::query::parser::error::ParseError;
     use crate::row;
     use crate::rows;
-    use crate::test_utils::{create_schema_with_primary_key, insert_rows};
+    use crate::test_utils::insert_rows;
     use crate::types::column_type::ColumnType;
     use crate::{assert_next_row, schema};
 
@@ -378,29 +358,6 @@ mod tests {
         let expected_row = row![1];
 
         assert_eq!(expected_row, row);
-    }
-
-    #[test]
-    fn attempt_to_insert_duplicate_primary_key() {
-        let relop = Relop::new(Catalog::new());
-        let result = relop.create_table(
-            "employees",
-            create_schema_with_primary_key(&[("id", ColumnType::Int)], "id"),
-        );
-        assert!(result.is_ok());
-
-        let row_id = relop.insert_into("employees", row![1]).unwrap();
-
-        let row = relop.catalog.get("employees", row_id).unwrap().unwrap();
-        let expected_row = row![1];
-        assert_eq!(expected_row, row);
-
-        let result = relop.insert_into("employees", row![1]);
-
-        assert!(matches!(
-            result,
-            Err(ClientError::Insert(InsertError::DuplicatePrimaryKey))
-        ));
     }
 
     #[test]
@@ -458,7 +415,6 @@ mod tests {
 
         assert_eq!("employees", table.name());
         assert_eq!(vec!["id"], table.column_names());
-        assert!(table.primary_key_column_names().is_none())
     }
 
     #[test]
