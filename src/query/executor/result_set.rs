@@ -869,6 +869,30 @@ mod tests {
     }
 
     #[test]
+    fn filter_result_set_with_predicate_error() {
+        let schema = schema!["id" => ColumnType::Int].unwrap();
+        let table = Table::new("employees", schema);
+        let table_store = TableStore::new();
+        table_store.insert_all(rows![[1], [2]]);
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let scan_result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
+
+        // Predicate referring to a non-existent column "age"
+        let predicate = Predicate::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Eq,
+            Literal::Int(30),
+        );
+
+        let filter_result_set = FilterResultSet::new(scan_result_set, predicate);
+        let mut row_iterator = filter_result_set.iterator().unwrap();
+
+        let result = row_iterator.next().unwrap();
+        assert!(matches!(result, Err(ExecutionError::UnknownColumn(name)) if name == "age"));
+    }
+
+    #[test]
     fn schema() {
         let table = Table::new(
             "employees",
