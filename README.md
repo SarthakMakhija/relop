@@ -6,7 +6,7 @@
 
 **relop** is a minimal, in-memory implementation of **relational operators** built to explore **query processing** - from lexical analysis and parsing to logical planning and execution.
 
-The project intentionally focuses on a **small subset of SQL SELECT** and operates over **pre-loaded in-memory relations**, avoiding database concerns such as storage, persistence, transactions, or optimization.
+The project intentionally focuses on a **small subset of SQL SELECT** and operates over **preloaded in-memory relations**, avoiding database concerns such as storage, persistence, transactions, or optimization.
 
 **relop** is a learning-focused project inspired by relational algebra and database internals, not a production-ready query engine.
 
@@ -116,7 +116,6 @@ cargo test
   - [x] Tables with schemas
   - [x] Rows stored in memory (`SkipMap` based)
   - [x] Insert rows via API
-  - [x] Row lookup via IDs
   - [x] Sequential table scan
 
 ## Supported SQL
