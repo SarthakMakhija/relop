@@ -79,6 +79,7 @@ For those looking to dive into the implementation, here is a guide to the key co
 *   🔍 **Query Processing**:
     *   [`Lexer`](src/query/lexer/mod.rs): Tokenizes SQL queries into a stream of tokens.
     *   [`Parser`](src/query/parser/mod.rs): Converts tokens into an Abstract Syntax Tree (AST).
+    *   [`AST`](src/query/parser/ast.rs): Defines the structure of the SQL Abstract Syntax Tree.
     *   [`Logical Planner`](src/query/plan/mod.rs): Transforms the AST into a tree of logical operators.
     *   [`Executor`](src/query/executor/mod.rs): Traverses the logical plan and constructs a physical execution pipeline.
     *   [`ResultSet`](src/query/executor/result_set.rs): An iterator-based interface for consuming query results.
