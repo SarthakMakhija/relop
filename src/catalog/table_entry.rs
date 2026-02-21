@@ -4,40 +4,35 @@ use crate::catalog::table_scan::TableScan;
 use crate::storage::batch::Batch;
 use crate::storage::row::Row;
 use crate::storage::table_store::{RowId, TableStore};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// It holds a reference to the `Table` definition and the underlying `TableStore` for data storage.
 ///
-/// `TableEntry` is responsible for managing concurrent access to the table data, ensuring
+/// `TableEntry` is responsible for managing concurrent access to the table data (delegating to `TableStore`), ensuring
 /// thread safety during insertions.
 pub(crate) struct TableEntry {
     table: Arc<Table>,
     store: Arc<TableStore>,
-    insert_lock: Mutex<()>,
 }
 
 impl TableEntry {
     /// Creates a new `TableEntry` for the given `Table`.
     ///
-    /// This initializes the `TableStore` and, if the table has a primary key,
-    /// the `PrimaryKeyIndex`.
+    /// This also initializes the `TableStore`.
     pub(crate) fn new(table: Table) -> Arc<TableEntry> {
         Arc::new(Self {
             table: Arc::new(table),
             store: Arc::new(TableStore::new()),
-            insert_lock: Mutex::new(()),
         })
     }
 
     /// Inserts a single row into the table.
     pub(crate) fn insert(&self, row: Row) -> Result<RowId, InsertError> {
-        let _guard = self.insert_lock.lock().unwrap();
         Ok(self.store.insert(row))
     }
 
     /// Inserts a batch of rows into the table.
     pub(crate) fn insert_all(&self, batch: Batch) -> Result<Vec<RowId>, InsertError> {
-        let _guard = self.insert_lock.lock().unwrap();
         Ok(self.store.insert_all(batch.into_rows()))
     }
 
