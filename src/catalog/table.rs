@@ -31,8 +31,11 @@ impl Table {
 
 #[cfg(test)]
 impl Table {
-    /// Returns the column names.
     pub(crate) fn column_names(&self) -> Vec<&str> {
         self.schema.column_names()
+    }
+
+    pub(crate) fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
     }
 }

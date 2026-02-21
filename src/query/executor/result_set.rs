@@ -850,7 +850,7 @@ mod tests {
     #[test]
     fn filter_result_set_with_error() {
         let schema = schema!["id" => ColumnType::Int].unwrap();
-        let result_set = Box::new(ErrorResultSet { schema });
+        let result_set = Box::new(ErrorResultSet { schema: Arc::new(schema) });
 
         let predicate = Predicate::comparison(
             Literal::ColumnReference("id".to_string()),
@@ -1089,8 +1089,56 @@ mod tests {
         assert_no_more_rows!(iterator.as_mut());
     }
 
+    #[test]
+    fn join_result_set_with_error_in_left_iterator() {
+        let schema = schema!["id" => ColumnType::Int].unwrap();
+        let table = Arc::new(Table::new("right", schema));
+        let schema = table.schema();
+
+        let left = Box::new(ErrorResultSet {
+            schema
+        });
+        let right = Box::new(ScanResultsSet::new(
+            TableScan::new(Arc::new(TableStore::new())),
+            table,
+            None,
+        ));
+
+        let join = NestedLoopJoinResultSet::new(left, right, None);
+        let mut iterator = join.iterator().unwrap();
+
+        assert!(matches!(
+            iterator.next(),
+            Some(Err(ExecutionError::TypeMismatchInComparison))
+        ));
+    }
+
+    #[test]
+    fn join_result_set_with_error_in_right_iterator_initialization() {
+        let schema = schema!["id" => ColumnType::Int].unwrap();
+        let table = Arc::new(Table::new("left", schema));
+        let schema = table.schema();
+
+        let left_store = TableStore::new();
+        left_store.insert(row![1]);
+        let left = Box::new(ScanResultsSet::new(
+            TableScan::new(Arc::new(left_store)),
+            table,
+            None,
+        ));
+        let right = Box::new(InitErrorResultSet { schema });
+
+        let join = NestedLoopJoinResultSet::new(left, right, None);
+        let mut iterator = join.iterator().unwrap();
+
+        assert!(matches!(
+            iterator.next(),
+            Some(Err(ExecutionError::TypeMismatchInComparison))
+        ));
+    }
+
     struct ErrorResultSet {
-        schema: Schema,
+        schema: Arc<Schema>,
     }
 
     impl ResultSet for ErrorResultSet {
@@ -1098,6 +1146,20 @@ mod tests {
             Ok(Box::new(std::iter::once(Err(
                 ExecutionError::TypeMismatchInComparison,
             ))))
+        }
+
+        fn schema(&self) -> &Schema {
+            &self.schema
+        }
+    }
+
+    struct InitErrorResultSet {
+        schema: Arc<Schema>,
+    }
+
+    impl ResultSet for InitErrorResultSet {
+        fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowViewResult> + '_>, ExecutionError> {
+            Err(ExecutionError::TypeMismatchInComparison)
         }
 
         fn schema(&self) -> &Schema {
