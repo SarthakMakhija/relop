@@ -96,14 +96,14 @@ cargo test
 
 ## Goals Status
 
-- [ ] **Understand query processing**:
-  - [ ] <kbd>Evolving</kbd> Grammar
-  - [ ] <kbd>Evolving</kbd> Lexer
-  - [ ] <kbd>Evolving</kbd> Parser
-  - [ ] <kbd>Evolving</kbd> AST
-  - [ ] <kbd>Evolving</kbd> Logical plan
-  - [ ] <kbd>Evolving</kbd> Operator-based execution
-- [ ] **Implement core relational operators**:
+- [x] **Understand query processing**:
+  - [x] Grammar
+  - [x] Lexer
+  - [x] Parser
+  - [x] AST
+  - [x] Logical plan
+  - [x] Operator-based execution
+- [x] **Implement core relational operators**:
   - [x] Scan
   - [x] Filter
   - [x] Projection
@@ -114,15 +114,11 @@ cargo test
   - [x] Join
 - [x] **Build a minimal in-memory store**:
   - [x] Tables with schemas
-  - [x] Rows stored in memory (SkipMap based)
+  - [x] Rows stored in memory (`SkipMap` based)
   - [x] Insert rows via API
   - [x] Row lookup via IDs
   - [x] Sequential table scan
   - [x] Primary key index
-
-## Pending
-
-- **Complex Expressions**: Enable grouping conditions with parentheses `( ... )` to control precedence.
 
 ## Supported SQL
 
@@ -137,6 +133,7 @@ cargo test
 *   **Logical**: `AND`, `OR`
     *   `cond1 AND cond2` (Multi-condition support)
     *   `cond1 OR cond2`
+    *   **Grouping**: `( ... )` (Parentheses override operator precedence)
     *   **Precedence**: `AND` binds tighter than `OR` (`A OR B AND C` is `A OR (B AND C)`).
 *   **Pattern Matching**: `col LIKE <regular_expression>`
 
