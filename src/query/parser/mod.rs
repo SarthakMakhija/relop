@@ -2307,7 +2307,7 @@ mod parentheses_tests {
         assert!(matches!(
             result,
             Err(ParseError::UnexpectedToken { ref expected, ref found })
-            if expected == ")" && found == ""
+            if expected == ")" && found.is_empty()
         ));
     }
 }
