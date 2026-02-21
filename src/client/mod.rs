@@ -838,6 +838,60 @@ mod tests {
     }
 
     #[test]
+    fn execute_select_star_with_where_clause_or_match() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"]],
+        );
+
+        let query_result = relop
+            .execute("select * from employees where id = 1 or name = 'query' order by id")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "id" => 1, "name" => "relop");
+        assert_next_row!(row_iterator.as_mut(), "id" => 2, "name" => "query");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_star_with_where_clause_multiple_or_match() {
+        let relop = Relop::new(Catalog::new());
+        let result = relop.create_table(
+            "employees",
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+        );
+        assert!(result.is_ok());
+
+        insert_rows(
+            &relop.catalog,
+            "employees",
+            rows![[1, "relop"], [2, "query"], [3, "rust"]],
+        );
+
+        let query_result = relop
+            .execute("select * from employees where id = 1 or id = 3 or name = 'nonexistent' order by id")
+            .unwrap();
+
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "id" => 1, "name" => "relop");
+        assert_next_row!(row_iterator.as_mut(), "id" => 3, "name" => "rust");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
     fn execute_select_with_order_by_single_column_ascending() {
         let relop = Relop::new(Catalog::new());
         let result = relop.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
@@ -971,6 +1025,146 @@ mod tests {
 
         assert_next_row!(row_iterator.as_mut(), "emp.name" => "query");
         assert_no_more_rows!(row_iterator.as_mut());
+    }
+}
+
+#[cfg(test)]
+mod conjunction_tests {
+    use super::*;
+    use crate::rows;
+    use crate::types::column_type::ColumnType;
+    use crate::{assert_next_row, assert_no_more_rows, schema};
+
+    #[test]
+    fn execute_select_with_and_and_or() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "name" => ColumnType::Text, "city" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+
+        relop
+            .insert_all_into(
+                "employees",
+                rows![
+                    [1, "Alice", "London"],
+                    [2, "Bob", "Paris"],
+                    [3, "Charlie", "London"]
+                ],
+            )
+            .unwrap();
+
+        let query_result = relop
+            .execute("select * from employees where city = 'London' and id = 1 or city = 'Paris' order by id")
+            .unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "id" => 1, "name" => "Alice");
+        assert_next_row!(row_iterator.as_mut(), "id" => 2, "name" => "Bob");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_precedence_and_or_1() {
+        // A or B and C => A or (B and C)
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "name" => ColumnType::Text, "city" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+
+        relop
+            .insert_all_into(
+                "employees",
+                rows![
+                    [1, "Alice", "London"],
+                    [2, "Bob", "Paris"],
+                    [3, "Charlie", "London"]
+                ],
+            )
+            .unwrap();
+
+        // id = 1 or (name = 'Bob' and city = 'Paris')
+        let query_result = relop
+            .execute("select * from employees where id = 1 or name = 'Bob' and city = 'Paris' order by id")
+            .unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "id" => 1);
+        assert_next_row!(row_iterator.as_mut(), "id" => 2);
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_precedence_and_or_2() {
+        // A and B or C => (A and B) or C
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "name" => ColumnType::Text, "city" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+
+        relop
+            .insert_all_into(
+                "employees",
+                rows![
+                    [1, "Alice", "London"],
+                    [2, "Bob", "Paris"],
+                    [3, "Charlie", "London"]
+                ],
+            )
+            .unwrap();
+
+        // (id = 1 and city = 'London') or name = 'Bob'
+        let query_result = relop
+            .execute("select * from employees where id = 1 and city = 'London' or name = 'Bob' order by id")
+            .unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "id" => 1);
+        assert_next_row!(row_iterator.as_mut(), "id" => 2);
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_trailing_or_error() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table("employees", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+
+        let query_result = relop.execute("select * from employees where id = 1 or");
+        assert!(matches!(
+            query_result,
+            Err(ClientError::Parse(
+                crate::query::parser::error::ParseError::UnexpectedToken { .. }
+            ))
+        ));
+    }
+
+    #[test]
+    fn execute_select_with_missing_clause_after_or_error() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table("employees", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+
+        let query_result = relop.execute("select * from employees where id = 1 or ;");
+        assert!(matches!(
+            query_result,
+            Err(ClientError::Parse(
+                crate::query::parser::error::ParseError::UnexpectedToken { .. }
+            ))
+        ));
     }
 }
 
@@ -1155,6 +1349,135 @@ mod join_tests {
 
         assert_next_row!(row_iterator.as_mut(), "departments.name" => "Ops");
         assert_next_row!(row_iterator.as_mut(), "departments.name" => "Dev");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_join_on_with_or() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "active" => ColumnType::Int].unwrap(),
+            )
+            .unwrap();
+        relop
+            .create_table("departments", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+
+        relop
+            .insert_all_into("employees", rows![[1, 0], [2, 1]])
+            .unwrap();
+        relop
+            .insert_all_into("departments", rows![[1], [3]])
+            .unwrap();
+
+        let query_result = relop
+            .execute("select employees.id from employees join departments on employees.id = departments.id OR employees.active = 1")
+            .unwrap();
+        let mut row_iterator = query_result.result_set().unwrap().iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 1);
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 2);
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 2);
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_join_and_where_or() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "active" => ColumnType::Int].unwrap(),
+            )
+            .unwrap();
+        relop
+            .create_table(
+                "departments",
+                schema!["id" => ColumnType::Int, "location" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+
+        relop
+            .insert_all_into("employees", rows![[1, 1], [2, 0]])
+            .unwrap();
+        relop
+            .insert_all_into("departments", rows![[1, "NY"], [2, "SF"]])
+            .unwrap();
+
+        let query_result = relop
+            .execute("select employees.id from employees join departments on employees.id = departments.id where employees.active = 1 OR departments.location = 'SF'")
+            .unwrap();
+        let mut row_iterator = query_result.result_set().unwrap().iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 1);
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 2);
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_join_on_mixing_and_or() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "active" => ColumnType::Int, "dept_id" => ColumnType::Int].unwrap(),
+            )
+            .unwrap();
+        relop
+            .create_table("departments", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+
+        relop
+            .insert_all_into("employees", rows![[1, 1, 10], [2, 0, 20], [3, 1, 10]])
+            .unwrap();
+        relop
+            .insert_all_into("departments", rows![[10], [20]])
+            .unwrap();
+
+        let query_result = relop
+            .execute("select employees.id from employees join departments on employees.id = departments.id AND employees.active = 1 OR employees.dept_id = departments.id")
+            .unwrap();
+        let mut row_iterator = query_result.result_set().unwrap().iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 1);
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 2);
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 3);
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
+
+    #[test]
+    fn execute_select_with_join_where_mixing_and_or() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "active" => ColumnType::Int, "dept_id" => ColumnType::Int].unwrap(),
+            )
+            .unwrap();
+        relop
+            .create_table(
+                "departments",
+                schema!["id" => ColumnType::Int, "loc" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+
+        relop
+            .insert_all_into("employees", rows![[1, 1, 10], [2, 0, 20], [3, 1, 10]])
+            .unwrap();
+        relop
+            .insert_all_into("departments", rows![[10, "NY"], [20, "SF"]])
+            .unwrap();
+
+        let query_result = relop
+            .execute("select employees.id from employees join departments on employees.dept_id = departments.id where employees.active = 1 AND departments.loc = 'NY' OR employees.id = 2")
+            .unwrap();
+        let mut row_iterator = query_result.result_set().unwrap().iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 1);
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 2);
+        assert_next_row!(row_iterator.as_mut(), "employees.id" => 3);
         assert_no_more_rows!(row_iterator.as_mut());
     }
 
