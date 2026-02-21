@@ -41,13 +41,6 @@ impl TableEntry {
         Ok(self.store.insert_all(batch.into_rows()))
     }
 
-    /// Retrieves a row by its `RowId`.
-    ///
-    /// Returns `Some(Row)` if the row exists, or `None` otherwise.
-    pub(crate) fn get(&self, row_id: RowId) -> Option<Row> {
-        self.store.get(row_id)
-    }
-
     /// Creates a `TableScan` which can be used to iterate over the rows in the table.
     pub(crate) fn scan(&self) -> TableScan {
         TableScan::new(self.store.clone())
@@ -66,9 +59,12 @@ impl TableEntry {
 
 #[cfg(test)]
 impl TableEntry {
-    /// Returns the name of the table.
     pub(crate) fn table_name(&self) -> &str {
         self.table.name()
+    }
+
+    pub(crate) fn get(&self, row_id: RowId) -> Option<Row> {
+        self.store.get(row_id)
     }
 }
 

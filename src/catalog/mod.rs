@@ -113,12 +113,6 @@ impl Catalog {
         table_entry.insert_all(batch)
     }
 
-    /// Retrieves a row by its `RowId` from the specified table.
-    pub(crate) fn get(&self, table_name: &str, row_id: RowId) -> Result<Option<Row>, CatalogError> {
-        let table_entry = self.table_entry_or_error(table_name)?;
-        Ok(table_entry.get(row_id))
-    }
-
     /// Returns the table entry and table definition for the specified table.
     ///
     /// The caller is responsible for creating the scan iterator from the returned entry.
@@ -141,6 +135,14 @@ impl Catalog {
     fn table_entry(&self, name: &str) -> Option<Arc<TableEntry>> {
         let guard = self.tables.read().unwrap();
         guard.get(name).cloned()
+    }
+}
+
+#[cfg(test)]
+impl Catalog {
+    pub(crate) fn get(&self, table_name: &str, row_id: RowId) -> Result<Option<Row>, CatalogError> {
+        let table_entry = self.table_entry_or_error(table_name)?;
+        Ok(table_entry.get(row_id))
     }
 }
 

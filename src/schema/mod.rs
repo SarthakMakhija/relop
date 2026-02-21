@@ -115,12 +115,6 @@ impl Schema {
         self.columns.len()
     }
 
-    /// Returns a reference to the primary key, if one is defined.
-    /// Returns a slice of all columns defined in the schema.
-    pub(crate) fn columns(&self) -> &[Column] {
-        &self.columns
-    }
-
     /// Merges this schema with another schema by combining their columns.
     /// Prefixes column names if the respective table prefix is provided.
     pub(crate) fn merge_with_prefixes(
@@ -223,6 +217,10 @@ impl Schema {
 
     pub(crate) fn column_names(&self) -> Vec<&str> {
         self.columns.iter().map(|column| column.name()).collect()
+    }
+
+    pub(crate) fn columns(&self) -> &[Column] {
+        &self.columns
     }
 }
 

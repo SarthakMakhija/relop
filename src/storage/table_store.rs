@@ -59,13 +59,6 @@ impl TableStore {
         row_id
     }
 
-    /// Retrieves a row by its `RowId`.
-    ///
-    /// Returns `Some(Row)` if the row exists, `None` otherwise.
-    pub(crate) fn get(&self, row_id: RowId) -> Option<Row> {
-        self.entries.get(&row_id).map(|entry| entry.value().clone())
-    }
-
     /// Returns an iterator over all rows in the table.
     pub(crate) fn iter(&self) -> TableStoreIterator<'_> {
         TableStoreIterator {
@@ -81,6 +74,10 @@ impl TableStore {
             .iter()
             .map(|entry| entry.value().clone())
             .collect()
+    }
+
+    pub(crate) fn get(&self, row_id: RowId) -> Option<Row> {
+        self.entries.get(&row_id).map(|entry| entry.value().clone())
     }
 }
 
