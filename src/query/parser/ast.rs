@@ -133,20 +133,17 @@ impl Clause {
     }
 }
 
+#[cfg(test)]
 impl WhereClause {
-    /// Creates a new `WhereClause` with an AND expression.
     pub fn and(expressions: Vec<Expression>) -> Self {
         WhereClause(Expression::and(expressions))
     }
 
-    /// Creates a new `WhereClause` with an AND expression.
+    /// Creates a new `WhereClause` with an OR expression.
     pub fn or(expressions: Vec<Expression>) -> Self {
         WhereClause(Expression::or(expressions))
     }
-}
 
-#[cfg(test)]
-impl WhereClause {
     /// Creates a new `WhereClause` with a comparison.
     pub fn comparison(lhs: Literal, operator: BinaryOperator, rhs: Literal) -> Self {
         WhereClause(Expression::single(Clause::comparison(lhs, operator, rhs)))
@@ -389,33 +386,6 @@ mod where_clause_tests {
                 column_name: "name".to_string(),
                 literal: Literal::Text("John%".to_string()),
             }))
-        );
-    }
-
-    #[test]
-    fn create_or() {
-        let where_clause = WhereClause(Expression::or(vec![
-            Expression::single(Clause::comparison(
-                Literal::ColumnReference("age".to_string()),
-                BinaryOperator::Greater,
-                Literal::Int(25),
-            )),
-            Expression::single(Clause::like("name", Literal::Text("John%".to_string()))),
-        ]));
-
-        assert_eq!(
-            where_clause,
-            WhereClause(Expression::or(vec![
-                Expression::single(Clause::Comparison {
-                    lhs: Literal::ColumnReference("age".to_string()),
-                    operator: BinaryOperator::Greater,
-                    rhs: Literal::Int(25),
-                }),
-                Expression::single(Clause::Like {
-                    column_name: "name".to_string(),
-                    literal: Literal::Text("John%".to_string()),
-                }),
-            ]))
         );
     }
 }

@@ -984,6 +984,33 @@ mod predicate_tests {
     }
 
     #[test]
+    fn predicate_from_where_clause_with_or() {
+        let clause = WhereClause::or(vec![
+            Expression::single(Clause::comparison(
+                Literal::ColumnReference("age".to_string()),
+                BinaryOperator::Greater,
+                Literal::Int(30),
+            )),
+            Expression::single(Clause::comparison(
+                Literal::ColumnReference("city".to_string()),
+                BinaryOperator::Eq,
+                Literal::Text("London".to_string()),
+            )),
+        ]);
+
+        let predicate = Predicate::try_from(clause).unwrap();
+        assert!(matches!(
+            predicate,
+            Predicate::Or(clauses)
+                if clauses.len() == 2 &&
+                matches!(&clauses[0], Predicate::Single(LogicalClause::Comparison { ref lhs, ref operator, ref rhs })
+                    if matches!(lhs, Literal::ColumnReference(ref name) if name == "age") && *operator == LogicalOperator::Greater && *rhs == Literal::Int(30)) &&
+                matches!(&clauses[1], Predicate::Single(LogicalClause::Comparison { ref lhs, ref operator, ref rhs } )
+                    if matches!(lhs, Literal::ColumnReference(ref name) if name == "city") && *operator == LogicalOperator::Eq && *rhs == Literal::Text("London".to_string()))
+        ));
+    }
+
+    #[test]
     fn matches_for_the_row_with_and() {
         let schema = schema!["age" => ColumnType::Int, "city" => ColumnType::Text].unwrap();
         let row = row![35, "London"];

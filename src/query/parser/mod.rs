@@ -162,12 +162,8 @@ impl Parser {
             let mut on = None;
 
             if self.eat_if(|token| token.is_keyword("on")) {
-                let on_expressions = self.expect_clauses()?;
-                if on_expressions.len() == 1 {
-                    on = Some(on_expressions.into_iter().next().unwrap());
-                } else {
-                    on = Some(Expression::And(on_expressions));
-                }
+                let expression = self.parse_expression()?;
+                on = Some(expression);
             }
             let right_source = if let Some(alias_name) = right_alias {
                 ast::TableSource::table_with_alias(&right_table, &alias_name)
@@ -193,29 +189,53 @@ impl Parser {
     fn maybe_where_clause(&mut self) -> Result<Option<WhereClause>, ParseError> {
         let is_where_clause = self.eat_if(|token| token.is_keyword("where"));
         if is_where_clause {
-            let clauses = self.expect_clauses()?;
-            return if clauses.len() == 1 {
-                Ok(Some(WhereClause(clauses.into_iter().next().unwrap())))
-            } else {
-                Ok(Some(WhereClause::and(clauses)))
-            };
+            return Ok(Some(WhereClause(self.parse_expression()?)));
         }
         Ok(None)
     }
 
-    fn expect_clauses(&mut self) -> Result<Vec<Expression>, ParseError> {
-        let clause = self.expect_clause()?;
-        let mut expressions = Vec::new();
-        expressions.push(Expression::single(clause));
+    fn parse_expression(&mut self) -> Result<Expression, ParseError> {
+        self.parse_or_expression()
+    }
+
+    fn parse_or_expression(&mut self) -> Result<Expression, ParseError> {
+        let expr = self.parse_and_expression()?;
+        let mut expressions = vec![expr];
+
+        while self.eat_if(|token| token.is_keyword("or")) {
+            expressions.push(self.parse_and_expression()?);
+        }
+
+        if expressions.len() > 1 {
+            Ok(Expression::or(expressions))
+        } else {
+            // SAFETY: `expressions` is guaranteed to have at least one element
+            Ok(expressions.into_iter().next().unwrap())
+        }
+    }
+
+    fn parse_and_expression(&mut self) -> Result<Expression, ParseError> {
+        let clauses = self.parse_clauses()?;
+        if clauses.len() > 1 {
+            Ok(Expression::and(clauses))
+        } else {
+            // SAFETY: `clauses` is guaranteed to have at least one element
+            Ok(clauses.into_iter().next().unwrap())
+        }
+    }
+
+    fn parse_clauses(&mut self) -> Result<Vec<Expression>, ParseError> {
+        let clause = self.parse_clause()?;
+        let mut expressions = vec![Expression::single(clause)];
 
         while self.eat_if(|token| token.matches(TokenType::Keyword, "and")) {
-            let clause = self.expect_clause()?;
+            let clause = self.parse_clause()?;
             expressions.push(Expression::single(clause));
         }
         Ok(expressions)
     }
 
-    fn expect_clause(&mut self) -> Result<Clause, ParseError> {
+    fn parse_clause(&mut self) -> Result<Clause, ParseError> {
         let lhs = self.expect_literal()?;
         let operator = self.expect_operator()?;
 
@@ -1332,6 +1352,243 @@ mod select_where_with_and_tests {
 }
 
 #[cfg(test)]
+mod select_where_with_or_tests {
+    use super::*;
+    use crate::query::lexer::token::Token;
+
+    #[test]
+    fn parse_expression_with_single_or() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("1", TokenType::WholeNumber));
+        stream.add(Token::new("or", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("2", TokenType::WholeNumber));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(ast, Ast::Select {
+            where_clause: Some(WhereClause(Expression::Or(expressions))),
+            ..
+        } if expressions.len() == 2
+            && expressions[0] == Expression::single(Clause::comparison(
+                Literal::ColumnReference("id".to_string()),
+                BinaryOperator::Eq,
+                Literal::Int(1)
+            ))
+            && expressions[1] == Expression::single(Clause::comparison(
+                Literal::ColumnReference("id".to_string()),
+                BinaryOperator::Eq,
+                Literal::Int(2)
+            ))
+        ));
+    }
+
+    #[test]
+    fn parse_expression_with_multiple_or() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("1", TokenType::WholeNumber));
+        stream.add(Token::new("or", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("2", TokenType::WholeNumber));
+        stream.add(Token::new("or", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("3", TokenType::WholeNumber));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(ast, Ast::Select {
+            where_clause: Some(WhereClause(Expression::Or(expressions))),
+            ..
+        } if expressions.len() == 3
+            && expressions[0] == Expression::single(Clause::comparison(
+                Literal::ColumnReference("id".to_string()),
+                BinaryOperator::Eq,
+                Literal::Int(1)
+            ))
+            && expressions[1] == Expression::single(Clause::comparison(
+                Literal::ColumnReference("id".to_string()),
+                BinaryOperator::Eq,
+                Literal::Int(2)
+            ))
+            && expressions[2] == Expression::single(Clause::comparison(
+                Literal::ColumnReference("id".to_string()),
+                BinaryOperator::Eq,
+                Literal::Int(3)
+            ))
+        ));
+    }
+
+    #[test]
+    fn parse_expression_with_mixed_and_or_precedence() {
+        // id = 1 and name = 'a' or id = 2
+        // Should be grouped as (id = 1 and name = 'a') or (id = 2)
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("1", TokenType::WholeNumber));
+        stream.add(Token::new("and", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("'a'", TokenType::StringLiteral));
+        stream.add(Token::new("or", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("2", TokenType::WholeNumber));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(ast, Ast::Select {
+            where_clause: Some(WhereClause(Expression::Or(expressions))),
+            ..
+        } if expressions.len() == 2
+            && matches!(&expressions[0], Expression::And(and_exprs) if and_exprs.len() == 2
+                && and_exprs[0] == Expression::single(Clause::comparison(
+                    Literal::ColumnReference("id".to_string()),
+                    BinaryOperator::Eq,
+                    Literal::Int(1)
+                ))
+                && and_exprs[1] == Expression::single(Clause::comparison(
+                    Literal::ColumnReference("name".to_string()),
+                    BinaryOperator::Eq,
+                    Literal::Text("'a'".to_string())
+                ))
+            )
+            && expressions[1] == Expression::single(Clause::comparison(
+                Literal::ColumnReference("id".to_string()),
+                BinaryOperator::Eq,
+                Literal::Int(2)
+            ))
+        ));
+    }
+
+    #[test]
+    fn parse_expression_with_mixed_or_and_precedence() {
+        // id = 1 or id = 2 and name = 'a'
+        // Should be grouped as (id = 1) or (id = 2 and name = 'a')
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("1", TokenType::WholeNumber));
+        stream.add(Token::new("or", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("2", TokenType::WholeNumber));
+        stream.add(Token::new("and", TokenType::Keyword));
+        stream.add(Token::new("name", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("'a'", TokenType::StringLiteral));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let ast = parser.parse().unwrap();
+
+        assert!(matches!(ast, Ast::Select {
+            where_clause: Some(WhereClause(Expression::Or(expressions))),
+            ..
+        } if expressions.len() == 2
+            && expressions[0] == Expression::single(Clause::comparison(
+                Literal::ColumnReference("id".to_string()),
+                BinaryOperator::Eq,
+                Literal::Int(1)
+            ))
+            && matches!(&expressions[1], Expression::And(and_exprs) if and_exprs.len() == 2
+                && and_exprs[0] == Expression::single(Clause::comparison(
+                    Literal::ColumnReference("id".to_string()),
+                    BinaryOperator::Eq,
+                    Literal::Int(2)
+                ))
+                && and_exprs[1] == Expression::single(Clause::comparison(
+                    Literal::ColumnReference("name".to_string()),
+                    BinaryOperator::Eq,
+                    Literal::Text("'a'".to_string())
+                ))
+            )
+        ));
+    }
+
+    #[test]
+    fn attempt_to_parse_with_trailing_or() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("1", TokenType::WholeNumber));
+        stream.add(Token::new("or", TokenType::Keyword));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken { expected, .. }) if expected == "identifier")
+        );
+    }
+
+    #[test]
+    fn attempt_to_parse_with_missing_clause_between_operators() {
+        let mut stream = TokenStream::new();
+        stream.add(Token::new("select", TokenType::Keyword));
+        stream.add(Token::new("*", TokenType::Star));
+        stream.add(Token::new("from", TokenType::Keyword));
+        stream.add(Token::new("employees", TokenType::Identifier));
+        stream.add(Token::new("where", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("1", TokenType::WholeNumber));
+        stream.add(Token::new("or", TokenType::Keyword));
+        stream.add(Token::new("and", TokenType::Keyword));
+        stream.add(Token::new("id", TokenType::Identifier));
+        stream.add(Token::new("=", TokenType::Equal));
+        stream.add(Token::new("2", TokenType::WholeNumber));
+        stream.add(Token::end_of_stream());
+
+        let mut parser = Parser::new(stream);
+        let result = parser.parse();
+
+        assert!(
+            matches!(result, Err(ParseError::UnexpectedToken { expected, .. }) if expected == "identifier")
+        );
+    }
+}
+
+#[cfg(test)]
 mod select_order_by_tests {
     use super::*;
     use crate::query::lexer::token::Token;
@@ -1838,6 +2095,7 @@ mod select_join_tests {
         ));
     }
 }
+
 #[cfg(test)]
 mod select_with_alias_tests {
     use super::*;
