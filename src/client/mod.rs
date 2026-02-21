@@ -1631,4 +1631,41 @@ mod join_tests {
         assert_next_row!(row_iterator.as_mut(), "employees.id" => 2);
         assert_no_more_rows!(row_iterator.as_mut());
     }
+
+    #[test]
+    fn execute_select_with_join_and_parentheses_in_where() {
+        let relop = Relop::new(Catalog::new());
+        relop
+            .create_table(
+                "employees",
+                schema!["id" => ColumnType::Int, "name" => ColumnType::Text, "dept_id" => ColumnType::Int].unwrap(),
+            )
+            .unwrap();
+        relop
+            .create_table(
+                "departments",
+                schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+            )
+            .unwrap();
+
+        relop
+            .insert_all_into(
+                "employees",
+                rows![[1, "Alice", 10], [2, "Bob", 10], [3, "Charlie", 20]],
+            )
+            .unwrap();
+        relop
+            .insert_all_into("departments", rows![[10, "Engineering"], [20, "Sales"]])
+            .unwrap();
+
+        let query_result = relop
+            .execute("select employees.name from employees join departments on employees.dept_id = departments.id where (employees.name = 'Alice' or employees.name = 'Bob') and departments.name = 'Engineering' order by employees.name")
+            .unwrap();
+        let result_set = query_result.result_set().unwrap();
+        let mut row_iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(row_iterator.as_mut(), "employees.name" => "Alice");
+        assert_next_row!(row_iterator.as_mut(), "employees.name" => "Bob");
+        assert_no_more_rows!(row_iterator.as_mut());
+    }
 }
