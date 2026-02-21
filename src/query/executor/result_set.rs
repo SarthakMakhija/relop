@@ -1019,21 +1019,21 @@ mod tests {
 
     #[test]
     fn self_join_with_aliases() {
-        let employees_table = Table::new(
+        let employees_table = Arc::new(Table::new(
             "employees",
             schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
-        );
+        ));
         let employees_store = Arc::new(TableStore::new());
         employees_store.insert_all(rows![[101, "Alice"], [102, "Bob"]]);
 
         let employees1_result_set = Box::new(ScanResultsSet::new(
             TableScan::new(employees_store.clone()),
-            Arc::new(employees_table.clone()),
+            employees_table.clone(),
             Some("emp1".to_string()),
         ));
         let employees2_result_set = Box::new(ScanResultsSet::new(
             TableScan::new(employees_store),
-            Arc::new(employees_table),
+            employees_table.clone(),
             Some("emp2".to_string()),
         ));
 
