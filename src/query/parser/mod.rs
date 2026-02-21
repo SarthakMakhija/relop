@@ -162,7 +162,7 @@ impl Parser {
             let mut on = None;
 
             if self.eat_if(|token| token.is_keyword("on")) {
-                let expression = self.parse_expression()?;
+                let expression = self.expect_expression()?;
                 on = Some(expression);
             }
             let right_source = if let Some(alias_name) = right_alias {
@@ -189,21 +189,21 @@ impl Parser {
     fn maybe_where_clause(&mut self) -> Result<Option<WhereClause>, ParseError> {
         let is_where_clause = self.eat_if(|token| token.is_keyword("where"));
         if is_where_clause {
-            return Ok(Some(WhereClause(self.parse_expression()?)));
+            return Ok(Some(WhereClause(self.expect_expression()?)));
         }
         Ok(None)
     }
 
-    fn parse_expression(&mut self) -> Result<Expression, ParseError> {
-        self.parse_or_expression()
+    fn expect_expression(&mut self) -> Result<Expression, ParseError> {
+        self.expect_or_expression()
     }
 
-    fn parse_or_expression(&mut self) -> Result<Expression, ParseError> {
-        let expr = self.parse_and_expression()?;
+    fn expect_or_expression(&mut self) -> Result<Expression, ParseError> {
+        let expr = self.expect_and_expression()?;
         let mut expressions = vec![expr];
 
         while self.eat_if(|token| token.is_keyword("or")) {
-            expressions.push(self.parse_and_expression()?);
+            expressions.push(self.expect_and_expression()?);
         }
 
         if expressions.len() > 1 {
@@ -214,28 +214,23 @@ impl Parser {
         }
     }
 
-    fn parse_and_expression(&mut self) -> Result<Expression, ParseError> {
-        let clauses = self.parse_clauses()?;
-        if clauses.len() > 1 {
-            Ok(Expression::and(clauses))
+    fn expect_and_expression(&mut self) -> Result<Expression, ParseError> {
+        let expr = Expression::single(self.expect_clause()?);
+        let mut expressions = vec![expr];
+
+        while self.eat_if(|token| token.is_keyword("and")) {
+            expressions.push(Expression::single(self.expect_clause()?));
+        }
+
+        if expressions.len() > 1 {
+            Ok(Expression::and(expressions))
         } else {
-            // SAFETY: `clauses` is guaranteed to have at least one element
-            Ok(clauses.into_iter().next().unwrap())
+            // SAFETY: `expressions` is guaranteed to have at least one element
+            Ok(expressions.into_iter().next().unwrap())
         }
     }
 
-    fn parse_clauses(&mut self) -> Result<Vec<Expression>, ParseError> {
-        let clause = self.parse_clause()?;
-        let mut expressions = vec![Expression::single(clause)];
-
-        while self.eat_if(|token| token.matches(TokenType::Keyword, "and")) {
-            let clause = self.parse_clause()?;
-            expressions.push(Expression::single(clause));
-        }
-        Ok(expressions)
-    }
-
-    fn parse_clause(&mut self) -> Result<Clause, ParseError> {
+    fn expect_clause(&mut self) -> Result<Clause, ParseError> {
         let lhs = self.expect_literal()?;
         let operator = self.expect_operator()?;
 
