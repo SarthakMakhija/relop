@@ -725,6 +725,24 @@ mod tests {
         assert_next_row!(iterator.as_mut(), "id" => 2);
         assert_no_more_rows!(iterator.as_mut());
     }
+
+    #[test]
+    fn ordering_result_set_with_unknown_column_fails() {
+        let table = Table::new("employees", schema!["id" => ColumnType::Int].unwrap());
+        let table_store = TableStore::new();
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
+
+        let ordering_keys = vec![asc!("unknown")];
+        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
+        let result = ordering_result_set.iterator();
+
+        assert!(matches!(
+            result,
+            Err(ExecutionError::UnknownColumn(column)) if column == "unknown"
+        ));
+    }
+
     #[test]
     fn limit_result_set() {
         let table = Table::new(
