@@ -371,4 +371,20 @@ mod row_view_comparator_tests {
             matches!(result, Err(RowViewComparatorError::UnknownColumn(column)) if column == "rank")
         );
     }
+
+    #[test]
+    fn attempt_compare_row_views_with_ambiguous_column() {
+        let mut schema = Schema::new();
+        schema = schema
+            .add_column("employees.id", ColumnType::Int)
+            .unwrap()
+            .add_column("departments.id", ColumnType::Int)
+            .unwrap();
+        let ordering_keys = vec![asc!("id")];
+
+        let result = RowViewComparator::new(&schema, &ordering_keys);
+        assert!(
+            matches!(result, Err(RowViewComparatorError::UnknownColumn(column)) if column == "id")
+        );
+    }
 }
