@@ -111,7 +111,7 @@ cargo test
   - [x] Order by
   - [x] Show tables
   - [x] Describe table
-  - [x] Join
+  - [x] Join (_nested-loop implementation_)
 - [x] **Build a minimal in-memory store**:
   - [x] Tables with schemas
   - [x] Rows stored in memory (`SkipMap` based)
