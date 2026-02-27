@@ -1,6 +1,7 @@
 use crate::query::executor::error::ExecutionError;
 use crate::query::parser::ast::{BinaryOperator, Clause, Expression, Literal, WhereClause};
 use crate::storage::row::Row;
+use crate::storage::row_filter::RowFilter;
 use crate::storage::row_view::RowView;
 use crate::types::column_value::ColumnValue;
 
@@ -211,6 +212,12 @@ impl Predicate {
                 Ok(false)
             }
         }
+    }
+}
+
+impl RowFilter for Predicate {
+    fn matches(&self, row: &Row) -> bool {
+        self.matches(row).unwrap_or(false)
     }
 }
 
@@ -761,74 +768,58 @@ mod logical_operator_tests {
 
     #[test]
     fn evaluate_int_equal() {
-        assert!(
-            LogicalOperator::Eq
-                .evaluate(&ColumnValue::int(1), &ColumnValue::int(1))
-                .unwrap(),
-        );
+        assert!(LogicalOperator::Eq
+            .evaluate(&ColumnValue::int(1), &ColumnValue::int(1))
+            .unwrap(),);
     }
 
     #[test]
     fn evaluate_int_not_equal() {
-        assert!(
-            !LogicalOperator::Eq
-                .evaluate(&ColumnValue::int(1), &ColumnValue::int(2))
-                .unwrap(),
-        );
+        assert!(!LogicalOperator::Eq
+            .evaluate(&ColumnValue::int(1), &ColumnValue::int(2))
+            .unwrap(),);
     }
 
     #[test]
     fn evaluate_int_greater() {
-        assert!(
-            LogicalOperator::Greater
-                .evaluate(&ColumnValue::int(2), &ColumnValue::int(1))
-                .unwrap(),
-        );
+        assert!(LogicalOperator::Greater
+            .evaluate(&ColumnValue::int(2), &ColumnValue::int(1))
+            .unwrap(),);
     }
 
     #[test]
     fn evaluate_int_greater_equal() {
-        assert!(
-            LogicalOperator::GreaterEq
-                .evaluate(&ColumnValue::int(2), &ColumnValue::int(2))
-                .unwrap(),
-        );
+        assert!(LogicalOperator::GreaterEq
+            .evaluate(&ColumnValue::int(2), &ColumnValue::int(2))
+            .unwrap(),);
     }
 
     #[test]
     fn evaluate_int_lesser() {
-        assert!(
-            LogicalOperator::Lesser
-                .evaluate(&ColumnValue::int(1), &ColumnValue::int(2))
-                .unwrap(),
-        );
+        assert!(LogicalOperator::Lesser
+            .evaluate(&ColumnValue::int(1), &ColumnValue::int(2))
+            .unwrap(),);
     }
 
     #[test]
     fn evaluate_int_lesser_equal() {
-        assert!(
-            LogicalOperator::LesserEq
-                .evaluate(&ColumnValue::int(1), &ColumnValue::int(1))
-                .unwrap(),
-        );
+        assert!(LogicalOperator::LesserEq
+            .evaluate(&ColumnValue::int(1), &ColumnValue::int(1))
+            .unwrap(),);
     }
 
     #[test]
     fn evaluate_text_equal() {
-        assert!(
-            LogicalOperator::Eq
-                .evaluate(&ColumnValue::text("a"), &ColumnValue::text("a"))
-                .unwrap(),
-        );
+        assert!(LogicalOperator::Eq
+            .evaluate(&ColumnValue::text("a"), &ColumnValue::text("a"))
+            .unwrap(),);
     }
 
     #[test]
     fn evaluate_text_not_equal() {
-        assert!(
-            LogicalOperator::NotEq
-                .evaluate(&ColumnValue::text("a"), &ColumnValue::text("b"))
-                .unwrap(),
-        );
+        assert!(LogicalOperator::NotEq
+            .evaluate(&ColumnValue::text("a"), &ColumnValue::text("b"))
+            .unwrap(),);
     }
 
     #[test]
@@ -1579,5 +1570,43 @@ mod row_value_resolver_tests {
         let literal = Literal::ColumnReference("age".to_string());
         let result = row.resolve(&literal);
         assert!(matches!(result, Err(ExecutionError::UnboundColumn(_))));
+    }
+}
+
+#[cfg(test)]
+mod row_filter_tests {
+    use super::*;
+
+    #[test]
+    fn predicate_matches_row() {
+        let predicate = Predicate::comparison(
+            Literal::ColumnIndex(0),
+            LogicalOperator::Greater,
+            Literal::Int(25),
+        );
+        let row = Row::filled(vec![ColumnValue::int(30)]);
+        assert!(RowFilter::matches(&predicate, &row));
+    }
+
+    #[test]
+    fn predicate_does_not_match_row() {
+        let predicate = Predicate::comparison(
+            Literal::ColumnIndex(0),
+            LogicalOperator::Greater,
+            Literal::Int(35),
+        );
+        let row = Row::filled(vec![ColumnValue::int(30)]);
+        assert!(!RowFilter::matches(&predicate, &row));
+    }
+
+    #[test]
+    fn predicate_unbound_column_returns_false() {
+        let predicate = Predicate::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Eq,
+            Literal::Int(30),
+        );
+        let row = Row::filled(vec![ColumnValue::int(30)]);
+        assert!(!RowFilter::matches(&predicate, &row));
     }
 }
