@@ -56,13 +56,17 @@ The query processing pipeline follows a standard database architecture:
 ### Pipeline Details
 
 1.  **Lexer**: Tokenizes the raw SQL string.
-  *   *Input*: `SELECT id FROM employees`
-  *   *Output*: `[SELECT, IDENT("id"), FROM, IDENT("employees")]`
+  *   *Input*: `SELECT id FROM employees WHERE id = 1`
+  *   *Output*: `[SELECT, IDENT("id"), FROM, IDENT("employees"), WHERE, IDENT("id"), EQUAL, NUMBER(1)]`
 2.  **Parser**: Converts tokens into an **Abstract Syntax Tree (AST)**.
-  *   *Output*: `Select { source: Table("employees"), projection: Columns(["id"]), ... }`
+  *   *Output*: `Select { source: Table("employees"), projection: Columns(["id"]), selection: Expr(id = 1), ... }`
 3.  **Logical Planner**: Transforms the AST into a tree of **Logical Operators**.
-  *   *Output*: `Project(Scan("employees"), ["id"])`
-4.  **Executor**: Traverses the logical plan and constructs a **physical execution pipeline** using `ResultSet` iterators, which pull data on demand.
+  *   *Output*: `Project(Filter(Scan("employees"), id = 1), ["id"])`
+4.  <kbd>WIP</kbd> **Optimizer**: Optimizes the logical plan into an **Optimized Logical Plan**.   
+  *   *Output*: `Project(Scan("employees", [predicate]), ["id"])`
+5.  <kbd>WIP</kbd> **Physical Planner**: Maps the optimized logical plan into a **Physical Plan**.
+  *   *Output*: `PhysicalProject(PhysicalScan("employees", [predicate]), ["id"])`
+6.  **Executor**: Traverses the physical plan and constructs a **physical execution pipeline** using `ResultSet` iterators, which pull data on demand.
 
 ## Source Code Navigation
 
