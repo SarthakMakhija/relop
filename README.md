@@ -171,7 +171,6 @@ The implementation details of the Join operator can be found in [docs/joins.md](
 
 - SQL `INSERT` / `CREATE TABLE` statements (these are handled via the API).
 - Persistence or Disk I/O.
-- Query Optimization (Cost-based or Rule-based).
 - Full SQL Compatibility.
 
 ## References
