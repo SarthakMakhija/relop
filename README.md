@@ -149,6 +149,7 @@ cargo test
   - [x] Sequential table scan
 - [ ] Implement optimizer
     - [x] Predicate Pushdown for single table queries
+    - [x] Limit push down
     - [ ] Predicate Pushdown for join queries
     - [ ] Split conjunction
     - [ ] Choose the type of join algorithm
