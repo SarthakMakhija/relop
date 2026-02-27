@@ -35,3 +35,9 @@ pub enum SchemaError {
     /// The table name or alias used as a prefix does not exist in the current scope.
     TableAliasNotFound(String),
 }
+
+impl std::fmt::Display for SchemaError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}

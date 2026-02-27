@@ -1,5 +1,6 @@
 use crate::query::executor::error::ExecutionError;
 use crate::query::parser::ast::{BinaryOperator, Clause, Expression, Literal, WhereClause};
+use crate::schema::Schema;
 use crate::storage::row::Row;
 use crate::storage::row_filter::RowFilter;
 use crate::storage::row_view::RowView;
@@ -117,6 +118,41 @@ impl LogicalClause {
                 }
             }
         }
+    }
+
+    /// Binds the clause to a given `Schema`, resolving column names to indices.
+    pub(crate) fn bind(self, schema: &Schema) -> Result<Self, PlanningError> {
+        match self {
+            LogicalClause::Comparison { lhs, operator, rhs } => Ok(LogicalClause::Comparison {
+                lhs: bind_literal(lhs, schema)?,
+                operator,
+                rhs: bind_literal(rhs, schema)?,
+            }),
+            LogicalClause::Like { column_name, regex } => {
+                // Ensure the column exists in the schema
+                schema
+                    .column_position(&column_name)
+                    .map_err(|schema_error| {
+                        PlanningError::ColumnNotFound(schema_error.to_string())
+                    })?
+                    .ok_or_else(|| PlanningError::ColumnNotFound(column_name.clone()))?;
+
+                Ok(LogicalClause::Like { column_name, regex })
+            }
+        }
+    }
+}
+
+fn bind_literal(literal: Literal, schema: &Schema) -> Result<Literal, PlanningError> {
+    match literal {
+        Literal::ColumnReference(column_name) => {
+            let index = schema
+                .column_position(&column_name)
+                .map_err(|schema_error| PlanningError::ColumnNotFound(schema_error.to_string()))?
+                .ok_or_else(|| PlanningError::ColumnNotFound(column_name.clone()))?;
+            Ok(Literal::ColumnIndex(index))
+        }
+        _ => Ok(literal),
     }
 }
 
@@ -244,6 +280,27 @@ impl Predicate {
                     }
                 }
                 Ok(false)
+            }
+        }
+    }
+
+    /// Binds the predicate to a given `Schema`, resolving column names to indices.
+    pub(crate) fn bind(self, schema: &Schema) -> Result<Self, PlanningError> {
+        match self {
+            Predicate::Single(clause) => Ok(Predicate::Single(clause.bind(schema)?)),
+            Predicate::And(predicates) => {
+                let bound = predicates
+                    .into_iter()
+                    .map(|p| p.bind(schema))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(Predicate::And(bound))
+            }
+            Predicate::Or(predicates) => {
+                let bound = predicates
+                    .into_iter()
+                    .map(|p| p.bind(schema))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(Predicate::Or(bound))
             }
         }
     }
@@ -1642,5 +1699,108 @@ mod row_filter_tests {
         );
         let row = Row::filled(vec![ColumnValue::int(30)]);
         assert!(!RowFilter::matches(&predicate, &row));
+    }
+}
+
+#[cfg(test)]
+mod bind_tests {
+    use super::*;
+    use crate::types::column_type::ColumnType;
+
+    #[test]
+    fn bind_comparison() {
+        let schema = crate::schema![
+            "id" => ColumnType::Int,
+            "name" => ColumnType::Text
+        ]
+        .unwrap();
+
+        let predicate = Predicate::comparison(
+            Literal::ColumnReference("name".to_string()),
+            LogicalOperator::Eq,
+            Literal::Text("Alice".to_string()),
+        );
+
+        let bound_predicate = predicate.bind(&schema).unwrap();
+
+        let expected = Predicate::comparison(
+            Literal::ColumnIndex(1),
+            LogicalOperator::Eq,
+            Literal::Text("Alice".to_string()),
+        );
+
+        assert_eq!(bound_predicate, expected);
+    }
+
+    #[test]
+    fn bind_like() {
+        let schema = crate::schema![
+            "id" => ColumnType::Int,
+            "name" => ColumnType::Text
+        ]
+        .unwrap();
+
+        let regex = regex::Regex::new("^A").unwrap();
+        let predicate = Predicate::like("name", regex.clone());
+
+        let bound_predicate = predicate.bind(&schema).unwrap();
+
+        let expected = Predicate::like("name", regex);
+
+        assert_eq!(bound_predicate, expected);
+    }
+
+    #[test]
+    fn bind_and_or() {
+        let schema = crate::schema![
+            "id" => ColumnType::Int,
+            "age" => ColumnType::Int
+        ]
+        .unwrap();
+
+        let predicate = Predicate::or(vec![
+            Predicate::comparison(
+                Literal::ColumnReference("id".to_string()),
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            ),
+            Predicate::and(vec![Predicate::comparison(
+                Literal::ColumnReference("age".to_string()),
+                LogicalOperator::Greater,
+                Literal::Int(18),
+            )]),
+        ]);
+
+        let bound_predicate = predicate.bind(&schema).unwrap();
+
+        let expected = Predicate::or(vec![
+            Predicate::comparison(
+                Literal::ColumnIndex(0),
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            ),
+            Predicate::and(vec![Predicate::comparison(
+                Literal::ColumnIndex(1),
+                LogicalOperator::Greater,
+                Literal::Int(18),
+            )]),
+        ]);
+
+        assert_eq!(bound_predicate, expected);
+    }
+
+    #[test]
+    fn bind_column_not_found() {
+        let schema = crate::schema!["id" => ColumnType::Int].unwrap();
+
+        let predicate = Predicate::comparison(
+            Literal::ColumnReference("name".to_string()),
+            LogicalOperator::Eq,
+            Literal::Text("Alice".to_string()),
+        );
+
+        let result = predicate.bind(&schema);
+
+        assert!(matches!(result, Err(PlanningError::ColumnNotFound(_))));
     }
 }

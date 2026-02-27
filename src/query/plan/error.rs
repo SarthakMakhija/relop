@@ -5,6 +5,8 @@ use regex::Error;
 pub enum PlanningError {
     /// Indicates that a provided regular expression in a LIKE clause is invalid.
     InvalidRegex(String),
+    /// Indicates that a column reference could not be resolved.
+    ColumnNotFound(String),
 }
 
 impl From<Error> for PlanningError {
