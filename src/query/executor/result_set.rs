@@ -422,8 +422,8 @@ mod tests {
     use crate::storage::table_store::TableStore;
     use crate::types::column_type::ColumnType;
 
-    use crate::{asc, assert_next_row, assert_no_more_rows, desc, row, rows, schema};
     use crate::storage::row::Row;
+    use crate::{asc, assert_next_row, assert_no_more_rows, desc, row, rows, schema};
 
     #[test]
     fn scan_result_set() {

@@ -118,10 +118,11 @@ cargo test
   - [x] Insert rows via API
   - [x] Sequential table scan
 - [ ] Implement optimizer
-    - [ ] Predicate Pushdown
+    - [x] Predicate Pushdown for single table queries
+    - [ ] Predicate Pushdown for join queries
     - [ ] Split conjunction
-    - [ ] Type of join algorithm
-    - [ ] Order of join
+    - [ ] Choose the type of join algorithm
+    - [ ] Choose the order of joining tables
 - [ ] Implement physical plan
 
 ## Supported SQL
