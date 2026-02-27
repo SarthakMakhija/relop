@@ -3,6 +3,7 @@ use crate::catalog::table::Table;
 use crate::catalog::table_scan::TableScan;
 use crate::storage::batch::Batch;
 use crate::storage::row::Row;
+use crate::storage::row_filter::{NoFilter, RowFilter};
 use crate::storage::table_store::{RowId, TableStore};
 use std::sync::Arc;
 
@@ -37,8 +38,13 @@ impl TableEntry {
     }
 
     /// Creates a `TableScan` which can be used to iterate over the rows in the table.
-    pub(crate) fn scan(&self) -> TableScan {
+    pub(crate) fn scan(&self) -> TableScan<NoFilter> {
         TableScan::new(self.store.clone())
+    }
+
+    /// Creates a `TableScan` with a specific filter.
+    pub(crate) fn scan_with_filter<F: RowFilter>(&self, filter: F) -> TableScan<F> {
+        TableScan::with_filter(self.store.clone(), filter)
     }
 
     /// Returns a reference to the `Table` definition.
@@ -123,5 +129,30 @@ mod tests {
 
         let entry = table_entry.get(1000);
         assert!(entry.is_none());
+    }
+
+    #[test]
+    fn scan_with_filter() {
+        let table_entry = TableEntry::new(Table::new(
+            "employees",
+            schema!["id" => ColumnType::Int].unwrap(),
+        ));
+        table_entry.insert(row![10]).unwrap();
+        table_entry.insert(row![20]).unwrap();
+
+        struct Id20Filter;
+        impl RowFilter for Id20Filter {
+            fn matches(&self, row: &Row) -> bool {
+                row.column_value_at(0).unwrap().int_value().unwrap() == 20
+            }
+        }
+
+        let rows = table_entry
+            .scan_with_filter(Id20Filter)
+            .iter()
+            .collect::<Vec<_>>();
+
+        assert_eq!(1, rows.len());
+        assert_eq!(row![20], rows[0]);
     }
 }
