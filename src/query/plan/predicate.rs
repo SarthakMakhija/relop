@@ -43,6 +43,8 @@ impl ValueResolver for Row {
 }
 
 /// `Predicate` represents a filter clause in a logical plan.
+/// `Predicate` represents a filter clause in a logical plan.
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Predicate {
     Single(LogicalClause),
     And(Vec<Predicate>),
@@ -67,6 +69,38 @@ pub(crate) enum LogicalClause {
         regex: regex::Regex,
     },
 }
+
+impl PartialEq for LogicalClause {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                LogicalClause::Comparison {
+                    lhs: l_lhs,
+                    operator: l_op,
+                    rhs: l_rhs,
+                },
+                LogicalClause::Comparison {
+                    lhs: r_lhs,
+                    operator: r_op,
+                    rhs: r_rhs,
+                },
+            ) => l_lhs == r_lhs && l_op == r_op && l_rhs == r_rhs,
+            (
+                LogicalClause::Like {
+                    column_name: l_name,
+                    regex: l_re,
+                },
+                LogicalClause::Like {
+                    column_name: r_name,
+                    regex: r_re,
+                },
+            ) => l_name == r_name && l_re.as_str() == r_re.as_str(),
+            _ => false,
+        }
+    }
+}
+
+impl Eq for LogicalClause {}
 
 impl LogicalClause {
     /// Evaluates the clause against a given `ValueResolver`.

@@ -46,7 +46,9 @@ impl<'a> Executor<'a> {
         logical_plan: LogicalPlan,
     ) -> Result<Box<dyn result_set::ResultSet>, ExecutionError> {
         match logical_plan {
-            LogicalPlan::Scan { table_name, alias } => {
+            LogicalPlan::Scan {
+                table_name, alias, ..
+            } => {
                 let (table_entry, table) = self
                     .catalog
                     .scan(table_name.as_ref())
@@ -477,6 +479,7 @@ mod tests {
             .execute(LogicalPlan::Scan {
                 table_name: "employees".to_string(),
                 alias: Some("e".to_string()),
+                filter: None,
             })
             .unwrap();
 
@@ -545,11 +548,13 @@ mod tests {
             left: LogicalPlan::Scan {
                 table_name: "employees".to_string(),
                 alias: Some("e".to_string()),
+                filter: None,
             }
             .boxed(),
             right: LogicalPlan::Scan {
                 table_name: "departments".to_string(),
                 alias: Some("d".to_string()),
+                filter: None,
             }
             .boxed(),
             on: Some(Predicate::comparison(
@@ -564,6 +569,7 @@ mod tests {
             right: LogicalPlan::Scan {
                 table_name: "locations".to_string(),
                 alias: Some("l".to_string()),
+                filter: None,
             }
             .boxed(),
             on: Some(Predicate::comparison(
@@ -592,11 +598,13 @@ mod tests {
             left: LogicalPlan::Scan {
                 table_name: "employees".to_string(),
                 alias: Some("emp1".to_string()),
+                filter: None,
             }
             .boxed(),
             right: LogicalPlan::Scan {
                 table_name: "employees".to_string(),
                 alias: Some("emp2".to_string()),
+                filter: None,
             }
             .boxed(),
             on: Some(Predicate::comparison(

@@ -8,6 +8,7 @@ use crate::query::plan::error::PlanningError;
 use crate::query::plan::predicate::Predicate;
 
 /// `LogicalPlan` represents the logical steps required to execute a query.
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) enum LogicalPlan {
     /// Plan to show table names.
     ShowTables,
@@ -22,6 +23,8 @@ pub(crate) enum LogicalPlan {
         table_name: String,
         /// The optional alias for the table.
         alias: Option<String>,
+        /// The optional pushed-down filter.
+        filter: Option<Predicate>,
     },
     /// Plan to perform a join between two tables.
     Join {
@@ -66,6 +69,45 @@ impl LogicalPlan {
     pub(crate) fn boxed(self) -> Box<LogicalPlan> {
         Box::new(self)
     }
+
+    /// Applies a transformation function to all direct children of this plan node.
+    pub(crate) fn map_children<F>(self, mut transform: F) -> Self
+    where
+        F: FnMut(LogicalPlan) -> LogicalPlan,
+    {
+        match self {
+            LogicalPlan::Join { left, right, on } => LogicalPlan::Join {
+                left: Box::new(transform(*left)),
+                right: Box::new(transform(*right)),
+                on,
+            },
+            LogicalPlan::Projection { base_plan, columns } => LogicalPlan::Projection {
+                base_plan: Box::new(transform(*base_plan)),
+                columns,
+            },
+            LogicalPlan::Filter {
+                base_plan,
+                predicate,
+            } => LogicalPlan::Filter {
+                base_plan: Box::new(transform(*base_plan)),
+                predicate,
+            },
+            LogicalPlan::Limit { base_plan, count } => LogicalPlan::Limit {
+                base_plan: Box::new(transform(*base_plan)),
+                count,
+            },
+            LogicalPlan::Sort {
+                base_plan,
+                ordering_keys,
+            } => LogicalPlan::Sort {
+                base_plan: Box::new(transform(*base_plan)),
+                ordering_keys,
+            },
+            LogicalPlan::ShowTables
+            | LogicalPlan::DescribeTable { .. }
+            | LogicalPlan::Scan { .. } => self,
+        }
+    }
 }
 
 /// `LogicalPlanner` converts an Abstract Syntax Tree (AST) into a `LogicalPlan`.
@@ -103,6 +145,7 @@ impl LogicalPlanner {
                 Ok(LogicalPlan::Scan {
                     table_name: name,
                     alias,
+                    filter: None,
                 })
             }
             crate::query::parser::ast::TableSource::Join { left, right, on } => {
@@ -186,6 +229,7 @@ impl LogicalPlan {
         LogicalPlan::Scan {
             table_name: table_name.into(),
             alias: None,
+            filter: None,
         }
     }
 
@@ -218,6 +262,15 @@ impl LogicalPlan {
         LogicalPlan::Filter {
             base_plan: self.boxed(),
             predicate,
+        }
+    }
+
+    /// Creates a join plan.
+    pub(crate) fn join(self, right: LogicalPlan, on: Option<Predicate>) -> Self {
+        LogicalPlan::Join {
+            left: self.boxed(),
+            right: right.boxed(),
+            on,
         }
     }
 }
@@ -621,7 +674,7 @@ mod tests {
         .unwrap();
         assert!(matches!(
             logical_plan,
-            LogicalPlan::Scan { table_name, alias } if table_name == "employees" && alias.as_deref() == Some("e")
+            LogicalPlan::Scan { table_name, alias, .. } if table_name == "employees" && alias.as_deref() == Some("e")
         ));
     }
 
@@ -657,8 +710,43 @@ mod tests {
         assert!(matches!(
             logical_plan,
             LogicalPlan::Join { left, right, .. }
-            if matches!(left.as_ref(), LogicalPlan::Scan { table_name, alias } if table_name == "employees" && alias.as_deref() == Some("e"))
-            && matches!(right.as_ref(), LogicalPlan::Scan { table_name, alias } if table_name == "departments" && alias.as_deref() == Some("d"))
+            if matches!(left.as_ref(), LogicalPlan::Scan { table_name, alias, .. } if table_name == "employees" && alias.as_deref() == Some("e"))
+            && matches!(right.as_ref(), LogicalPlan::Scan { table_name, alias, .. } if table_name == "departments" && alias.as_deref() == Some("d"))
         ));
+    }
+
+    #[test]
+    fn map_children_projection() {
+        let plan = LogicalPlan::scan("employees").project(vec!["id"]);
+        let transformed = plan.map_children(|logical_plan| match logical_plan {
+            LogicalPlan::Scan { table_name, .. } => {
+                LogicalPlan::scan(format!("{}_transformed", table_name))
+            }
+            _ => logical_plan,
+        });
+
+        let expected = LogicalPlan::Projection {
+            base_plan: Box::new(LogicalPlan::scan("employees_transformed")),
+            columns: vec!["id".to_string()],
+        };
+        assert_eq!(transformed, expected);
+    }
+
+    #[test]
+    fn map_children_join() {
+        let plan = LogicalPlan::scan("employees").join(LogicalPlan::scan("departments"), None);
+        let transformed = plan.map_children(|logical_plan| match logical_plan {
+            LogicalPlan::Scan { table_name, .. } => {
+                LogicalPlan::scan(format!("{}_transformed", table_name))
+            }
+            _ => logical_plan,
+        });
+
+        let expected = LogicalPlan::Join {
+            left: Box::new(LogicalPlan::scan("employees_transformed")),
+            right: Box::new(LogicalPlan::scan("departments_transformed")),
+            on: None,
+        };
+        assert_eq!(transformed, expected);
     }
 }
