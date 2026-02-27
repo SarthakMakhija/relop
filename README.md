@@ -51,7 +51,33 @@ fn main() {
 
 The query processing pipeline follows a standard database architecture:
 
-![Relop Architecture](docs/architecture.png)
+```mermaid
+graph LR
+    subgraph Input
+    A[SQL Query]:::data
+    end
+
+    subgraph Processing
+    A --> P1(Lexer):::proc
+    P1 --> B[Tokens]:::data
+    B --> P2(Parser):::proc
+    P2 --> C[AST]:::data
+    C --> P3(Planner):::proc
+    P3 --> D[Logical Plan]:::data
+    D --> P4(Optimizer):::proc
+    P4 --> E[Optimized Logical Plan]:::data
+    E --> P5(Physical Planner):::proc
+    P5 --> F[Physical Plan]:::data
+    F --> P6(Executor):::proc
+    end
+
+    subgraph Output
+    P6 --> G[ResultSet]:::data
+    end
+
+    classDef data fill:#E1F5FE,stroke:#0277BD,stroke-width:2px,rx:5,ry:5;
+    classDef proc fill:#FFF3E0,stroke:#EF6C00,stroke-width:2px,rx:10,ry:10;
+```
 
 ### Pipeline Details
 
