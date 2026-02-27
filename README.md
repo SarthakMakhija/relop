@@ -117,6 +117,12 @@ cargo test
   - [x] Rows stored in memory (`SkipMap` based)
   - [x] Insert rows via API
   - [x] Sequential table scan
+- [ ] Implement optimizer
+    - [ ] Predicate Pushdown
+    - [ ] Split conjunction
+    - [ ] Type of join algorithm
+    - [ ] Order of join
+- [ ] Implement physical plan
 
 ## Supported SQL
 
