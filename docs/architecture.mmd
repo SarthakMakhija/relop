@@ -9,12 +9,16 @@ graph LR
     B --> P2(Parser):::proc
     P2 --> C[AST]:::data
     C --> P3(Planner):::proc
-    P3 --> D[Plan]:::data
-    D --> P4(Executor):::proc
+    P3 --> D[Logical Plan]:::data
+    D --> P4(Optimizer):::proc
+    P4 --> E[Optimized Logical Plan]:::data
+    E --> P5(Physical Planner):::proc
+    P5 --> F[Physical Plan]:::data
+    F --> P6(Executor):::proc
     end
 
     subgraph Output
-    P4 --> E[ResultSet]:::data
+    P6 --> G[ResultSet]:::data
     end
 
     classDef data fill:#E1F5FE,stroke:#0277BD,stroke-width:2px,rx:5,ry:5;
