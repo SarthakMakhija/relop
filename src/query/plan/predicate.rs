@@ -242,6 +242,29 @@ impl From<BinaryOperator> for LogicalOperator {
 }
 
 impl LogicalOperator {
+    /// Evaluates the comparison between two column values.
+    fn evaluate(&self, left: &ColumnValue, right: &ColumnValue) -> Result<bool, ExecutionError> {
+        match (left, right) {
+            (ColumnValue::Int(left_value), ColumnValue::Int(right_value)) => Ok(match self {
+                LogicalOperator::Eq => left_value == right_value,
+                LogicalOperator::NotEq => left_value != right_value,
+                LogicalOperator::Greater => left_value > right_value,
+                LogicalOperator::GreaterEq => left_value >= right_value,
+                LogicalOperator::Lesser => left_value < right_value,
+                LogicalOperator::LesserEq => left_value <= right_value,
+            }),
+            (ColumnValue::Text(left_value), ColumnValue::Text(right_value)) => Ok(match self {
+                LogicalOperator::Eq => left_value == right_value,
+                LogicalOperator::NotEq => left_value != right_value,
+                LogicalOperator::Greater => left_value > right_value,
+                LogicalOperator::GreaterEq => left_value >= right_value,
+                LogicalOperator::Lesser => left_value < right_value,
+                LogicalOperator::LesserEq => left_value <= right_value,
+            }),
+            _ => Err(ExecutionError::TypeMismatchInComparison),
+        }
+    }
+
     /// Applies the logical operator to compare a column value and a literal.
     ///
     /// # Returns
@@ -273,25 +296,7 @@ impl LogicalOperator {
                 .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?
                 .clone(),
         };
-        match (&lhs_value, &rhs_value) {
-            (ColumnValue::Int(left), ColumnValue::Int(right)) => Ok(match self {
-                LogicalOperator::Eq => left == right,
-                LogicalOperator::NotEq => left != right,
-                LogicalOperator::Greater => left > right,
-                LogicalOperator::GreaterEq => left >= right,
-                LogicalOperator::Lesser => left < right,
-                LogicalOperator::LesserEq => left <= right,
-            }),
-            (ColumnValue::Text(left), ColumnValue::Text(right)) => Ok(match self {
-                LogicalOperator::Eq => left == right,
-                LogicalOperator::NotEq => left != right,
-                LogicalOperator::Greater => left > right,
-                LogicalOperator::GreaterEq => left >= right,
-                LogicalOperator::Lesser => left < right,
-                LogicalOperator::LesserEq => left <= right,
-            }),
-            _ => Err(ExecutionError::TypeMismatchInComparison),
-        }
+        self.evaluate(&lhs_value, &rhs_value)
     }
 }
 
@@ -741,6 +746,100 @@ mod tests {
                 &row_view
             )
             .unwrap());
+    }
+}
+
+#[cfg(test)]
+mod logical_operator_tests {
+    use super::*;
+
+    #[test]
+    fn evaluate_int_equal() {
+        assert_eq!(
+            LogicalOperator::Eq
+                .evaluate(&ColumnValue::int(1), &ColumnValue::int(1))
+                .unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn evaluate_int_not_equal() {
+        assert_eq!(
+            LogicalOperator::Eq
+                .evaluate(&ColumnValue::int(1), &ColumnValue::int(2))
+                .unwrap(),
+            false
+        );
+    }
+
+    #[test]
+    fn evaluate_int_greater() {
+        assert_eq!(
+            LogicalOperator::Greater
+                .evaluate(&ColumnValue::int(2), &ColumnValue::int(1))
+                .unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn evaluate_int_greater_equal() {
+        assert_eq!(
+            LogicalOperator::GreaterEq
+                .evaluate(&ColumnValue::int(2), &ColumnValue::int(2))
+                .unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn evaluate_int_lesser() {
+        assert_eq!(
+            LogicalOperator::Lesser
+                .evaluate(&ColumnValue::int(1), &ColumnValue::int(2))
+                .unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn evaluate_int_lesser_equal() {
+        assert_eq!(
+            LogicalOperator::LesserEq
+                .evaluate(&ColumnValue::int(1), &ColumnValue::int(1))
+                .unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn evaluate_text_equal() {
+        assert_eq!(
+            LogicalOperator::Eq
+                .evaluate(&ColumnValue::text("a"), &ColumnValue::text("a"))
+                .unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn evaluate_text_not_equal() {
+        assert_eq!(
+            LogicalOperator::NotEq
+                .evaluate(&ColumnValue::text("a"), &ColumnValue::text("b"))
+                .unwrap(),
+            true
+        );
+    }
+
+    #[test]
+    fn evaluate_type_mismatch() {
+        let result = LogicalOperator::Eq.evaluate(&ColumnValue::int(1), &ColumnValue::text("1"));
+        assert!(matches!(
+            result,
+            Err(ExecutionError::TypeMismatchInComparison)
+        ));
     }
 }
 
