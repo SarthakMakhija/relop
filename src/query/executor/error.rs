@@ -16,6 +16,8 @@ pub enum ExecutionError {
     UnboundColumn(String),
     /// Error when a ColumnIndex is out of bounds for a Row.
     ColumnIndexOutOfBounds(usize),
+    /// Errors that occur during query planning (e.g., binding predicates).
+    Planning(crate::query::plan::error::PlanningError),
 }
 
 impl From<RowViewComparatorError> for ExecutionError {
@@ -29,5 +31,11 @@ impl From<RowViewComparatorError> for ExecutionError {
 impl From<crate::schema::error::SchemaError> for ExecutionError {
     fn from(error: crate::schema::error::SchemaError) -> Self {
         ExecutionError::Schema(error)
+    }
+}
+
+impl From<crate::query::plan::error::PlanningError> for ExecutionError {
+    fn from(error: crate::query::plan::error::PlanningError) -> Self {
+        ExecutionError::Planning(error)
     }
 }

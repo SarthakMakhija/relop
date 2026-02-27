@@ -305,9 +305,12 @@ impl Relop {
         let ast = parser.parse().map_err(ClientError::Parse)?;
 
         let plan = LogicalPlanner::plan(ast).map_err(ClientError::Plan)?;
+        let optimized_plan = crate::query::optimizer::Optimizer::new().optimize(plan);
 
         let executor = Executor::new(&self.catalog);
-        executor.execute(plan).map_err(ClientError::Execution)
+        executor
+            .execute(optimized_plan)
+            .map_err(ClientError::Execution)
     }
 }
 

@@ -4,6 +4,7 @@ use crate::query::executor::error::ExecutionError;
 use crate::query::parser::ordering_key::OrderingKey;
 use crate::query::plan::predicate::Predicate;
 use crate::schema::Schema;
+use crate::storage::row_filter::{NoFilter, RowFilter};
 use crate::storage::row_view::{RowView, RowViewComparator};
 use std::sync::Arc;
 
@@ -41,13 +42,13 @@ pub type RowViewResult<'a> = Result<RowView<'a>, ExecutionError>;
 ///
 /// `ScanResultsSet` holds a reference to the table data via `TableScan` (the owner)
 /// and produces iterators that view all rows in the table.
-pub struct ScanResultsSet {
-    table_scan: TableScan,
+pub struct ScanResultsSet<F: RowFilter = NoFilter> {
+    table_scan: TableScan<F>,
     visible_positions: Arc<Vec<usize>>,
     prefixed_schema: Schema,
 }
 
-impl ScanResultsSet {
+impl<F: RowFilter> ScanResultsSet<F> {
     /// Creates a new `ScanResultsSet` for the given table.
     ///
     /// # Arguments
@@ -55,7 +56,7 @@ impl ScanResultsSet {
     /// * `table_scan` - The owner of the table data.
     /// * `table` - The metadata of the table (schema, etc.).
     /// * `alias` - The optional alias for the table.
-    pub(crate) fn new(table_scan: TableScan, table: Arc<Table>, alias: Option<String>) -> Self {
+    pub(crate) fn new(table_scan: TableScan<F>, table: Arc<Table>, alias: Option<String>) -> Self {
         let base_schema = table.schema_ref();
         let column_positions = (0..base_schema.column_count()).collect();
         let prefix = alias.unwrap_or_else(|| table.name().to_string());
@@ -69,7 +70,7 @@ impl ScanResultsSet {
     }
 }
 
-impl ResultSet for ScanResultsSet {
+impl<F: RowFilter + 'static> ResultSet for ScanResultsSet<F> {
     fn iterator(&self) -> Result<Box<dyn Iterator<Item = RowViewResult> + '_>, ExecutionError> {
         // We call .iter() on TableScan, which returns a TableIterator.
         // We map that iterator to RowView.
@@ -422,6 +423,7 @@ mod tests {
     use crate::types::column_type::ColumnType;
 
     use crate::{asc, assert_next_row, assert_no_more_rows, desc, row, rows, schema};
+    use crate::storage::row::Row;
 
     #[test]
     fn scan_result_set() {
@@ -433,6 +435,32 @@ mod tests {
         table_store.insert(row![1, "relop"]);
 
         let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = ScanResultsSet::new(table_scan, Arc::new(table), None);
+
+        let mut iterator = result_set.iterator().unwrap();
+
+        assert_next_row!(iterator.as_mut(), "id" => 1, "name" => "relop");
+        assert_no_more_rows!(iterator.as_mut());
+    }
+
+    #[test]
+    fn scan_result_set_with_a_filter() {
+        let table = Table::new(
+            "employees",
+            schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap(),
+        );
+        let table_store = TableStore::new();
+        table_store.insert(row![1, "relop"]);
+        table_store.insert(row![2, "query"]);
+
+        struct MatchingRelopFilter;
+        impl RowFilter for MatchingRelopFilter {
+            fn matches(&self, row: &Row) -> bool {
+                row.column_value_at(1).unwrap().text_value().unwrap() == "relop"
+            }
+        }
+
+        let table_scan = TableScan::with_filter(Arc::new(table_store), MatchingRelopFilter);
         let result_set = ScanResultsSet::new(table_scan, Arc::new(table), None);
 
         let mut iterator = result_set.iterator().unwrap();

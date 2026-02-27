@@ -47,17 +47,33 @@ impl<'a> Executor<'a> {
     ) -> Result<Box<dyn result_set::ResultSet>, ExecutionError> {
         match logical_plan {
             LogicalPlan::Scan {
-                table_name, alias, ..
+                table_name,
+                alias,
+                filter,
             } => {
                 let (table_entry, table) = self
                     .catalog
                     .scan(table_name.as_ref())
                     .map_err(ExecutionError::Catalog)?;
 
-                let table_scan = table_entry.scan();
-                Ok(Box::new(result_set::ScanResultsSet::new(
-                    table_scan, table, alias,
-                )))
+                let result_set: Box<dyn result_set::ResultSet> = match filter {
+                    Some(predicate) => {
+                        let prefix = alias.clone().unwrap_or_else(|| table.name().to_string());
+                        let prefixed_schema = table.schema_ref().with_prefix(&prefix);
+                        let bound_predicate = predicate.bind(&prefixed_schema)?;
+
+                        Box::new(result_set::ScanResultsSet::new(
+                            table_entry.scan_with_filter(bound_predicate),
+                            table,
+                            alias,
+                        ))
+                    }
+                    None => {
+                        let table_scan = table_entry.scan();
+                        Box::new(result_set::ScanResultsSet::new(table_scan, table, alias))
+                    }
+                };
+                Ok(result_set)
             }
             LogicalPlan::Join { left, right, on } => {
                 let left_result_set = self.execute_select(*left)?;

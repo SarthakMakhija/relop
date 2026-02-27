@@ -64,8 +64,8 @@ pub(crate) enum LogicalClause {
         rhs: Literal,
     },
     Like {
-        /// The column name to match against.
-        column_name: String,
+        /// The column to match against.
+        column: Literal,
         /// The compiled regular expression for the pattern.
         regex: regex::Regex,
     },
@@ -75,27 +75,31 @@ impl PartialEq for LogicalClause {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (
-                LogicalClause::Comparison {
-                    lhs: l_lhs,
-                    operator: l_op,
-                    rhs: l_rhs,
+                Self::Comparison {
+                    lhs: first_left,
+                    operator: first_operator,
+                    rhs: first_right,
                 },
-                LogicalClause::Comparison {
-                    lhs: r_lhs,
-                    operator: r_op,
-                    rhs: r_rhs,
+                Self::Comparison {
+                    lhs: second_left,
+                    operator: second_operator,
+                    rhs: second_right,
                 },
-            ) => l_lhs == r_lhs && l_op == r_op && l_rhs == r_rhs,
+            ) => {
+                first_left == second_left
+                    && first_operator == second_operator
+                    && first_right == second_right
+            }
             (
-                LogicalClause::Like {
-                    column_name: l_name,
-                    regex: l_re,
+                Self::Like {
+                    column: first_column,
+                    regex: first_regex,
                 },
-                LogicalClause::Like {
-                    column_name: r_name,
-                    regex: r_re,
+                Self::Like {
+                    column: second_column,
+                    regex: second_regex,
                 },
-            ) => l_name == r_name && l_re.as_str() == r_re.as_str(),
+            ) => first_column == second_column && first_regex.as_str() == second_regex.as_str(),
             _ => false,
         }
     }
@@ -108,9 +112,8 @@ impl LogicalClause {
     pub(crate) fn matches<V: ValueResolver>(&self, resolver: &V) -> Result<bool, ExecutionError> {
         match self {
             LogicalClause::Comparison { lhs, operator, rhs } => operator.apply(lhs, rhs, resolver),
-            LogicalClause::Like { column_name, regex } => {
-                let column_value =
-                    resolver.resolve(&Literal::ColumnReference(column_name.to_string()))?;
+            LogicalClause::Like { column, regex } => {
+                let column_value = resolver.resolve(column)?;
 
                 match column_value {
                     ColumnValue::Text(value) => Ok(regex.is_match(&value)),
@@ -128,17 +131,10 @@ impl LogicalClause {
                 operator,
                 rhs: bind_literal(rhs, schema)?,
             }),
-            LogicalClause::Like { column_name, regex } => {
-                // Ensure the column exists in the schema
-                schema
-                    .column_position(&column_name)
-                    .map_err(|schema_error| {
-                        PlanningError::ColumnNotFound(schema_error.to_string())
-                    })?
-                    .ok_or_else(|| PlanningError::ColumnNotFound(column_name.clone()))?;
-
-                Ok(LogicalClause::Like { column_name, regex })
-            }
+            LogicalClause::Like { column, regex } => Ok(LogicalClause::Like {
+                column: bind_literal(column, schema)?,
+                regex,
+            }),
         }
     }
 }
@@ -177,7 +173,7 @@ impl LogicalClause {
     /// * `regex` - The compiled regular expression pattern.
     pub(crate) fn like(column_name: &str, regex: regex::Regex) -> Self {
         LogicalClause::Like {
-            column_name: column_name.to_string(),
+            column: Literal::ColumnReference(column_name.to_string()),
             regex,
         }
     }
@@ -250,8 +246,13 @@ impl TryFrom<Clause> for LogicalClause {
                         ))
                     }
                 };
-                let regex = regex::Regex::new(&regex_pattern)?;
-                Ok(LogicalClause::Like { column_name, regex })
+                let regex = regex::Regex::new(&regex_pattern)
+                    .map_err(|err| PlanningError::InvalidRegex(err.to_string()))?;
+
+                Ok(LogicalClause::Like {
+                    column: Literal::ColumnReference(column_name),
+                    regex,
+                })
             }
         }
     }
@@ -955,9 +956,9 @@ mod predicate_tests {
         assert!(matches!(
             predicate,
             Predicate::Single(LogicalClause::Like {
-                column_name,
+                column,
                 regex: _,
-            }) if column_name == "name"
+            }) if matches!(column, Literal::ColumnReference(ref name) if name == "name")
         ));
     }
 
@@ -1031,7 +1032,7 @@ mod predicate_tests {
         let result = Predicate::try_from(clause);
         assert!(matches!(
             result,
-            Ok(Predicate::Single(LogicalClause::Like { column_name, regex: _ })) if column_name == "name"
+            Ok(Predicate::Single(LogicalClause::Like { column, regex: _ })) if matches!(column, Literal::ColumnReference(ref name) if name == "name")
         ));
     }
 
@@ -1453,9 +1454,9 @@ mod logical_clause_tests {
         assert!(matches!(
             clause,
             LogicalClause::Like {
-                column_name,
+                column,
                 regex: _,
-            } if column_name == "name"
+            } if matches!(column, Literal::ColumnReference(ref name) if name == "name")
         ));
     }
 
@@ -1603,7 +1604,7 @@ mod logical_clause_tests {
         let row_view = RowView::new(row, &schema, &visible_positions);
 
         let clause = LogicalClause::Like {
-            column_name: "name".to_string(),
+            column: Literal::ColumnReference("name".to_string()),
             regex: regex::Regex::new("relop").unwrap(),
         };
         let result = clause.matches(&row_view);
@@ -1611,6 +1612,54 @@ mod logical_clause_tests {
             result,
             Err(ExecutionError::Schema(schema::error::SchemaError::AmbiguousColumnName(ref column_name))) if column_name == "name"
         ));
+    }
+
+    #[test]
+    fn comparison_clauses_are_equal() {
+        let clause1 = LogicalClause::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Greater,
+            Literal::Int(18),
+        );
+        let clause2 = LogicalClause::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Greater,
+            Literal::Int(18),
+        );
+
+        assert_eq!(clause1, clause2);
+    }
+
+    #[test]
+    fn comparison_clauses_are_not_equal() {
+        let clause1 = LogicalClause::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Greater,
+            Literal::Int(18),
+        );
+        let clause2 = LogicalClause::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Lesser,
+            Literal::Int(18),
+        );
+
+        assert_ne!(clause1, clause2);
+    }
+
+    #[test]
+    fn like_clauses_are_equal() {
+        let clause1 = LogicalClause::like("name", regex::Regex::new("^J").unwrap());
+        let clause2 = LogicalClause::like("name", regex::Regex::new("^J").unwrap());
+
+        assert_eq!(clause1, clause2);
+    }
+
+    #[test]
+    fn like_clauses_are_not_equal() {
+        let clause1 = LogicalClause::like("name", regex::Regex::new("^J").unwrap());
+        let clause2 = LogicalClause::like("name", regex::Regex::new("^P").unwrap());
+
+        assert_ne!(clause1, clause2);
     }
 }
 
@@ -1706,6 +1755,7 @@ mod row_filter_tests {
 mod bind_tests {
     use super::*;
     use crate::types::column_type::ColumnType;
+    use regex::Regex;
 
     #[test]
     fn bind_comparison() {
@@ -1745,7 +1795,10 @@ mod bind_tests {
 
         let bound_predicate = predicate.bind(&schema).unwrap();
 
-        let expected = Predicate::like("name", regex);
+        let expected = Predicate::Single(LogicalClause::Like {
+            column: Literal::ColumnIndex(1),
+            regex: Regex::new("^A").unwrap(),
+        });
 
         assert_eq!(bound_predicate, expected);
     }
