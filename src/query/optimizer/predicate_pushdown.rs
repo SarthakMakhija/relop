@@ -1,6 +1,6 @@
 use crate::query::optimizer::OptimizerRule;
-use crate::query::plan::LogicalPlan;
 use crate::query::plan::predicate::Predicate;
+use crate::query::plan::LogicalPlan;
 
 /// A rule that pushes `Filter` nodes down into `Scan` nodes.
 pub(crate) struct PredicatePushdownRule;

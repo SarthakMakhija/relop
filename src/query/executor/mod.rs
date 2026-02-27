@@ -1,12 +1,26 @@
 pub mod error;
+pub(crate) mod filter_result_set;
+pub(crate) mod limit_result_set;
+pub(crate) mod nested_loop_join_result_set;
+pub(crate) mod ordering_result_set;
+pub(crate) mod project_result_set;
 pub mod result;
 pub mod result_set;
+pub(crate) mod scan_result_set;
+
+#[cfg(test)]
+pub(crate) mod test_utils;
 
 use crate::catalog::Catalog;
 use crate::query::executor::error::ExecutionError;
 use crate::query::executor::result::QueryResult;
 use crate::query::plan::LogicalPlan;
-use result_set::LimitResultSet;
+use filter_result_set::FilterResultSet;
+use limit_result_set::LimitResultSet;
+use nested_loop_join_result_set::NestedLoopJoinResultSet;
+use ordering_result_set::OrderingResultSet;
+use project_result_set::ProjectResultSet;
+use scan_result_set::ScanResultsSet;
 
 /// Executes logical plans against the catalog.
 pub(crate) struct Executor<'a> {
@@ -62,7 +76,7 @@ impl<'a> Executor<'a> {
                         let prefixed_schema = table.schema_ref().with_prefix(&prefix);
                         let bound_predicate = predicate.bind(&prefixed_schema)?;
 
-                        Box::new(result_set::ScanResultsSet::new(
+                        Box::new(ScanResultsSet::new(
                             table_entry.scan_with_filter(bound_predicate),
                             table,
                             alias,
@@ -70,7 +84,7 @@ impl<'a> Executor<'a> {
                     }
                     None => {
                         let table_scan = table_entry.scan();
-                        Box::new(result_set::ScanResultsSet::new(table_scan, table, alias))
+                        Box::new(ScanResultsSet::new(table_scan, table, alias))
                     }
                 };
                 Ok(result_set)
@@ -78,7 +92,7 @@ impl<'a> Executor<'a> {
             LogicalPlan::Join { left, right, on } => {
                 let left_result_set = self.execute_select(*left)?;
                 let right_result_set = self.execute_select(*right)?;
-                Ok(Box::new(result_set::NestedLoopJoinResultSet::new(
+                Ok(Box::new(NestedLoopJoinResultSet::new(
                     left_result_set,
                     right_result_set,
                     on,
@@ -89,17 +103,14 @@ impl<'a> Executor<'a> {
                 predicate,
             } => {
                 let result_set = self.execute_select(*base)?;
-                Ok(Box::new(result_set::FilterResultSet::new(
-                    result_set, predicate,
-                )))
+                Ok(Box::new(FilterResultSet::new(result_set, predicate)))
             }
             LogicalPlan::Projection {
                 base_plan: base,
                 columns,
             } => {
                 let result_set = self.execute_select(*base)?;
-                let project_result_set =
-                    result_set::ProjectResultSet::new(result_set, &columns[..])?;
+                let project_result_set = ProjectResultSet::new(result_set, &columns[..])?;
                 Ok(Box::new(project_result_set))
             }
             LogicalPlan::Sort {
@@ -107,8 +118,7 @@ impl<'a> Executor<'a> {
                 ordering_keys,
             } => {
                 let result_set = self.execute_select(*base)?;
-                let ordering_result_set =
-                    result_set::OrderingResultSet::new(result_set, ordering_keys);
+                let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
                 Ok(Box::new(ordering_result_set))
             }
             LogicalPlan::Limit {
