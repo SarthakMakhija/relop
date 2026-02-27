@@ -116,9 +116,10 @@ impl<'a> Executor<'a> {
             LogicalPlan::Sort {
                 base_plan: base,
                 ordering_keys,
+                limit,
             } => {
                 let result_set = self.execute_select(*base)?;
-                let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
+                let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys, limit);
                 Ok(Box::new(ordering_result_set))
             }
             LogicalPlan::Limit {

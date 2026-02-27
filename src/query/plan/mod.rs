@@ -61,6 +61,8 @@ pub(crate) enum LogicalPlan {
         base_plan: Box<LogicalPlan>,
         /// The ordering keys.
         ordering_keys: Vec<OrderingKey>,
+        /// Top-K limit to push down, if any.
+        limit: Option<usize>,
     },
 }
 
@@ -99,9 +101,11 @@ impl LogicalPlan {
             LogicalPlan::Sort {
                 base_plan,
                 ordering_keys,
+                limit,
             } => LogicalPlan::Sort {
                 base_plan: Box::new(transform(*base_plan)),
                 ordering_keys,
+                limit,
             },
             LogicalPlan::ShowTables
             | LogicalPlan::DescribeTable { .. }
@@ -194,6 +198,7 @@ impl LogicalPlanner {
             return LogicalPlan::Sort {
                 base_plan: base_plan.boxed(),
                 ordering_keys: keys,
+                limit: None,
             };
         }
         base_plan
@@ -254,6 +259,7 @@ impl LogicalPlan {
         LogicalPlan::Sort {
             base_plan: self.boxed(),
             ordering_keys,
+            limit: None,
         }
     }
 
@@ -414,7 +420,7 @@ mod tests {
         .unwrap();
         assert!(matches!(
             logical_plan,
-            LogicalPlan::Sort {base_plan, ordering_keys }
+            LogicalPlan::Sort {base_plan, ordering_keys, limit: _ }
                 if ordering_keys == vec![asc!("id")] &&
                     matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees") ));
     }
@@ -431,7 +437,7 @@ mod tests {
         .unwrap();
         assert!(matches!(
             logical_plan,
-            LogicalPlan::Sort {base_plan, ordering_keys }
+            LogicalPlan::Sort {base_plan, ordering_keys, limit: _ }
                 if ordering_keys == vec![desc!("id")] &&
                     matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees") ));
     }
@@ -448,7 +454,7 @@ mod tests {
         .unwrap();
         assert!(matches!(
             logical_plan,
-            LogicalPlan::Sort {base_plan, ordering_keys }
+            LogicalPlan::Sort {base_plan, ordering_keys, limit: _ }
                 if ordering_keys == vec![asc!("id"), desc!("name")] &&
                     matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees") ));
     }
@@ -550,7 +556,7 @@ mod tests {
         assert!(matches!(
             logical_plan,
             LogicalPlan::Limit {base_plan, count}
-                if count == 10 && matches!(base_plan.as_ref(), LogicalPlan::Sort { base_plan, ordering_keys }
+                if count == 10 && matches!(base_plan.as_ref(), LogicalPlan::Sort { base_plan, ordering_keys, limit: _ }
                     if *ordering_keys == vec![asc!("id"), desc!("name")] &&
                         matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees")
             )

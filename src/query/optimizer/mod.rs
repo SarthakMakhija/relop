@@ -1,5 +1,7 @@
+pub(crate) mod limit_pushdown;
 pub(crate) mod predicate_pushdown;
 
+use crate::query::optimizer::limit_pushdown::LimitPushdownRule;
 use crate::query::optimizer::predicate_pushdown::PredicatePushdownRule;
 use crate::query::plan::LogicalPlan;
 
@@ -18,7 +20,7 @@ impl Optimizer {
     /// Creates a new `Optimizer` with the default set of rules.
     pub(crate) fn new() -> Self {
         Self {
-            rules: vec![Box::new(PredicatePushdownRule)],
+            rules: vec![Box::new(PredicatePushdownRule), Box::new(LimitPushdownRule)],
         }
     }
 

@@ -16,6 +16,7 @@ use crate::storage::row_view::{RowView, RowViewComparator};
 pub struct OrderingResultSet {
     inner: Box<dyn ResultSet>,
     ordering_keys: Vec<OrderingKey>,
+    limit: Option<usize>,
 }
 
 impl OrderingResultSet {
@@ -25,10 +26,15 @@ impl OrderingResultSet {
     ///
     /// * `inner` - The source `ResultSet` to sort.
     /// * `ordering_keys` - Examples of keys defining the sort order.
-    pub fn new(inner: Box<dyn ResultSet>, ordering_keys: Vec<OrderingKey>) -> Self {
+    pub fn new(
+        inner: Box<dyn ResultSet>,
+        ordering_keys: Vec<OrderingKey>,
+        limit: Option<usize>,
+    ) -> Self {
         Self {
             inner,
             ordering_keys,
+            limit,
         }
     }
 }
@@ -38,15 +44,71 @@ impl ResultSet for OrderingResultSet {
         let comparator = RowViewComparator::new(self.schema(), &self.ordering_keys)?;
         let iterator = self.inner.iterator()?;
 
-        let mut rows: Vec<RowView> = Vec::new();
-        for result in iterator {
-            match result {
-                Ok(row_view) => rows.push(row_view),
-                Err(err) => return Err(err),
+        if let Some(limit) = self.limit {
+            if limit == 0 {
+                return Ok(Box::new(std::iter::empty()));
             }
+
+            struct ComparableRowView<'comparator, 'row_view> {
+                row: RowView<'row_view>,
+                comparator: &'comparator RowViewComparator<'comparator>,
+            }
+
+            impl PartialEq for ComparableRowView<'_, '_> {
+                fn eq(&self, other: &Self) -> bool {
+                    self.comparator.compare(&self.row, &other.row) == std::cmp::Ordering::Equal
+                }
+            }
+
+            impl Eq for ComparableRowView<'_, '_> {}
+
+            impl PartialOrd for ComparableRowView<'_, '_> {
+                fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+                    Some(self.cmp(other))
+                }
+            }
+
+            impl Ord for ComparableRowView<'_, '_> {
+                fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+                    self.comparator.compare(&self.row, &other.row)
+                }
+            }
+
+            let mut max_heap = std::collections::BinaryHeap::with_capacity(limit + 1);
+            for result in iterator {
+                match result {
+                    Ok(row_view) => {
+                        max_heap.push(ComparableRowView {
+                            row: row_view,
+                            comparator: &comparator,
+                        });
+                        if max_heap.len() > limit {
+                            max_heap.pop();
+                        }
+                    }
+                    Err(err) => return Err(err),
+                }
+            }
+
+            let mut sorted_rows = Vec::with_capacity(max_heap.len());
+            while let Some(item) = max_heap.pop() {
+                sorted_rows.push(item.row);
+            }
+            sorted_rows.reverse();
+
+            Ok(Box::new(sorted_rows.into_iter().map(Ok)))
+        } else {
+            let mut rows: Vec<RowView> = Vec::new();
+            for result in iterator {
+                match result {
+                    Ok(row_view) => rows.push(row_view),
+                    Err(err) => return Err(err),
+                }
+            }
+
+            rows.sort_by(|left, right| comparator.compare(left, right));
+            Ok(Box::new(rows.into_iter().map(Ok)))
         }
-        rows.sort_by(|left, right| comparator.compare(left, right));
-        Ok(Box::new(rows.into_iter().map(Ok)))
     }
 
     fn schema(&self) -> &Schema {
@@ -79,7 +141,7 @@ mod tests {
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let ordering_keys = vec![asc!("id")];
-        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
+        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys, None);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
         assert_next_row!(iterator.as_mut(), "id" => 1);
@@ -97,7 +159,7 @@ mod tests {
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let ordering_keys = vec![desc!("id")];
-        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
+        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys, None);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
         assert_next_row!(iterator.as_mut(), "id" => 2);
@@ -118,7 +180,7 @@ mod tests {
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let ordering_keys = vec![asc!("id"), asc!("rank")];
-        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
+        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys, None);
         let mut iterator = ordering_result_set.iterator().unwrap();
 
         assert_next_row!(iterator.as_mut(), "id" => 1, "rank" => 10);
@@ -139,13 +201,37 @@ mod tests {
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let ordering_keys = vec![asc!("id")];
-        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
+        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys, None);
 
         let limit_result_set = LimitResultSet::new(Box::new(ordering_result_set), 2);
         let mut iterator = limit_result_set.iterator().unwrap();
 
         assert_next_row!(iterator.as_mut(), "id" => 1);
         assert_next_row!(iterator.as_mut(), "id" => 2);
+        assert_no_more_rows!(iterator.as_mut());
+    }
+
+    #[test]
+    fn ordering_result_set_with_pushed_down_limit() {
+        let table = Table::new(
+            "employees",
+            schema!["id" => ColumnType::Int, "rank" => ColumnType::Int].unwrap(),
+        );
+        let table_store = TableStore::new();
+        table_store.insert_all(rows![[1, 30], [1, 10], [5, 50], [2, 20], [4, 40]]);
+
+        let table_scan = TableScan::new(Arc::new(table_store));
+        let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
+
+        let ordering_keys = vec![asc!("id"), desc!("rank")];
+        let limit = 3;
+        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys, Some(limit));
+
+        let mut iterator = ordering_result_set.iterator().unwrap();
+
+        assert_next_row!(iterator.as_mut(), "id" => 1, "rank" => 30);
+        assert_next_row!(iterator.as_mut(), "id" => 1, "rank" => 10);
+        assert_next_row!(iterator.as_mut(), "id" => 2, "rank" => 20);
         assert_no_more_rows!(iterator.as_mut());
     }
 
@@ -157,7 +243,7 @@ mod tests {
         let result_set = Box::new(ScanResultsSet::new(table_scan, Arc::new(table), None));
 
         let ordering_keys = vec![asc!("unknown")];
-        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
+        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys, None);
         let result = ordering_result_set.iterator();
 
         assert!(matches!(
@@ -174,7 +260,7 @@ mod tests {
         });
 
         let ordering_keys = vec![asc!("id")];
-        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys);
+        let ordering_result_set = OrderingResultSet::new(result_set, ordering_keys, None);
         let result = ordering_result_set.iterator();
 
         assert!(matches!(
