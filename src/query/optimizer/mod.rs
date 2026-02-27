@@ -1,3 +1,4 @@
+use crate::query::plan::predicate::Predicate;
 use crate::query::plan::LogicalPlan;
 
 /// A trait for rules that optimize a `LogicalPlan`.
@@ -21,12 +22,18 @@ impl OptimizerRule for PredicatePushdownRule {
                 LogicalPlan::Scan {
                     table_name,
                     alias,
-                    filter: _some_filter,
-                } => LogicalPlan::Scan {
-                    table_name,
-                    alias,
-                    filter: Some(predicate),
-                },
+                    filter: existing,
+                } => {
+                    let combined_filter = match existing {
+                        Some(existing_filter) => Predicate::And(vec![existing_filter, predicate]),
+                        None => predicate,
+                    };
+                    LogicalPlan::Scan {
+                        table_name,
+                        alias,
+                        filter: Some(combined_filter),
+                    }
+                }
                 _ => LogicalPlan::Filter {
                     base_plan,
                     predicate,
@@ -110,6 +117,43 @@ mod tests {
                 )),
             }),
             columns: vec!["id".to_string()],
+        };
+
+        assert_eq!(optimized_plan, expected_plan);
+    }
+
+    #[test]
+    fn push_down_multiple_filters_to_scan() {
+        let plan = LogicalPlan::scan("employees")
+            .filter(Predicate::comparison(
+                Literal::ColumnReference("age".to_string()),
+                LogicalOperator::Greater,
+                Literal::Int(30),
+            ))
+            .filter(Predicate::comparison(
+                Literal::ColumnReference("id".to_string()),
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            ));
+
+        let optimizer = Optimizer::new();
+        let optimized_plan = optimizer.optimize(plan);
+
+        let expected_plan = LogicalPlan::Scan {
+            table_name: "employees".to_string(),
+            alias: None,
+            filter: Some(Predicate::And(vec![
+                Predicate::comparison(
+                    Literal::ColumnReference("age".to_string()),
+                    LogicalOperator::Greater,
+                    Literal::Int(30),
+                ),
+                Predicate::comparison(
+                    Literal::ColumnReference("id".to_string()),
+                    LogicalOperator::Eq,
+                    Literal::Int(1),
+                ),
+            ])),
         };
 
         assert_eq!(optimized_plan, expected_plan);
