@@ -1,8 +1,45 @@
 use crate::query::executor::error::ExecutionError;
 use crate::query::parser::ast::{BinaryOperator, Clause, Expression, Literal, WhereClause};
-
+use crate::storage::row::Row;
 use crate::storage::row_view::RowView;
 use crate::types::column_value::ColumnValue;
+
+/// A trait for resolving column values from different sources (e.g., RowView, Row).
+pub(crate) trait ValueResolver {
+    /// Resolves a literal into a column value.
+    fn resolve(&self, literal: &Literal) -> Result<ColumnValue, ExecutionError>;
+}
+
+impl ValueResolver for RowView<'_> {
+    fn resolve(&self, literal: &Literal) -> Result<ColumnValue, ExecutionError> {
+        match literal {
+            Literal::Int(value) => Ok(ColumnValue::Int(*value)),
+            Literal::Text(value) => Ok(ColumnValue::Text(value.clone())),
+            Literal::ColumnReference(column_name) => self
+                .column_value_by(column_name)
+                .map_err(ExecutionError::Schema)?
+                .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))
+                .cloned(),
+            Literal::ColumnIndex(index) => Ok(self.column_value_at_unchecked(*index).clone()),
+        }
+    }
+}
+
+impl ValueResolver for Row {
+    fn resolve(&self, literal: &Literal) -> Result<ColumnValue, ExecutionError> {
+        match literal {
+            Literal::Int(value) => Ok(ColumnValue::Int(*value)),
+            Literal::Text(value) => Ok(ColumnValue::Text(value.clone())),
+            Literal::ColumnIndex(index) => self
+                .column_value_at(*index)
+                .ok_or(ExecutionError::ColumnIndexOutOfBounds(*index))
+                .cloned(),
+            Literal::ColumnReference(column_name) => {
+                Err(ExecutionError::UnboundColumn(column_name.to_string()))
+            }
+        }
+    }
+}
 
 /// `Predicate` represents a filter clause in a logical plan.
 pub(crate) enum Predicate {
@@ -31,25 +68,16 @@ pub(crate) enum LogicalClause {
 }
 
 impl LogicalClause {
-    /// Evaluates the clause against a given `RowView`.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(true)` - If the row satisfies the clause.
-    /// * `Ok(false)` - If the row does not satisfy the clause.
-    /// * `Err(ExecutionError::UnknownColumn)` - If the column is not found in the row.
-    /// * `Err(ExecutionError::TypeMismatchInComparison)` - If the types do not match.
-    pub(crate) fn matches(&self, row_view: &RowView) -> Result<bool, ExecutionError> {
+    /// Evaluates the clause against a given `ValueResolver`.
+    pub(crate) fn matches<V: ValueResolver>(&self, resolver: &V) -> Result<bool, ExecutionError> {
         match self {
-            LogicalClause::Comparison { lhs, operator, rhs } => operator.apply(lhs, rhs, row_view),
+            LogicalClause::Comparison { lhs, operator, rhs } => operator.apply(lhs, rhs, resolver),
             LogicalClause::Like { column_name, regex } => {
-                let column_value = row_view
-                    .column_value_by(column_name)
-                    .map_err(ExecutionError::Schema)?
-                    .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?;
+                let column_value =
+                    resolver.resolve(&Literal::ColumnReference(column_name.to_string()))?;
 
                 match column_value {
-                    ColumnValue::Text(value) => Ok(regex.is_match(value)),
+                    ColumnValue::Text(value) => Ok(regex.is_match(&value)),
                     _ => Err(ExecutionError::TypeMismatchInComparison),
                 }
             }
@@ -159,16 +187,16 @@ impl TryFrom<Clause> for LogicalClause {
 }
 
 impl Predicate {
-    /// Evaluates the predicate against a given `RowView`.
+    /// Evaluates the predicate against a given `ValueResolver`.
     ///
     /// Returns `Ok(true)` if the row satisfies the predicate, `Ok(false)` otherwise.
     /// Returns an `ExecutionError` if the column cannot be found.
-    pub(crate) fn matches(&self, row_view: &RowView) -> Result<bool, ExecutionError> {
+    pub(crate) fn matches<R: ValueResolver>(&self, resolver: &R) -> Result<bool, ExecutionError> {
         match self {
-            Predicate::Single(clause) => clause.matches(row_view),
+            Predicate::Single(clause) => clause.matches(resolver),
             Predicate::And(predicates) => {
                 for predicate in predicates {
-                    if !predicate.matches(row_view)? {
+                    if !predicate.matches(resolver)? {
                         return Ok(false);
                     }
                 }
@@ -176,7 +204,7 @@ impl Predicate {
             }
             Predicate::Or(predicates) => {
                 for predicate in predicates {
-                    if predicate.matches(row_view)? {
+                    if predicate.matches(resolver)? {
                         return Ok(true);
                     }
                 }
@@ -221,9 +249,9 @@ pub(crate) enum LogicalOperator {
     Greater,
     /// Greater than or equal to `>=`.
     GreaterEq,
-    /// Less than `<`.
+    /// Lesser than `<`.
     Lesser,
-    /// Less than or equal to `<=`.
+    /// Lesser than or equal to `<=`.
     LesserEq,
 }
 
@@ -265,37 +293,15 @@ impl LogicalOperator {
         }
     }
 
-    /// Applies the logical operator to compare a column value and a literal.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(true)` - If the comparison evaluates to true.
-    /// * `Ok(false)` - If the comparison evaluates to false.
-    /// * `Err(ExecutionError::TypeMismatchInComparison)` - If the types of the column value and literal do not match.
-    pub(crate) fn apply(
+    /// Applies the logical operator to compare values resolved from a `ValueResolver`.
+    pub(crate) fn apply<V: ValueResolver>(
         &self,
         lhs: &Literal,
         rhs: &Literal,
-        row_view: &RowView,
+        resolver: &V,
     ) -> Result<bool, ExecutionError> {
-        let lhs_value = match lhs {
-            Literal::Int(value) => ColumnValue::Int(*value),
-            Literal::Text(value) => ColumnValue::Text(value.clone()),
-            Literal::ColumnReference(column_name) => row_view
-                .column_value_by(column_name)
-                .map_err(ExecutionError::Schema)?
-                .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?
-                .clone(),
-        };
-        let rhs_value = match rhs {
-            Literal::Int(value) => ColumnValue::Int(*value),
-            Literal::Text(value) => ColumnValue::Text(value.clone()),
-            Literal::ColumnReference(column_name) => row_view
-                .column_value_by(column_name)
-                .map_err(ExecutionError::Schema)?
-                .ok_or(ExecutionError::UnknownColumn(column_name.to_string()))?
-                .clone(),
-        };
+        let lhs_value = resolver.resolve(lhs)?;
+        let rhs_value = resolver.resolve(rhs)?;
         self.evaluate(&lhs_value, &rhs_value)
     }
 }
@@ -755,81 +761,73 @@ mod logical_operator_tests {
 
     #[test]
     fn evaluate_int_equal() {
-        assert_eq!(
+        assert!(
             LogicalOperator::Eq
                 .evaluate(&ColumnValue::int(1), &ColumnValue::int(1))
                 .unwrap(),
-            true
         );
     }
 
     #[test]
     fn evaluate_int_not_equal() {
-        assert_eq!(
-            LogicalOperator::Eq
+        assert!(
+            !LogicalOperator::Eq
                 .evaluate(&ColumnValue::int(1), &ColumnValue::int(2))
                 .unwrap(),
-            false
         );
     }
 
     #[test]
     fn evaluate_int_greater() {
-        assert_eq!(
+        assert!(
             LogicalOperator::Greater
                 .evaluate(&ColumnValue::int(2), &ColumnValue::int(1))
                 .unwrap(),
-            true
         );
     }
 
     #[test]
     fn evaluate_int_greater_equal() {
-        assert_eq!(
+        assert!(
             LogicalOperator::GreaterEq
                 .evaluate(&ColumnValue::int(2), &ColumnValue::int(2))
                 .unwrap(),
-            true
         );
     }
 
     #[test]
     fn evaluate_int_lesser() {
-        assert_eq!(
+        assert!(
             LogicalOperator::Lesser
                 .evaluate(&ColumnValue::int(1), &ColumnValue::int(2))
                 .unwrap(),
-            true
         );
     }
 
     #[test]
     fn evaluate_int_lesser_equal() {
-        assert_eq!(
+        assert!(
             LogicalOperator::LesserEq
                 .evaluate(&ColumnValue::int(1), &ColumnValue::int(1))
                 .unwrap(),
-            true
         );
     }
 
     #[test]
     fn evaluate_text_equal() {
-        assert_eq!(
+        assert!(
             LogicalOperator::Eq
                 .evaluate(&ColumnValue::text("a"), &ColumnValue::text("a"))
                 .unwrap(),
-            true
         );
     }
 
     #[test]
     fn evaluate_text_not_equal() {
-        assert_eq!(
+        assert!(
             LogicalOperator::NotEq
                 .evaluate(&ColumnValue::text("a"), &ColumnValue::text("b"))
                 .unwrap(),
-            true
         );
     }
 
@@ -1531,5 +1529,55 @@ mod logical_clause_tests {
             result,
             Err(ExecutionError::Schema(schema::error::SchemaError::AmbiguousColumnName(ref column_name))) if column_name == "name"
         ));
+    }
+}
+
+#[cfg(test)]
+mod row_view_value_resolver_tests {
+    use super::*;
+    use crate::schema::Schema;
+    use crate::types::column_type::ColumnType;
+
+    #[test]
+    fn resolve_by_name() {
+        let schema = Schema::new().add_column("age", ColumnType::Int).unwrap();
+        let row = Row::filled(vec![ColumnValue::int(30)]);
+        let row_view = RowView::new(row, &schema, &[0]);
+
+        let literal = Literal::ColumnReference("age".to_string());
+        let value = row_view.resolve(&literal).unwrap();
+        assert_eq!(value, ColumnValue::int(30));
+    }
+
+    #[test]
+    fn resolve_by_index() {
+        let schema = Schema::new().add_column("age", ColumnType::Int).unwrap();
+        let row = Row::filled(vec![ColumnValue::int(30)]);
+        let row_view = RowView::new(row, &schema, &[0]);
+
+        let literal = Literal::ColumnIndex(0);
+        let value = row_view.resolve(&literal).unwrap();
+        assert_eq!(value, ColumnValue::int(30));
+    }
+}
+
+#[cfg(test)]
+mod row_value_resolver_tests {
+    use super::*;
+
+    #[test]
+    fn resolve_by_index() {
+        let row = Row::filled(vec![ColumnValue::int(30)]);
+        let literal = Literal::ColumnIndex(0);
+        let value = row.resolve(&literal).unwrap();
+        assert_eq!(value, ColumnValue::int(30));
+    }
+
+    #[test]
+    fn resolve_unbound_error() {
+        let row = Row::filled(vec![ColumnValue::int(30)]);
+        let literal = Literal::ColumnReference("age".to_string());
+        let result = row.resolve(&literal);
+        assert!(matches!(result, Err(ExecutionError::UnboundColumn(_))));
     }
 }

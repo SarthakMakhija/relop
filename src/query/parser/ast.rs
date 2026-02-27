@@ -211,6 +211,8 @@ pub(crate) enum Literal {
     Text(String),
     /// A column reference (e.g. `last_name` in `first_name = last_name` or `employees.first_name`).
     ColumnReference(String),
+    /// A pre-resolved column index used for high-performance scans.
+    ColumnIndex(usize),
 }
 
 impl Literal {

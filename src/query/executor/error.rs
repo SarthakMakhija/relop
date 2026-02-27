@@ -12,6 +12,10 @@ pub enum ExecutionError {
     TypeMismatchInComparison,
     /// Errors related to schema validation during execution.
     Schema(crate::schema::error::SchemaError),
+    /// Error when a raw Row scan encounters an unbound ColumnReference.
+    UnboundColumn(String),
+    /// Error when a ColumnIndex is out of bounds for a Row.
+    ColumnIndexOutOfBounds(usize),
 }
 
 impl From<RowViewComparatorError> for ExecutionError {
