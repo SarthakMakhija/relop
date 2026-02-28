@@ -191,17 +191,20 @@ impl Schema {
         Ok(())
     }
 
+    /// Returns true if `Schema` contains the column_name.
+    ///
+    /// This handles both qualified and unqualified name match.
+    pub(crate) fn has_column(&self, column_name: &str) -> bool {
+        self.columns
+            .iter()
+            .any(|column| column.matches(column_name))
+    }
+
     fn ensure_column_not_already_defined(&self, name: &str) -> Result<(), SchemaError> {
         if self.has_column(name) {
             return Err(SchemaError::DuplicateColumnName(name.to_string()));
         }
         Ok(())
-    }
-
-    fn has_column(&self, column_name: &str) -> bool {
-        self.columns
-            .iter()
-            .any(|column| column.matches_name(column_name))
     }
 
     fn validate_prefix(&self, column_name: &str) -> Result<Option<usize>, SchemaError> {

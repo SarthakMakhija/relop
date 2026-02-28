@@ -1,5 +1,6 @@
 use crate::query::executor::error::ExecutionError;
 use crate::query::parser::ast::{BinaryOperator, Clause, Expression, Literal, WhereClause};
+use crate::query::plan::error::PlanningError;
 use crate::schema::Schema;
 use crate::storage::row::Row;
 use crate::storage::row_filter::RowFilter;
@@ -137,6 +138,27 @@ impl LogicalClause {
             }),
         }
     }
+
+    /// Returns a list of all column names referenced in the clause.
+    pub(crate) fn referenced_column_names(&self) -> Vec<&String> {
+        let mut columns = Vec::new();
+        match self {
+            LogicalClause::Comparison { lhs, rhs, .. } => {
+                if let Literal::ColumnReference(name) = lhs {
+                    columns.push(name);
+                }
+                if let Literal::ColumnReference(name) = rhs {
+                    columns.push(name);
+                }
+            }
+            LogicalClause::Like { column, .. } => {
+                if let Literal::ColumnReference(name) = column {
+                    columns.push(name);
+                }
+            }
+        }
+        columns
+    }
 }
 
 fn bind_literal(literal: Literal, schema: &Schema) -> Result<Literal, PlanningError> {
@@ -178,8 +200,6 @@ impl LogicalClause {
         }
     }
 }
-
-use crate::query::plan::error::PlanningError;
 
 impl TryFrom<WhereClause> for Predicate {
     type Error = PlanningError;
@@ -292,14 +312,14 @@ impl Predicate {
             Predicate::And(predicates) => {
                 let bound = predicates
                     .into_iter()
-                    .map(|p| p.bind(schema))
+                    .map(|predicate| predicate.bind(schema))
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(Predicate::And(bound))
             }
             Predicate::Or(predicates) => {
                 let bound = predicates
                     .into_iter()
-                    .map(|p| p.bind(schema))
+                    .map(|predicate| predicate.bind(schema))
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(Predicate::Or(bound))
             }
@@ -319,6 +339,26 @@ impl Predicate {
                 split
             }
             _ => vec![self],
+        }
+    }
+    /// Returns `true` if all columns referenced by this predicate exist in the given schema.
+    pub(crate) fn belongs_to(&self, schema: &Schema) -> bool {
+        let mut all_columns = Vec::new();
+        self.all_column_names(&mut all_columns);
+
+        all_columns
+            .iter()
+            .all(|column_name| schema.has_column(column_name))
+    }
+
+    fn all_column_names<'a>(&'a self, all_columns: &mut Vec<&'a String>) {
+        match self {
+            Predicate::Single(clause) => all_columns.extend(clause.referenced_column_names()),
+            Predicate::And(predicates) | Predicate::Or(predicates) => {
+                for predicate in predicates {
+                    predicate.all_column_names(all_columns);
+                }
+            }
         }
     }
 }
@@ -425,6 +465,35 @@ impl LogicalOperator {
 mod tests {
     use super::*;
     use crate::query::parser::ast::{BinaryOperator, Literal};
+
+    #[test]
+    fn logical_clause_columns_for_comparison_with_column_on_lhs() {
+        let clause = LogicalClause::comparison(
+            Literal::ColumnReference("age".to_string()),
+            LogicalOperator::Greater,
+            Literal::Int(18),
+        );
+        assert_eq!(vec!["age"], clause.referenced_column_names());
+    }
+
+    #[test]
+    fn logical_clause_columns_for_comparison_with_columns_on_both_sides() {
+        let clause = LogicalClause::comparison(
+            Literal::ColumnReference("e.dept_id".to_string()),
+            LogicalOperator::Eq,
+            Literal::ColumnReference("d.id".to_string()),
+        );
+        let columns = clause.referenced_column_names();
+        assert_eq!(2, columns.len());
+        assert!(columns.contains(&&"e.dept_id".to_string()));
+        assert!(columns.contains(&&"d.id".to_string()));
+    }
+
+    #[test]
+    fn logical_clause_columns_for_like() {
+        let clause = LogicalClause::like("name", regex::Regex::new("r.*").unwrap());
+        assert_eq!(vec!["name"], clause.referenced_column_names());
+    }
 
     #[test]
     fn logical_operator_from_eq_operator() {
@@ -1952,5 +2021,58 @@ mod bind_tests {
         let result = predicate.bind(&schema);
 
         assert!(matches!(result, Err(PlanningError::ColumnNotFound(_))));
+    }
+
+    #[test]
+    fn predicate_belongs_to_schema() {
+        let schema = crate::schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap();
+
+        let predicate = Predicate::and(vec![
+            Predicate::comparison(
+                Literal::ColumnReference("id".to_string()),
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            ),
+            Predicate::like("name", Regex::new("A.*").unwrap()),
+        ]);
+
+        assert!(predicate.belongs_to(&schema));
+    }
+
+    #[test]
+    fn predicate_with_alias_belongs_to_schema() {
+        let schema = crate::schema!["id" => ColumnType::Int, "name" => ColumnType::Text].unwrap();
+        let schema = schema.with_prefix("e");
+
+        let predicate = Predicate::and(vec![
+            Predicate::comparison(
+                Literal::ColumnReference("e.id".to_string()),
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            ),
+            Predicate::like("e.name", Regex::new("A.*").unwrap()),
+        ]);
+
+        assert!(predicate.belongs_to(&schema));
+    }
+
+    #[test]
+    fn predicate_does_not_belong_to_schema() {
+        let schema = crate::schema!["id" => ColumnType::Int].unwrap();
+
+        let predicate = Predicate::and(vec![
+            Predicate::comparison(
+                Literal::ColumnReference("id".to_string()),
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            ),
+            Predicate::comparison(
+                Literal::ColumnReference("age".to_string()),
+                LogicalOperator::Greater,
+                Literal::Int(18),
+            ),
+        ]);
+
+        assert!(!predicate.belongs_to(&schema));
     }
 }
