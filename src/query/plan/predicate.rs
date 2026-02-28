@@ -45,7 +45,6 @@ impl ValueResolver for Row {
 }
 
 /// `Predicate` represents a filter clause in a logical plan.
-/// `Predicate` represents a filter clause in a logical plan.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Predicate {
     Single(LogicalClause),
