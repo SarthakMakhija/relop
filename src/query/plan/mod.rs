@@ -602,6 +602,61 @@ mod tests {
     }
 
     #[test]
+    fn logical_plan_for_select_with_join_and_where() {
+        use crate::query::parser::ast::Clause;
+
+        let logical_plan = LogicalPlanner::plan(Ast::Select {
+            source: crate::query::parser::ast::TableSource::Join {
+                left: Box::new(crate::query::parser::ast::TableSource::table("employees")),
+                right: Box::new(crate::query::parser::ast::TableSource::table("departments")),
+                on: Some(crate::query::parser::ast::Expression::Single(
+                    Clause::Comparison {
+                        lhs: Literal::ColumnReference("employee_id".to_string()),
+                        operator: BinaryOperator::Eq,
+                        rhs: Literal::ColumnReference("department_id".to_string()),
+                    },
+                )),
+            },
+            projection: Projection::All,
+            where_clause: Some(WhereClause(crate::query::parser::ast::Expression::Single(
+                Clause::Comparison {
+                    lhs: Literal::ColumnReference("status".to_string()),
+                    operator: BinaryOperator::Eq,
+                    rhs: Literal::Text("ACTIVE".to_string()),
+                },
+            ))),
+            order_by: None,
+            limit: None,
+        })
+        .unwrap();
+
+        assert!(matches!(
+            logical_plan,
+            LogicalPlan::Filter { base_plan, predicate }
+            if matches!(
+                base_plan.as_ref(),
+                LogicalPlan::Join { left, right, on }
+                if matches!(left.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees")
+                && matches!(right.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "departments")
+                && matches!(
+                    on.as_ref().unwrap(),
+                    Predicate::Single(predicate::LogicalClause::Comparison { lhs, operator, rhs })
+                    if matches!(lhs, Literal::ColumnReference(column_name) if column_name == "employee_id")
+                    && *operator == LogicalOperator::Eq
+                    && matches!(rhs, Literal::ColumnReference(column_name) if column_name == "department_id")
+                )
+            )
+            && matches!(
+                &predicate,
+                Predicate::Single(predicate::LogicalClause::Comparison { lhs, operator, rhs })
+                if matches!(lhs, Literal::ColumnReference(column_name) if column_name == "status")
+                && *operator == LogicalOperator::Eq
+                && matches!(rhs, Literal::Text(val) if val == "ACTIVE")
+            )
+        ));
+    }
+
+    #[test]
     fn logical_plan_for_select_with_multiple_joins() {
         use crate::query::parser::ast::Clause;
 
