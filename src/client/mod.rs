@@ -306,7 +306,8 @@ impl Relop {
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().map_err(ClientError::Parse)?;
 
-        let plan = LogicalPlanner::plan(ast).map_err(ClientError::Plan)?;
+        let planner = LogicalPlanner::new(self.catalog.clone());
+        let plan = planner.plan(ast).map_err(ClientError::Plan)?;
         let optimized_plan = crate::query::optimizer::Optimizer::new().optimize(plan);
 
         let executor = Executor::new(&self.catalog);
@@ -478,7 +479,7 @@ mod tests {
         let query_result = relop.execute("select * from employees");
         assert!(matches!(
             query_result,
-            Err(ClientError::Execution(ExecutionError::Catalog(CatalogError::TableDoesNotExist(table_name)))) if table_name == "employees"
+            Err(ClientError::Plan(crate::query::plan::error::PlanningError::Catalog(temp))) if temp == CatalogError::TableDoesNotExist("employees".to_string())
         ));
     }
 

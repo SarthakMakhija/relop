@@ -64,6 +64,7 @@ impl<'a> Executor<'a> {
                 table_name,
                 alias,
                 filter,
+                schema: _,
             } => {
                 let (table_entry, table) = self
                     .catalog
@@ -507,6 +508,7 @@ mod tests {
                 table_name: "employees".to_string(),
                 alias: Some("e".to_string()),
                 filter: None,
+                schema: std::sync::Arc::new(crate::schema::Schema::new()),
             })
             .unwrap();
 
@@ -576,12 +578,14 @@ mod tests {
                 table_name: "employees".to_string(),
                 alias: Some("e".to_string()),
                 filter: None,
+                schema: std::sync::Arc::new(crate::schema::Schema::new()),
             }
             .boxed(),
             right: LogicalPlan::Scan {
                 table_name: "departments".to_string(),
                 alias: Some("d".to_string()),
                 filter: None,
+                schema: std::sync::Arc::new(crate::schema::Schema::new()),
             }
             .boxed(),
             on: Some(Predicate::comparison(
@@ -597,6 +601,7 @@ mod tests {
                 table_name: "locations".to_string(),
                 alias: Some("l".to_string()),
                 filter: None,
+                schema: std::sync::Arc::new(crate::schema::Schema::new()),
             }
             .boxed(),
             on: Some(Predicate::comparison(
@@ -626,12 +631,14 @@ mod tests {
                 table_name: "employees".to_string(),
                 alias: Some("emp1".to_string()),
                 filter: None,
+                schema: std::sync::Arc::new(crate::schema::Schema::new()),
             }
             .boxed(),
             right: LogicalPlan::Scan {
                 table_name: "employees".to_string(),
                 alias: Some("emp2".to_string()),
                 filter: None,
+                schema: std::sync::Arc::new(crate::schema::Schema::new()),
             }
             .boxed(),
             on: Some(Predicate::comparison(

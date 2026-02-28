@@ -7,6 +7,8 @@ pub enum PlanningError {
     InvalidRegex(String),
     /// Indicates that a column reference could not be resolved.
     ColumnNotFound(String),
+    /// Indicates a catalog-related error during planning (e.g., table not found).
+    Catalog(crate::catalog::error::CatalogError),
 }
 
 impl From<Error> for PlanningError {

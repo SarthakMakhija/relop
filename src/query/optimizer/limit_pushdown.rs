@@ -49,6 +49,7 @@ mod tests {
             table_name: "employees".to_string(),
             alias: None,
             filter: None,
+            schema: std::sync::Arc::new(crate::schema::Schema::new()),
         };
 
         let sort_plan = table_scan.order_by(vec![asc!("id")]);

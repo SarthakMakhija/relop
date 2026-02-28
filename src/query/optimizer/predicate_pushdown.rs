@@ -18,6 +18,7 @@ impl OptimizerRule for PredicatePushdownRule {
                     table_name,
                     alias,
                     filter: existing,
+                    schema,
                 } => {
                     let combined_filter = match existing {
                         Some(existing_filter) => Predicate::And(vec![existing_filter, predicate]),
@@ -27,6 +28,7 @@ impl OptimizerRule for PredicatePushdownRule {
                         table_name,
                         alias,
                         filter: Some(combined_filter),
+                        schema,
                     }
                 }
                 _ => LogicalPlan::Filter {
@@ -64,6 +66,7 @@ mod tests {
                 LogicalOperator::Eq,
                 Literal::Int(1),
             )),
+            schema: std::sync::Arc::new(crate::schema::Schema::new()),
         };
 
         assert_eq!(optimized_plan, expected_plan);
@@ -91,6 +94,7 @@ mod tests {
                     LogicalOperator::Eq,
                     Literal::Int(1),
                 )),
+                schema: std::sync::Arc::new(crate::schema::Schema::new()),
             }),
             columns: vec!["id".to_string()],
         };
@@ -130,6 +134,7 @@ mod tests {
                     Literal::Int(1),
                 ),
             ])),
+            schema: std::sync::Arc::new(crate::schema::Schema::new()),
         };
 
         assert_eq!(optimized_plan, expected_plan);

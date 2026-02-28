@@ -1,11 +1,14 @@
 pub(crate) mod error;
 pub(crate) mod predicate;
 
+use crate::catalog::Catalog;
 use crate::query::parser::ast::{Ast, WhereClause};
 use crate::query::parser::ordering_key::OrderingKey;
 use crate::query::parser::projection::Projection;
 use crate::query::plan::error::PlanningError;
 use crate::query::plan::predicate::Predicate;
+use crate::schema::Schema;
+use std::sync::Arc;
 
 /// `LogicalPlan` represents the logical steps required to execute a query.
 #[derive(Debug, PartialEq, Eq)]
@@ -25,6 +28,8 @@ pub(crate) enum LogicalPlan {
         alias: Option<String>,
         /// The optional pushed-down filter.
         filter: Option<Predicate>,
+        /// The schema of the table.
+        schema: Arc<Schema>,
     },
     /// Plan to perform a join between two tables.
     Join {
@@ -115,13 +120,18 @@ impl LogicalPlan {
 }
 
 /// `LogicalPlanner` converts an Abstract Syntax Tree (AST) into a `LogicalPlan`.
-pub(crate) struct LogicalPlanner;
+pub(crate) struct LogicalPlanner {
+    catalog: Arc<Catalog>,
+}
 
 impl LogicalPlanner {
+    // Creates a new `LogicalPlanner`.
+    pub(crate) fn new(catalog: Arc<Catalog>) -> Self {
+        Self { catalog }
+    }
+
     /// Converts a given `Ast` into a `LogicalPlan`.
-    /// The plan hierarchy is:
-    /// Scan → Filter → Projection → Sort → Limit
-    pub(crate) fn plan(ast: Ast) -> Result<LogicalPlan, PlanningError> {
+    pub(crate) fn plan(&self, ast: Ast) -> Result<LogicalPlan, PlanningError> {
         match ast {
             Ast::ShowTables => Ok(LogicalPlan::ShowTables),
             Ast::DescribeTable { table_name } => Ok(LogicalPlan::DescribeTable { table_name }),
@@ -132,29 +142,36 @@ impl LogicalPlanner {
                 limit,
                 order_by,
             } => {
-                let base_plan = Self::plan_for_source(source)?;
-                let base_plan = Self::plan_for_filter(where_clause, base_plan)?;
-                let base_plan = Self::plan_for_projection(projection, base_plan);
-                let base_plan = Self::plan_for_sort(order_by, base_plan);
-                Ok(Self::plan_for_limit(limit, base_plan))
+                let base_plan = self.plan_for_source(source)?;
+                let base_plan = self.plan_for_filter(where_clause, base_plan)?;
+                let base_plan = self.plan_for_projection(projection, base_plan);
+                let base_plan = self.plan_for_sort(order_by, base_plan);
+                Ok(self.plan_for_limit(limit, base_plan))
             }
         }
     }
 
     fn plan_for_source(
+        &self,
         source: crate::query::parser::ast::TableSource,
     ) -> Result<LogicalPlan, PlanningError> {
         match source {
             crate::query::parser::ast::TableSource::Table { name, alias } => {
+                let schema = self
+                    .catalog
+                    .schema_for(&name)
+                    .map_err(PlanningError::Catalog)?;
+
                 Ok(LogicalPlan::Scan {
                     table_name: name,
                     alias,
                     filter: None,
+                    schema,
                 })
             }
             crate::query::parser::ast::TableSource::Join { left, right, on } => {
-                let left_plan = Self::plan_for_source(*left)?;
-                let right_plan = Self::plan_for_source(*right)?;
+                let left_plan = self.plan_for_source(*left)?;
+                let right_plan = self.plan_for_source(*right)?;
 
                 let on_predicate = match on {
                     Some(expression) => Some(Predicate::try_from(expression)?),
@@ -170,7 +187,7 @@ impl LogicalPlanner {
         }
     }
 
-    fn plan_for_projection(projection: Projection, base_plan: LogicalPlan) -> LogicalPlan {
+    fn plan_for_projection(&self, projection: Projection, base_plan: LogicalPlan) -> LogicalPlan {
         match projection {
             Projection::All => base_plan,
             Projection::Columns(columns) => LogicalPlan::Projection {
@@ -181,6 +198,7 @@ impl LogicalPlanner {
     }
 
     fn plan_for_filter(
+        &self,
         where_clause: Option<WhereClause>,
         base_plan: LogicalPlan,
     ) -> Result<LogicalPlan, PlanningError> {
@@ -193,7 +211,11 @@ impl LogicalPlanner {
         Ok(base_plan)
     }
 
-    fn plan_for_sort(order_by: Option<Vec<OrderingKey>>, base_plan: LogicalPlan) -> LogicalPlan {
+    fn plan_for_sort(
+        &self,
+        order_by: Option<Vec<OrderingKey>>,
+        base_plan: LogicalPlan,
+    ) -> LogicalPlan {
         if let Some(keys) = order_by {
             return LogicalPlan::Sort {
                 base_plan: base_plan.boxed(),
@@ -204,7 +226,7 @@ impl LogicalPlanner {
         base_plan
     }
 
-    fn plan_for_limit(limit: Option<usize>, base_plan: LogicalPlan) -> LogicalPlan {
+    fn plan_for_limit(&self, limit: Option<usize>, base_plan: LogicalPlan) -> LogicalPlan {
         if let Some(value) = limit {
             return LogicalPlan::Limit {
                 base_plan: base_plan.boxed(),
@@ -235,6 +257,7 @@ impl LogicalPlan {
             table_name: table_name.into(),
             alias: None,
             filter: None,
+            schema: Arc::new(Schema::new()),
         }
     }
 
@@ -287,20 +310,39 @@ mod tests {
     use crate::query::parser::ast::{BinaryOperator, Literal};
     use crate::query::parser::projection::Projection;
     use crate::query::plan::predicate::LogicalOperator;
-    use crate::{asc, desc};
+    use crate::types::column_type::ColumnType;
+    use crate::{asc, desc, schema};
+
+    fn planner_for_tests() -> LogicalPlanner {
+        use crate::catalog::Catalog;
+
+        let catalog = Catalog::new();
+        catalog
+            .create_table("employees", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+        catalog
+            .create_table("departments", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+        catalog
+            .create_table("roles", schema!["id" => ColumnType::Int].unwrap())
+            .unwrap();
+
+        LogicalPlanner::new(catalog)
+    }
 
     #[test]
     fn logical_plan_for_show_tables() {
-        let logical_plan = LogicalPlanner::plan(Ast::ShowTables).unwrap();
+        let logical_plan = planner_for_tests().plan(Ast::ShowTables).unwrap();
         assert!(matches!(logical_plan, LogicalPlan::ShowTables));
     }
 
     #[test]
     fn logical_plan_for_describe_table() {
-        let logical_plan = LogicalPlanner::plan(Ast::DescribeTable {
-            table_name: "employees".to_string(),
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::DescribeTable {
+                table_name: "employees".to_string(),
+            })
+            .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::DescribeTable { table_name } if table_name == "employees"
@@ -309,14 +351,15 @@ mod tests {
 
     #[test]
     fn logical_plan_for_select_all() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table("employees"),
-            projection: Projection::All,
-            where_clause: None,
-            order_by: None,
-            limit: None,
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::All,
+                where_clause: None,
+                order_by: None,
+                limit: None,
+            })
+            .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Scan { table_name, .. } if table_name == "employees"
@@ -324,15 +367,35 @@ mod tests {
     }
 
     #[test]
+    fn logical_plan_for_select_all_with_schema() {
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::All,
+                where_clause: None,
+                order_by: None,
+                limit: None,
+            })
+            .unwrap();
+        assert!(matches!(
+            logical_plan,
+            LogicalPlan::Scan { table_name, alias: _alias, filter: _filter, schema } if table_name == "employees"
+            &&
+            *schema == schema!["id" => ColumnType::Int].unwrap()
+        ));
+    }
+
+    #[test]
     fn logical_plan_for_select_with_projection() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table("employees"),
-            projection: Projection::Columns(vec!["id".to_string()]),
-            where_clause: None,
-            order_by: None,
-            limit: None,
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::Columns(vec!["id".to_string()]),
+                where_clause: None,
+                order_by: None,
+                limit: None,
+            })
+            .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Projection {base_plan: _, columns } if columns.iter().eq(&["id"])
@@ -341,14 +404,15 @@ mod tests {
 
     #[test]
     fn logical_plan_for_select_with_projection_validating_the_base_plan() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table("employees"),
-            projection: Projection::Columns(vec!["id".to_string()]),
-            where_clause: None,
-            order_by: None,
-            limit: None,
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::Columns(vec!["id".to_string()]),
+                where_clause: None,
+                order_by: None,
+                limit: None,
+            })
+            .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Projection {base_plan, columns: _ }
@@ -358,18 +422,19 @@ mod tests {
 
     #[test]
     fn logical_plan_for_select_with_where_clause() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table("employees"),
-            projection: Projection::All,
-            where_clause: Some(WhereClause::comparison(
-                Literal::ColumnReference("age".to_string()),
-                BinaryOperator::Greater,
-                Literal::Int(30),
-            )),
-            order_by: None,
-            limit: None,
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::All,
+                where_clause: Some(WhereClause::comparison(
+                    Literal::ColumnReference("age".to_string()),
+                    BinaryOperator::Greater,
+                    Literal::Int(30),
+                )),
+                order_by: None,
+                limit: None,
+            })
+            .unwrap();
 
         assert!(matches!(
             logical_plan,
@@ -382,18 +447,19 @@ mod tests {
 
     #[test]
     fn logical_plan_for_select_with_projection_and_where_clause() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table("employees"),
-            projection: Projection::Columns(vec![String::from("id")]),
-            where_clause: Some(WhereClause::comparison(
-                Literal::ColumnReference("age".to_string()),
-                BinaryOperator::Greater,
-                Literal::Int(30),
-            )),
-            order_by: None,
-            limit: None,
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::Columns(vec![String::from("id")]),
+                where_clause: Some(WhereClause::comparison(
+                    Literal::ColumnReference("age".to_string()),
+                    BinaryOperator::Greater,
+                    Literal::Int(30),
+                )),
+                order_by: None,
+                limit: None,
+            })
+            .unwrap();
 
         assert!(matches!(
             logical_plan,
@@ -410,14 +476,15 @@ mod tests {
 
     #[test]
     fn logical_plan_for_select_with_order_by_ascending() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table("employees"),
-            projection: Projection::All,
-            where_clause: None,
-            order_by: Some(vec![asc!("id")]),
-            limit: None,
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::All,
+                where_clause: None,
+                order_by: Some(vec![asc!("id")]),
+                limit: None,
+            })
+            .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Sort {base_plan, ordering_keys, limit: _ }
@@ -427,14 +494,15 @@ mod tests {
 
     #[test]
     fn logical_plan_for_select_with_order_by_descending() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table("employees"),
-            projection: Projection::All,
-            where_clause: None,
-            order_by: Some(vec![desc!("id")]),
-            limit: None,
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::All,
+                where_clause: None,
+                order_by: Some(vec![desc!("id")]),
+                limit: None,
+            })
+            .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Sort {base_plan, ordering_keys, limit: _ }
@@ -444,14 +512,15 @@ mod tests {
 
     #[test]
     fn logical_plan_for_select_with_order_by_multiple_columns() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table("employees"),
-            projection: Projection::All,
-            where_clause: None,
-            order_by: Some(vec![asc!("id"), desc!("name")]),
-            limit: None,
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::All,
+                where_clause: None,
+                order_by: Some(vec![asc!("id"), desc!("name")]),
+                limit: None,
+            })
+            .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Sort {base_plan, ordering_keys, limit: _ }
@@ -461,14 +530,15 @@ mod tests {
 
     #[test]
     fn logical_plan_for_select_all_with_limit_base_plan() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table("employees"),
-            projection: Projection::All,
-            where_clause: None,
-            order_by: None,
-            limit: Some(10),
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::All,
+                where_clause: None,
+                order_by: None,
+                limit: Some(10),
+            })
+            .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Limit { base_plan, count: _ } if matches!(base_plan.as_ref(), LogicalPlan::Scan { table_name, .. } if table_name == "employees")
@@ -477,14 +547,15 @@ mod tests {
 
     #[test]
     fn logical_plan_for_select_all_with_limit_count() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table("employees"),
-            projection: Projection::All,
-            where_clause: None,
-            order_by: None,
-            limit: Some(10),
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::All,
+                where_clause: None,
+                order_by: None,
+                limit: Some(10),
+            })
+            .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Limit { base_plan: _, count } if count == 10
@@ -493,14 +564,15 @@ mod tests {
 
     #[test]
     fn logical_plan_for_select_with_projection_and_limit() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table("employees"),
-            projection: Projection::Columns(vec![String::from("id")]),
-            where_clause: None,
-            order_by: None,
-            limit: Some(10),
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::Columns(vec![String::from("id")]),
+                where_clause: None,
+                order_by: None,
+                limit: Some(10),
+            })
+            .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Limit { base_plan: _, count } if count == 10
@@ -509,14 +581,15 @@ mod tests {
 
     #[test]
     fn logical_plan_for_select_with_projection_and_limit_validating_the_columns() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table("employees"),
-            projection: Projection::Columns(vec![String::from("id")]),
-            where_clause: None,
-            order_by: None,
-            limit: Some(10),
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::Columns(vec![String::from("id")]),
+                where_clause: None,
+                order_by: None,
+                limit: Some(10),
+            })
+            .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Limit {base_plan, count: _ }
@@ -527,14 +600,15 @@ mod tests {
 
     #[test]
     fn logical_plan_for_select_with_projection_and_limit_validating_the_base_plan() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table("employees"),
-            projection: Projection::Columns(vec![String::from("id")]),
-            where_clause: None,
-            order_by: None,
-            limit: Some(10),
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::Columns(vec![String::from("id")]),
+                where_clause: None,
+                order_by: None,
+                limit: Some(10),
+            })
+            .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Limit {base_plan, count: _ }
@@ -545,14 +619,15 @@ mod tests {
 
     #[test]
     fn logical_plan_for_select_with_order_by_and_limit() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table("employees"),
-            projection: Projection::All,
-            where_clause: None,
-            order_by: Some(vec![asc!("id"), desc!("name")]),
-            limit: Some(10),
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::All,
+                where_clause: None,
+                order_by: Some(vec![asc!("id"), desc!("name")]),
+                limit: Some(10),
+            })
+            .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Limit {base_plan, count}
@@ -567,24 +642,25 @@ mod tests {
     fn logical_plan_for_select_with_join() {
         use crate::query::parser::ast::Clause;
 
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::Join {
-                left: Box::new(crate::query::parser::ast::TableSource::table("employees")),
-                right: Box::new(crate::query::parser::ast::TableSource::table("departments")),
-                on: Some(crate::query::parser::ast::Expression::Single(
-                    Clause::Comparison {
-                        lhs: Literal::ColumnReference("employee_id".to_string()),
-                        operator: BinaryOperator::Eq,
-                        rhs: Literal::ColumnReference("department_id".to_string()),
-                    },
-                )),
-            },
-            projection: Projection::All,
-            where_clause: None,
-            order_by: None,
-            limit: None,
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::Join {
+                    left: Box::new(crate::query::parser::ast::TableSource::table("employees")),
+                    right: Box::new(crate::query::parser::ast::TableSource::table("departments")),
+                    on: Some(crate::query::parser::ast::Expression::Single(
+                        Clause::Comparison {
+                            lhs: Literal::ColumnReference("employee_id".to_string()),
+                            operator: BinaryOperator::Eq,
+                            rhs: Literal::ColumnReference("department_id".to_string()),
+                        },
+                    )),
+                },
+                projection: Projection::All,
+                where_clause: None,
+                order_by: None,
+                limit: None,
+            })
+            .unwrap();
 
         assert!(matches!(
             logical_plan,
@@ -605,30 +681,31 @@ mod tests {
     fn logical_plan_for_select_with_join_and_where() {
         use crate::query::parser::ast::Clause;
 
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::Join {
-                left: Box::new(crate::query::parser::ast::TableSource::table("employees")),
-                right: Box::new(crate::query::parser::ast::TableSource::table("departments")),
-                on: Some(crate::query::parser::ast::Expression::Single(
-                    Clause::Comparison {
-                        lhs: Literal::ColumnReference("employee_id".to_string()),
-                        operator: BinaryOperator::Eq,
-                        rhs: Literal::ColumnReference("department_id".to_string()),
-                    },
-                )),
-            },
-            projection: Projection::All,
-            where_clause: Some(WhereClause(crate::query::parser::ast::Expression::Single(
-                Clause::Comparison {
-                    lhs: Literal::ColumnReference("status".to_string()),
-                    operator: BinaryOperator::Eq,
-                    rhs: Literal::Text("ACTIVE".to_string()),
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::Join {
+                    left: Box::new(crate::query::parser::ast::TableSource::table("employees")),
+                    right: Box::new(crate::query::parser::ast::TableSource::table("departments")),
+                    on: Some(crate::query::parser::ast::Expression::Single(
+                        Clause::Comparison {
+                            lhs: Literal::ColumnReference("employee_id".to_string()),
+                            operator: BinaryOperator::Eq,
+                            rhs: Literal::ColumnReference("department_id".to_string()),
+                        },
+                    )),
                 },
-            ))),
-            order_by: None,
-            limit: None,
-        })
-        .unwrap();
+                projection: Projection::All,
+                where_clause: Some(WhereClause(crate::query::parser::ast::Expression::Single(
+                    Clause::Comparison {
+                        lhs: Literal::ColumnReference("status".to_string()),
+                        operator: BinaryOperator::Eq,
+                        rhs: Literal::Text("ACTIVE".to_string()),
+                    },
+                ))),
+                order_by: None,
+                limit: None,
+            })
+            .unwrap();
 
         assert!(matches!(
             logical_plan,
@@ -660,34 +737,37 @@ mod tests {
     fn logical_plan_for_select_with_multiple_joins() {
         use crate::query::parser::ast::Clause;
 
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::Join {
-                left: Box::new(crate::query::parser::ast::TableSource::Join {
-                    left: Box::new(crate::query::parser::ast::TableSource::table("employees")),
-                    right: Box::new(crate::query::parser::ast::TableSource::table("departments")),
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::Join {
+                    left: Box::new(crate::query::parser::ast::TableSource::Join {
+                        left: Box::new(crate::query::parser::ast::TableSource::table("employees")),
+                        right: Box::new(crate::query::parser::ast::TableSource::table(
+                            "departments",
+                        )),
+                        on: Some(crate::query::parser::ast::Expression::Single(
+                            Clause::Comparison {
+                                lhs: Literal::ColumnReference("employee_id".to_string()),
+                                operator: BinaryOperator::Eq,
+                                rhs: Literal::ColumnReference("department_id".to_string()),
+                            },
+                        )),
+                    }),
+                    right: Box::new(crate::query::parser::ast::TableSource::table("roles")),
                     on: Some(crate::query::parser::ast::Expression::Single(
                         Clause::Comparison {
-                            lhs: Literal::ColumnReference("employee_id".to_string()),
+                            lhs: Literal::ColumnReference("role_id".to_string()),
                             operator: BinaryOperator::Eq,
-                            rhs: Literal::ColumnReference("department_id".to_string()),
+                            rhs: Literal::ColumnReference("id".to_string()),
                         },
                     )),
-                }),
-                right: Box::new(crate::query::parser::ast::TableSource::table("roles")),
-                on: Some(crate::query::parser::ast::Expression::Single(
-                    Clause::Comparison {
-                        lhs: Literal::ColumnReference("role_id".to_string()),
-                        operator: BinaryOperator::Eq,
-                        rhs: Literal::ColumnReference("id".to_string()),
-                    },
-                )),
-            },
-            projection: Projection::All,
-            where_clause: None,
-            order_by: None,
-            limit: None,
-        })
-        .unwrap();
+                },
+                projection: Projection::All,
+                where_clause: None,
+                order_by: None,
+                limit: None,
+            })
+            .unwrap();
 
         assert!(matches!(
             logical_plan,
@@ -725,14 +805,15 @@ mod tests {
 
     #[test]
     fn logical_plan_for_select_with_alias() {
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::table_with_alias("employees", "e"),
-            projection: Projection::All,
-            where_clause: None,
-            order_by: None,
-            limit: None,
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table_with_alias("employees", "e"),
+                projection: Projection::All,
+                where_clause: None,
+                order_by: None,
+                limit: None,
+            })
+            .unwrap();
         assert!(matches!(
             logical_plan,
             LogicalPlan::Scan { table_name, alias, .. } if table_name == "employees" && alias.as_deref() == Some("e")
@@ -743,30 +824,31 @@ mod tests {
     fn logical_plan_for_select_with_join_and_aliases() {
         use crate::query::parser::ast::Clause;
 
-        let logical_plan = LogicalPlanner::plan(Ast::Select {
-            source: crate::query::parser::ast::TableSource::Join {
-                left: Box::new(crate::query::parser::ast::TableSource::table_with_alias(
-                    "employees",
-                    "e",
-                )),
-                right: Box::new(crate::query::parser::ast::TableSource::table_with_alias(
-                    "departments",
-                    "d",
-                )),
-                on: Some(crate::query::parser::ast::Expression::Single(
-                    Clause::Comparison {
-                        lhs: Literal::ColumnReference("e.id".to_string()),
-                        operator: BinaryOperator::Eq,
-                        rhs: Literal::ColumnReference("d.employee_id".to_string()),
-                    },
-                )),
-            },
-            projection: Projection::All,
-            where_clause: None,
-            order_by: None,
-            limit: None,
-        })
-        .unwrap();
+        let logical_plan = planner_for_tests()
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::Join {
+                    left: Box::new(crate::query::parser::ast::TableSource::table_with_alias(
+                        "employees",
+                        "e",
+                    )),
+                    right: Box::new(crate::query::parser::ast::TableSource::table_with_alias(
+                        "departments",
+                        "d",
+                    )),
+                    on: Some(crate::query::parser::ast::Expression::Single(
+                        Clause::Comparison {
+                            lhs: Literal::ColumnReference("e.id".to_string()),
+                            operator: BinaryOperator::Eq,
+                            rhs: Literal::ColumnReference("d.employee_id".to_string()),
+                        },
+                    )),
+                },
+                projection: Projection::All,
+                where_clause: None,
+                order_by: None,
+                limit: None,
+            })
+            .unwrap();
 
         assert!(matches!(
             logical_plan,

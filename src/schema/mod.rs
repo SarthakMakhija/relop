@@ -7,6 +7,7 @@ use crate::types::column_type::ColumnType;
 use crate::types::column_value::ColumnValue;
 
 /// Represents the schema of a table, defining its columns.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Schema {
     columns: Vec<Column>,
 }
