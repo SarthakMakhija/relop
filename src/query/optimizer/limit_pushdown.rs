@@ -8,6 +8,8 @@ pub(crate) struct LimitPushdownRule;
 
 impl OptimizerRule for LimitPushdownRule {
     fn optimize(&self, plan: LogicalPlan) -> LogicalPlan {
+        let plan = plan.map_children(|child| self.optimize(child));
+
         match plan {
             LogicalPlan::Limit { count, base_plan } => {
                 let optimized_base_plan = self.optimize(*base_plan);
@@ -31,8 +33,8 @@ impl OptimizerRule for LimitPushdownRule {
                     }
                 }
             }
-            // For all other nodes, recurse into children
-            _ => plan.map_children(|child| self.optimize(child)),
+            // For all other nodes, return.
+            _ => plan,
         }
     }
 }
