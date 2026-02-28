@@ -27,15 +27,16 @@ impl Table {
     pub(crate) fn schema_ref(&self) -> &Schema {
         &self.schema
     }
+
+    /// Returns the table schema.
+    pub(crate) fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
+    }
 }
 
 #[cfg(test)]
 impl Table {
     pub(crate) fn column_names(&self) -> Vec<&str> {
         self.schema.column_names()
-    }
-
-    pub(crate) fn schema(&self) -> Arc<Schema> {
-        self.schema.clone()
     }
 }

@@ -124,6 +124,12 @@ impl Catalog {
         Ok((table_entry.clone(), table_entry.table()))
     }
 
+    /// Returns the `Schema` for the specified table.
+    pub(crate) fn schema_for(&self, table_name: &str) -> Result<Arc<Schema>, CatalogError> {
+        let table_entry = self.table_entry_or_error(table_name)?;
+        Ok(table_entry.table().schema())
+    }
+
     fn table_entry_or_error(&self, table_name: &str) -> Result<Arc<TableEntry>, CatalogError> {
         let table_entry = self
             .table_entry(table_name)
@@ -152,6 +158,7 @@ mod tests {
     use crate::row;
     use crate::rows;
     use crate::schema;
+    use crate::schema::column::Column;
     use crate::schema::error::SchemaError;
     use crate::types::column_type::ColumnType;
 
@@ -406,6 +413,26 @@ mod tests {
     fn attempt_to_scan_a_non_existent_table() {
         let catalog = Catalog::new();
         let result = catalog.scan("employees");
+
+        assert!(
+            matches!(result, Err(CatalogError::TableDoesNotExist(ref table_name)) if table_name == "employees")
+        );
+    }
+
+    #[test]
+    fn schema_for_a_table() {
+        let catalog = Catalog::new();
+        let result = catalog.create_table("employees", schema!["id" => ColumnType::Int].unwrap());
+        assert!(result.is_ok());
+
+        let schema = catalog.schema_for("employees").unwrap();
+        assert_eq!(&[Column::new("id", ColumnType::Int)], schema.columns());
+    }
+
+    #[test]
+    fn attempt_to_get_schema_for_non_existent_table() {
+        let catalog = Catalog::new();
+        let result = catalog.schema_for("employees");
 
         assert!(
             matches!(result, Err(CatalogError::TableDoesNotExist(ref table_name)) if table_name == "employees")
