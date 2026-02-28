@@ -70,9 +70,9 @@ impl Column {
         self.name.eq_ignore_ascii_case(name)
     }
 
-    /// Checks if this column is a candidate match for the given search name.
+    /// Checks if this column is a match for the given search name.
     /// This handles both exact matches and suffix matches for unqualified search names.
-    pub fn is_match(&self, search_name: &str) -> bool {
+    pub fn matches(&self, search_name: &str) -> bool {
         if self.name.eq_ignore_ascii_case(search_name) {
             return true;
         }
@@ -117,26 +117,26 @@ mod tests {
 
     #[test]
     fn is_match_with_exact_name() {
-        assert!(Column::new("id", ColumnType::Int).is_match("id"));
-        assert!(Column::new("employees.id", ColumnType::Int).is_match("employees.id"));
+        assert!(Column::new("id", ColumnType::Int).matches("id"));
+        assert!(Column::new("employees.id", ColumnType::Int).matches("employees.id"));
     }
 
     #[test]
     fn is_match_with_ignored_case() {
-        assert!(Column::new("id", ColumnType::Int).is_match("ID"));
-        assert!(Column::new("employees.id", ColumnType::Int).is_match("EMPLOYEES.ID"));
+        assert!(Column::new("id", ColumnType::Int).matches("ID"));
+        assert!(Column::new("employees.id", ColumnType::Int).matches("EMPLOYEES.ID"));
     }
 
     #[test]
     fn is_match_with_suffix_for_unqualified_name() {
-        assert!(Column::new("employees.id", ColumnType::Int).is_match("id"));
+        assert!(Column::new("employees.id", ColumnType::Int).matches("id"));
     }
 
     #[test]
     fn is_match_does_not_match_different_names() {
-        assert!(!Column::new("id", ColumnType::Int).is_match("name"));
-        assert!(!Column::new("employees.id", ColumnType::Int).is_match("employees.name"));
-        assert!(!Column::new("employees.id", ColumnType::Int).is_match("departments.id"));
+        assert!(!Column::new("id", ColumnType::Int).matches("name"));
+        assert!(!Column::new("employees.id", ColumnType::Int).matches("employees.name"));
+        assert!(!Column::new("employees.id", ColumnType::Int).matches("departments.id"));
     }
 
     #[test]

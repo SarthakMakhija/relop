@@ -90,7 +90,7 @@ impl Schema {
             .columns
             .iter()
             .enumerate()
-            .filter(|(_, column)| column.is_match(column_name))
+            .filter(|(_, column)| column.matches(column_name))
             .map(|(position, _)| position)
             .collect();
 
@@ -139,6 +139,25 @@ impl Schema {
         let mut columns = Vec::with_capacity(self.columns.len());
         Self::merge_column_name_with_prefix(Some(prefix), &self.columns, &mut columns);
         Self { columns }
+    }
+
+    /// Creates a new `Schema` containing only the specified columns.
+    pub(crate) fn project(&self, column_names: &[String]) -> Self {
+        let mut projected_columns = Vec::with_capacity(column_names.len());
+
+        for column_name in column_names {
+            // Find the column by name.
+            if let Some(column) = self.columns.iter().find(|column| column.matches(column_name)) {
+                projected_columns.push(Column::new(
+                    column.name().to_string(),
+                    column.column_type().clone(),
+                ));
+            }
+        }
+
+        Self {
+            columns: projected_columns,
+        }
     }
 
     /// Checks if the provided values are compatible with the schema's column types.
@@ -501,5 +520,27 @@ mod tests {
         let columns = prefixed_schema.columns();
         assert_eq!("e.id", columns[0].name());
         assert_eq!("e.name", columns[1].name());
+    }
+
+    #[test]
+    fn project_columns_from_schema() {
+        let mut schema = Schema::new();
+        schema = schema
+            .add_column("id", ColumnType::Int)
+            .unwrap()
+            .add_column("name", ColumnType::Text)
+            .unwrap()
+            .add_column("age", ColumnType::Int)
+            .unwrap();
+
+        let projected_schema = schema.project(&["name".to_string(), "id".to_string()]);
+
+        assert_eq!(2, projected_schema.column_count());
+
+        let columns = projected_schema.columns();
+        assert_eq!("name", columns[0].name());
+        assert_eq!("id", columns[1].name());
+        assert_eq!(ColumnType::Text, *columns[0].column_type());
+        assert_eq!(ColumnType::Int, *columns[1].column_type());
     }
 }

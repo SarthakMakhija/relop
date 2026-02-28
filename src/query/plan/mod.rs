@@ -117,6 +117,40 @@ impl LogicalPlan {
             | LogicalPlan::Scan { .. } => self,
         }
     }
+
+    /// Returns the schema of this logical plan node.
+    pub(crate) fn schema(&self) -> Option<Arc<Schema>> {
+        match self {
+            LogicalPlan::Scan {
+                schema,
+                alias,
+                table_name,
+                ..
+            } => {
+                let prefix = alias.as_ref().unwrap_or(table_name);
+                Some(Arc::new(schema.with_prefix(prefix)))
+            }
+            LogicalPlan::Join { left, right, .. } => {
+                let left_schema = left.schema()?;
+                let right_schema = right.schema()?;
+                Some(Arc::new(left_schema.merge_with_prefixes(
+                    None,
+                    &right_schema,
+                    None,
+                )))
+            }
+            LogicalPlan::Projection { base_plan, columns } => {
+                let base_schema = base_plan.schema()?;
+                let projected = base_schema.project(columns);
+                Some(Arc::new(projected))
+            }
+            LogicalPlan::Filter { base_plan, .. }
+            | LogicalPlan::Sort { base_plan, .. }
+            | LogicalPlan::Limit { base_plan, .. } => base_plan.schema(),
+
+            LogicalPlan::ShowTables | LogicalPlan::DescribeTable { .. } => None,
+        }
+    }
 }
 
 /// `LogicalPlanner` converts an Abstract Syntax Tree (AST) into a `LogicalPlan`.
@@ -891,5 +925,86 @@ mod tests {
             on: None,
         };
         assert_eq!(transformed, expected);
+    }
+
+    #[test]
+    fn schema_for_scan() {
+        let planner = planner_for_tests();
+        let scan_plan = planner
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::All,
+                where_clause: None,
+                order_by: None,
+                limit: None,
+            })
+            .unwrap();
+
+        let schema = scan_plan.schema().unwrap();
+        assert_eq!(1, schema.column_count());
+        assert_eq!("employees.id", schema.column_names()[0]);
+    }
+
+    #[test]
+    fn schema_for_projection() {
+        let planner = planner_for_tests();
+        let projection_plan = planner
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::table("employees"),
+                projection: Projection::Columns(vec!["id".to_string()]),
+                where_clause: None,
+                order_by: None,
+                limit: None,
+            })
+            .unwrap();
+
+        let schema = projection_plan.schema().unwrap();
+        assert_eq!(1, schema.column_count());
+        assert_eq!("employees.id", schema.column_names()[0]);
+    }
+
+    #[test]
+    fn schema_for_join() {
+        let planner = planner_for_tests();
+        let join_plan = planner
+            .plan(Ast::Select {
+                source: crate::query::parser::ast::TableSource::Join {
+                    left: Box::new(crate::query::parser::ast::TableSource::table("employees")),
+                    right: Box::new(crate::query::parser::ast::TableSource::table("departments")),
+                    on: None,
+                },
+                projection: Projection::All,
+                where_clause: None,
+                order_by: None,
+                limit: None,
+            })
+            .unwrap();
+
+        let schema = join_plan.schema().unwrap();
+        assert_eq!(2, schema.column_count());
+        assert_eq!("employees.id", schema.column_names()[0]);
+        assert_eq!("departments.id", schema.column_names()[1]);
+    }
+
+    #[test]
+    fn schema_for_show_tables() {
+        let planner = planner_for_tests();
+        let join_plan = planner.plan(Ast::ShowTables).unwrap();
+
+        let schema = join_plan.schema();
+        assert!(schema.is_none());
+    }
+
+    #[test]
+    fn schema_for_describe_table() {
+        let planner = planner_for_tests();
+        let join_plan = planner
+            .plan(Ast::DescribeTable {
+                table_name: "employees".to_string(),
+            })
+            .unwrap();
+
+        let schema = join_plan.schema();
+        assert!(schema.is_none());
     }
 }
