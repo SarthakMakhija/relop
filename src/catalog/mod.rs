@@ -18,12 +18,6 @@ pub struct Catalog {
     tables: RwLock<HashMap<String, Arc<TableEntry>>>,
 }
 
-impl Default for Catalog {
-    fn default() -> Self {
-        Catalog::new()
-    }
-}
-
 impl Catalog {
     /// Creates a new, empty `Catalog`.
     ///
@@ -34,10 +28,10 @@ impl Catalog {
     ///
     /// let catalog = Catalog::new();
     /// ```
-    pub fn new() -> Catalog {
-        Self {
+    pub fn new() -> Arc<Catalog> {
+        Arc::new(Self {
             tables: RwLock::new(HashMap::new()),
-        }
+        })
     }
 
     /// Creates a new table with the given name and schema.

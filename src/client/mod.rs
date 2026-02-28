@@ -5,7 +5,9 @@
 //! provides methods for table creation, data insertion, and query execution.
 
 pub mod error;
+
 pub use crate::query::executor::result::QueryResult;
+use std::sync::Arc;
 
 use crate::catalog::Catalog;
 use crate::client::error::ClientError;
@@ -26,7 +28,7 @@ use crate::storage::table_store::RowId;
 /// - Inserting data into tables (single rows or batches)
 /// - Executing SQL queries through the full query processing pipeline
 pub struct Relop {
-    catalog: Catalog,
+    catalog: Arc<Catalog>,
 }
 
 impl Relop {
@@ -45,7 +47,7 @@ impl Relop {
     /// let catalog = Catalog::new();
     /// let relop = Relop::new(catalog);
     /// ```
-    pub fn new(catalog: Catalog) -> Relop {
+    pub fn new(catalog: Arc<Catalog>) -> Relop {
         Self { catalog }
     }
 
