@@ -150,8 +150,8 @@ cargo test
 - [ ] Implement optimizer
     - [x] Predicate Pushdown for single table queries
     - [x] Limit Pushdown
-    - [ ] Predicate Pushdown for join queries
-    - [ ] Split conjunction
+    - [x] Predicate Pushdown for join queries
+    - [x] Split conjunction
     - [ ] Choose the type of join algorithm
     - [ ] Choose the order of joining tables
 - [ ] Implement physical plan
