@@ -305,6 +305,22 @@ impl Predicate {
             }
         }
     }
+
+    /// Splits a predicate into a list of predicates, separated by AND.
+    /// If the predicate is a single clause or an OR clause, it returns a vector with just itself.
+    /// If the predicate is an AND clause, it returns the flattened list of its sub-predicates.
+    pub(crate) fn split_by_and(self) -> Vec<Predicate> {
+        match self {
+            Predicate::And(predicates) => {
+                let mut split = Vec::new();
+                for predicate in predicates {
+                    split.extend(predicate.split_by_and());
+                }
+                split
+            }
+            _ => vec![self],
+        }
+    }
 }
 
 impl RowFilter for Predicate {
@@ -1840,6 +1856,87 @@ mod bind_tests {
         ]);
 
         assert_eq!(bound_predicate, expected);
+    }
+
+    #[test]
+    fn split_single_clause_by_and() {
+        let predicate = Predicate::comparison(
+            Literal::ColumnReference("id".to_string()),
+            LogicalOperator::Eq,
+            Literal::Int(1),
+        );
+
+        let split_predicates = predicate.split_by_and();
+        assert_eq!(1, split_predicates.len());
+        assert_eq!(
+            Predicate::comparison(
+                Literal::ColumnReference("id".to_string()),
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            ),
+            split_predicates[0]
+        );
+    }
+
+    #[test]
+    fn split_an_or_clause_by_and() {
+        let predicate = Predicate::or(vec![
+            Predicate::comparison(
+                Literal::ColumnReference("id".to_string()),
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            ),
+            Predicate::comparison(
+                Literal::ColumnReference("age".to_string()),
+                LogicalOperator::Greater,
+                Literal::Int(18),
+            ),
+        ]);
+
+        let split_predicates = predicate.split_by_and();
+        assert_eq!(1, split_predicates.len());
+    }
+
+    #[test]
+    fn split_and_clause_by_and_by_flattening() {
+        let predicate = Predicate::and(vec![
+            Predicate::comparison(
+                Literal::ColumnReference("id".to_string()),
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            ),
+            Predicate::and(vec![
+                Predicate::comparison(
+                    Literal::ColumnReference("age".to_string()),
+                    LogicalOperator::Greater,
+                    Literal::Int(18),
+                ),
+                Predicate::comparison(
+                    Literal::ColumnReference("role".to_string()),
+                    LogicalOperator::Eq,
+                    Literal::Text("admin".to_string()),
+                ),
+            ]),
+        ]);
+
+        let split_predicates = predicate.split_by_and();
+        assert_eq!(3, split_predicates.len());
+        assert_eq!(
+            Predicate::comparison(
+                Literal::ColumnReference("id".to_string()),
+                LogicalOperator::Eq,
+                Literal::Int(1),
+            ),
+            split_predicates[0]
+        );
+        assert_eq!(
+            Predicate::comparison(
+                Literal::ColumnReference("age".to_string()),
+                LogicalOperator::Greater,
+                Literal::Int(18),
+            ),
+            split_predicates[1]
+        );
     }
 
     #[test]

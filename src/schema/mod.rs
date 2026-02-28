@@ -147,7 +147,11 @@ impl Schema {
 
         for column_name in column_names {
             // Find the column by name.
-            if let Some(column) = self.columns.iter().find(|column| column.matches(column_name)) {
+            if let Some(column) = self
+                .columns
+                .iter()
+                .find(|column| column.matches(column_name))
+            {
                 projected_columns.push(Column::new(
                     column.name().to_string(),
                     column.column_type().clone(),
